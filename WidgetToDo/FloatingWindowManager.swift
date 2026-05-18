@@ -1,6 +1,16 @@
 import AppKit
 import SwiftUI
 
+private final class FloatingPanel: NSPanel {
+    override var canBecomeKey: Bool {
+        true
+    }
+
+    override var canBecomeMain: Bool {
+        true
+    }
+}
+
 @MainActor
 final class FloatingWindowManager: NSObject {
     private let panel: NSPanel
@@ -9,8 +19,8 @@ final class FloatingWindowManager: NSObject {
     private var localEventMonitor: Any?
 
     init(rootView: ContentView) {
-        let panel = NSPanel(
-            contentRect: NSRect(x: 240, y: 240, width: 420, height: 560),
+        let panel = FloatingPanel(
+            contentRect: NSRect(x: 240, y: 240, width: 340, height: 560),
             styleMask: [.titled, .closable, .fullSizeContentView, .resizable, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -31,9 +41,8 @@ final class FloatingWindowManager: NSObject {
         super.init()
         panel.delegate = self
 
-        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
+        localEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
             self?.snapToGrid()
-            return event
         }
     }
 
@@ -45,7 +54,7 @@ final class FloatingWindowManager: NSObject {
 
     func show() {
         panel.center()
-        panel.orderFrontRegardless()
+        panel.makeKeyAndOrderFront(nil)
     }
 
     func hide() {

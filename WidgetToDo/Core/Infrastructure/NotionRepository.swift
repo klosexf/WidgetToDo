@@ -205,6 +205,24 @@ public enum NotionRepositoryError: Error {
     case missingCacheRecord(String)
 }
 
+extension NotionRepositoryError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .missingConfiguration:
+            return "尚未完成 Notion 配置。"
+        case .missingToken:
+            return "Notion 令牌不存在或为空。"
+        case let .invalidDatabaseInput(message):
+            return message
+        case let .validationFailed(issues):
+            let details = issues.map(\.message).joined(separator: "；")
+            return "数据库字段校验失败：\(details)"
+        case let .missingCacheRecord(message):
+            return message
+        }
+    }
+}
+
 private struct ConfigurationContext {
     let settings: AppSettings
     let token: String

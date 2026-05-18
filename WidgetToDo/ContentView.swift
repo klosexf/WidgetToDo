@@ -16,20 +16,26 @@ struct ContentView: View {
                 FloatingWidgetView(
                     todoViewModel: rootViewModel.todoListViewModel,
                     journalViewModel: rootViewModel.journalViewModel,
+                    bannerMessage: rootViewModel.bannerMessage,
                     refreshAction: rootViewModel.refreshWorkspace
                 )
             }
         }
-        .frame(width: 420, height: 560)
+        .frame(width: 340, height: 560)
         .background(Color(nsColor: .windowBackgroundColor))
         .overlay(alignment: .top) {
             if let banner = rootViewModel.bannerMessage {
                 Text(banner)
                     .font(.caption)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.horizontal, 12)
                     .padding(.top, 8)
+                    .padding(.bottom, 4)
             }
         }
         .task {
@@ -149,6 +155,7 @@ struct OnboardingView: View {
 struct FloatingWidgetView: View {
     @ObservedObject var todoViewModel: TodoListViewModel
     @ObservedObject var journalViewModel: JournalViewModel
+    let bannerMessage: String?
     let refreshAction: @MainActor () async -> Void
 
     var body: some View {
@@ -165,6 +172,17 @@ struct FloatingWidgetView: View {
                     }
                     .buttonStyle(.plain)
                     .help("刷新")
+                }
+
+                if let banner = bannerMessage {
+                    Text(banner)
+                        .font(.caption)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .background(.ultraThinMaterial, in: Capsule())
                 }
 
                 if todoViewModel.isLoading {
@@ -336,16 +354,17 @@ struct FloatingWidgetView: View {
 
 #Preview("初始配置") {
     OnboardingView(viewModel: makePreviewOnboardingViewModel())
-        .frame(width: 420, height: 560)
+        .frame(width: 340, height: 560)
 }
 
 #Preview("悬浮组件") {
     FloatingWidgetView(
         todoViewModel: makePreviewTodoListViewModel(),
         journalViewModel: makePreviewJournalViewModel(),
+        bannerMessage: "刚刚同步完成",
         refreshAction: {}
     )
-    .frame(width: 420, height: 560)
+    .frame(width: 340, height: 560)
 }
 
 private enum PreviewRootState {

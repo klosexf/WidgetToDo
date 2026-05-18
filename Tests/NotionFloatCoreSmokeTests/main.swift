@@ -13,7 +13,7 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {
 
 @main
 struct NotionFloatCoreSmokeTestsRunner {
-    static func main() throws {
+    static func main() async throws {
         do {
             try databaseReferenceParsesRawUUID()
             try databaseReferenceParsesDatabaseURL()
@@ -22,6 +22,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try journalContentBuilderConvertsLinesToParagraphBlocks()
             try notionClientHttpErrorExposesReadableDescription()
             try notionRepositoryValidationErrorExposesReadableDescription()
+            try await notionClientPreservesQueryItemsInBlockChildrenURL()
             print("All smoke tests passed.")
         } catch {
             fputs("Smoke test failed: \(error)\n", stderr)
@@ -136,4 +137,57 @@ struct NotionFloatCoreSmokeTestsRunner {
             "repository validation errors should join validation issues into one readable message"
         )
     }
+
+    static func notionClientPreservesQueryItemsInBlockChildrenURL() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [CapturingURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let client = NotionClient(session: session)
+
+        CapturingURLProtocol.reset()
+        _ = try await client.fetchJournalText(pageID: "1234-5678", token: "secret_test_token")
+
+        guard let requestURL = CapturingURLProtocol.lastRequest?.url else {
+            throw SmokeTestFailure(description: "expected fetchJournalText to issue a request")
+        }
+
+        try expect(
+            requestURL.absoluteString == "https://api.notion.com/v1/blocks/1234-5678/children?page_size=100",
+            "block children requests should keep page_size as a query parameter"
+        )
+    }
+}
+
+final class CapturingURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var lastRequest: URLRequest?
+
+    static func reset() {
+        lastRequest = nil
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        Self.lastRequest = request
+
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        let body = #"{"results":[]}"#.data(using: .utf8)!
+
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }

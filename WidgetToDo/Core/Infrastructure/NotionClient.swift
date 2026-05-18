@@ -110,7 +110,12 @@ public actor NotionClient {
     }
 
     public func fetchJournalText(pageID: String, token: String) async throws -> String {
-        let request = try makeRequest(path: "blocks/\(pageID)/children?page_size=100", method: "GET", token: token)
+        let request = try makeRequest(
+            path: "blocks/\(pageID)/children",
+            method: "GET",
+            token: token,
+            queryItems: [URLQueryItem(name: "page_size", value: "100")]
+        )
         let response: BlockChildrenResponse = try await perform(request)
         let lines = response.results.compactMap { block -> String? in
             guard block.type == "paragraph" else { return nil }
@@ -120,7 +125,12 @@ public actor NotionClient {
     }
 
     public func replaceJournalText(pageID: String, text: String, token: String) async throws {
-        let existingRequest = try makeRequest(path: "blocks/\(pageID)/children?page_size=100", method: "GET", token: token)
+        let existingRequest = try makeRequest(
+            path: "blocks/\(pageID)/children",
+            method: "GET",
+            token: token,
+            queryItems: [URLQueryItem(name: "page_size", value: "100")]
+        )
         let existing: BlockChildrenResponse = try await perform(existingRequest)
 
         for block in existing.results {
@@ -140,8 +150,14 @@ public actor NotionClient {
         let _: BlockChildrenResponse = try await perform(appendRequest)
     }
 
-    private func makeRequest(path: String, method: String, token: String, body: [String: Any]? = nil) throws -> URLRequest {
-        let url = baseURL.appending(path: path)
+    private func makeRequest(
+        path: String,
+        method: String,
+        token: String,
+        queryItems: [URLQueryItem] = [],
+        body: [String: Any]? = nil
+    ) throws -> URLRequest {
+        let url = try endpointURL(path: path, queryItems: queryItems)
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -151,6 +167,24 @@ public actor NotionClient {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
         return request
+    }
+
+    private func endpointURL(path: String, queryItems: [URLQueryItem]) throws -> URL {
+        let url = baseURL.appending(path: path)
+        guard !queryItems.isEmpty else {
+            return url
+        }
+
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw NotionClientError.invalidResponse
+        }
+        components.queryItems = queryItems
+
+        guard let resolvedURL = components.url else {
+            throw NotionClientError.invalidResponse
+        }
+
+        return resolvedURL
     }
 
     private func perform<Response: Decodable>(_ request: URLRequest) async throws -> Response {
@@ -222,6 +256,31 @@ public enum NotionClientError: Error {
     case invalidResponse
     case httpError(statusCode: Int, message: String)
     case invalidDate(String)
+}
+
+extension NotionClientError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .invalidResponse:
+            return "Notion 响应无效。"
+        case let .httpError(statusCode, message):
+            let readableMessage = Self.extractReadableMessage(from: message)
+            return "Notion 请求失败（HTTP \(statusCode)）：\(readableMessage)"
+        case let .invalidDate(raw):
+            return "Notion 返回了无法识别的日期：\(raw)"
+        }
+    }
+
+    private static func extractReadableMessage(from rawMessage: String) -> String {
+        guard let data = rawMessage.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let message = object["message"] as? String,
+              !message.isEmpty else {
+            return rawMessage
+        }
+
+        return message
+    }
 }
 
 private struct DatabaseResponse: Decodable {
