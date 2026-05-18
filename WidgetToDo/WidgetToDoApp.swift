@@ -1,32 +1,19 @@
-//
-//  WidgetToDoApp.swift
-//  WidgetToDo
-//
-//  Created by 陈晓峰 on 2026/5/17.
-//
-
 import SwiftUI
-import SwiftData
 
 @main
 struct WidgetToDoApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        Settings {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Notion 浮窗")
+                    .font(.title3.weight(.semibold))
+                Text("使用菜单栏图标来显示或隐藏悬浮面板。")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(24)
+            .frame(width: 320)
         }
-        .modelContainer(sharedModelContainer)
     }
 }

@@ -1,0 +1,73 @@
+import Foundation
+
+public enum SyncStatus: String, Codable, Sendable {
+    case synced
+    case syncing
+    case failed
+    case localPending
+}
+
+public struct TaskItem: Equatable, Sendable, Identifiable {
+    public let id: String
+    public var title: String
+    public var isDone: Bool
+    public var priority: String?
+    public var date: Date
+    public var url: URL?
+    public var syncStatus: SyncStatus
+
+    public init(
+        id: String,
+        title: String,
+        isDone: Bool,
+        priority: String?,
+        date: Date,
+        url: URL?,
+        syncStatus: SyncStatus
+    ) {
+        self.id = id
+        self.title = title
+        self.isDone = isDone
+        self.priority = priority
+        self.date = date
+        self.url = url
+        self.syncStatus = syncStatus
+    }
+}
+
+public enum TaskSorting {
+    public static func sort(_ tasks: [TaskItem]) -> [TaskItem] {
+        tasks.sorted { lhs, rhs in
+            if lhs.isDone != rhs.isDone {
+                return !lhs.isDone
+            }
+
+            let lhsPriority = priorityRank(lhs.priority)
+            let rhsPriority = priorityRank(rhs.priority)
+            if lhsPriority != rhsPriority {
+                return lhsPriority > rhsPriority
+            }
+
+            if lhs.date != rhs.date {
+                return lhs.date < rhs.date
+            }
+
+            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+    }
+
+    private static func priorityRank(_ priority: String?) -> Int {
+        switch priority?.lowercased() {
+        case "urgent":
+            return 4
+        case "high":
+            return 3
+        case "medium":
+            return 2
+        case "low":
+            return 1
+        default:
+            return 0
+        }
+    }
+}
