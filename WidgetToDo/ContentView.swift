@@ -289,7 +289,7 @@ struct FloatingWidgetView: View {
                             RoundedRectangle(cornerRadius: 10)
                                 .stroke(Color.secondary.opacity(0.2))
                         }
-                        .onChange(of: journalViewModel.editorText) { _, newValue in
+                        .onChange(of: journalViewModel.editorText) { newValue in
                             journalViewModel.scheduleAutosave(text: newValue)
                         }
                 }
