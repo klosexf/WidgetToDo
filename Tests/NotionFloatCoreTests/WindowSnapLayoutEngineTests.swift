@@ -9,6 +9,17 @@ final class WindowSnapLayoutEngineTests: XCTestCase {
         hardSnapRadius: 160,
         reanchorDistance: 120
     )
+    private let testPanelSize = CGSize(width: 100, height: 100)
+
+    private func makeSlot(id: String, offset: CGPoint, origin: CGPoint, isValid: Bool) -> WindowSnapLayoutEngine.Slot {
+        WindowSnapLayoutEngine.Slot(
+            id: id,
+            offset: offset,
+            origin: origin,
+            panelFrame: CGRect(origin: origin, size: testPanelSize),
+            isValid: isValid
+        )
+    }
 
     func testHorizontalStrideMatchesWindowWidthPlusGap() {
         XCTAssertEqual(config.horizontalStride(for: CGSize(width: 330, height: 560)), 362)
@@ -47,13 +58,11 @@ final class WindowSnapLayoutEngineTests: XCTestCase {
 
     func testNearestSlotUsesPanelCenterDistance() {
         let slots = [
+            makeSlot(id: "0,0", offset: CGPoint(x: 0, y: 0), origin: CGPoint(x: 0, y: 0), isValid: true),
             WindowSnapLayoutEngine.Slot(
-                offset: CGPoint(x: 0, y: 0),
-                panelFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
-                isValid: true
-            ),
-            WindowSnapLayoutEngine.Slot(
+                id: "1,0",
                 offset: CGPoint(x: 1, y: 0),
+                origin: CGPoint(x: 200, y: 0),
                 panelFrame: CGRect(x: 200, y: 0, width: 300, height: 300),
                 isValid: true
             )
@@ -71,15 +80,47 @@ final class WindowSnapLayoutEngineTests: XCTestCase {
         XCTAssertTrue(selection.isWithinHardRadius)
     }
 
+    func testNearestSlotTreatsSoftRadiusBoundaryAsInside() {
+        let slots = [
+            makeSlot(id: "0,0", offset: CGPoint(x: 0, y: 0), origin: CGPoint(x: 90, y: 0), isValid: true)
+        ]
+
+        let draggedFrame = CGRect(origin: .zero, size: testPanelSize)
+        let selection = WindowSnapLayoutEngine.selectNearestSlot(
+            for: draggedFrame,
+            from: slots,
+            configuration: config
+        )
+
+        XCTAssertEqual(selection.distance, config.softSnapRadius)
+        XCTAssertTrue(selection.isWithinSoftRadius)
+        XCTAssertTrue(selection.isWithinHardRadius)
+    }
+
+    func testNearestSlotTreatsHardRadiusBoundaryAsInside() {
+        let slots = [
+            makeSlot(id: "0,0", offset: CGPoint(x: 0, y: 0), origin: CGPoint(x: 160, y: 0), isValid: true)
+        ]
+
+        let draggedFrame = CGRect(origin: .zero, size: testPanelSize)
+        let selection = WindowSnapLayoutEngine.selectNearestSlot(
+            for: draggedFrame,
+            from: slots,
+            configuration: config
+        )
+
+        XCTAssertEqual(selection.distance, config.hardSnapRadius)
+        XCTAssertFalse(selection.isWithinSoftRadius)
+        XCTAssertTrue(selection.isWithinHardRadius)
+    }
+
     func testNearestSlotReportsOutOfHardSnapRadius() {
         let slots = [
+            makeSlot(id: "0,0", offset: CGPoint(x: 0, y: 0), origin: CGPoint(x: 0, y: 0), isValid: true),
             WindowSnapLayoutEngine.Slot(
-                offset: CGPoint(x: 0, y: 0),
-                panelFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
-                isValid: true
-            ),
-            WindowSnapLayoutEngine.Slot(
+                id: "1,0",
                 offset: CGPoint(x: 1, y: 0),
+                origin: CGPoint(x: 200, y: 0),
                 panelFrame: CGRect(x: 200, y: 0, width: 300, height: 300),
                 isValid: true
             )
@@ -98,13 +139,11 @@ final class WindowSnapLayoutEngineTests: XCTestCase {
 
     func testNearestSlotIgnoresInvalidCandidatesAndReportsNoValidSlot() {
         let slots = [
+            makeSlot(id: "0,0", offset: CGPoint(x: 0, y: 0), origin: CGPoint(x: 0, y: 0), isValid: false),
             WindowSnapLayoutEngine.Slot(
-                offset: CGPoint(x: 0, y: 0),
-                panelFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
-                isValid: false
-            ),
-            WindowSnapLayoutEngine.Slot(
+                id: "1,0",
                 offset: CGPoint(x: 1, y: 0),
+                origin: CGPoint(x: 200, y: 0),
                 panelFrame: CGRect(x: 200, y: 0, width: 300, height: 300),
                 isValid: false
             )
