@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "NotionFloatCore",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v12)
     ],
     products: [
         .library(
@@ -21,6 +21,11 @@ let package = Package(
         .target(
             name: "NotionFloatCore",
             path: "WidgetToDo/Core"
+        ),
+        .testTarget(
+            name: "NotionFloatCoreTests",
+            dependencies: ["NotionFloatCore"],
+            path: "Tests/NotionFloatCoreTests"
         ),
         .executableTarget(
             name: "NotionFloatCoreSmokeTests",
