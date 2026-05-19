@@ -170,13 +170,15 @@ public actor NotionClient {
     }
 
     private func endpointURL(path: String, queryItems: [URLQueryItem]) throws -> URL {
-        let url = baseURL.appending(path: path)
-        guard !queryItems.isEmpty else {
-            return url
-        }
-
-        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
             throw NotionClientError.invalidResponse
+        }
+        components.path += "/\(path)"
+        guard !queryItems.isEmpty else {
+            guard let resolvedURL = components.url else {
+                throw NotionClientError.invalidResponse
+            }
+            return resolvedURL
         }
         components.queryItems = queryItems
 
