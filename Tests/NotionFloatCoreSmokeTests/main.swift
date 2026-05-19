@@ -22,6 +22,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try journalContentBuilderConvertsLinesToParagraphBlocks()
             try notionClientHttpErrorExposesReadableDescription()
             try notionRepositoryValidationErrorExposesReadableDescription()
+            try await notionClientBuildsDatabaseSchemaURLWithoutQuery()
             try await notionClientPreservesQueryItemsInBlockChildrenURL()
             print("All smoke tests passed.")
         } catch {
@@ -156,13 +157,35 @@ struct NotionFloatCoreSmokeTestsRunner {
             "block children requests should keep page_size as a query parameter"
         )
     }
+
+    static func notionClientBuildsDatabaseSchemaURLWithoutQuery() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [CapturingURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let client = NotionClient(session: session)
+
+        CapturingURLProtocol.reset()
+        CapturingURLProtocol.responseBody = #"{"properties":{}}"#.data(using: .utf8)!
+        _ = try await client.fetchDatabaseSchema(databaseID: "db-1234", token: "secret_test_token")
+
+        guard let requestURL = CapturingURLProtocol.lastRequest?.url else {
+            throw SmokeTestFailure(description: "expected fetchDatabaseSchema to issue a request")
+        }
+
+        try expect(
+            requestURL.absoluteString == "https://api.notion.com/v1/databases/db-1234",
+            "database schema requests should append the endpoint path without adding a query string"
+        )
+    }
 }
 
 final class CapturingURLProtocol: URLProtocol {
     nonisolated(unsafe) static var lastRequest: URLRequest?
+    nonisolated(unsafe) static var responseBody = #"{"results":[]}"#.data(using: .utf8)!
 
     static func reset() {
         lastRequest = nil
+        responseBody = #"{"results":[]}"#.data(using: .utf8)!
     }
 
     override class func canInit(with request: URLRequest) -> Bool {
@@ -182,10 +205,9 @@ final class CapturingURLProtocol: URLProtocol {
             httpVersion: nil,
             headerFields: ["Content-Type": "application/json"]
         )!
-        let body = #"{"results":[]}"#.data(using: .utf8)!
 
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocol(self, didLoad: Self.responseBody)
         client?.urlProtocolDidFinishLoading(self)
     }
 
