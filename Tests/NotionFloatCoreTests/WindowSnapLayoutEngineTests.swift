@@ -67,6 +67,7 @@ final class WindowSnapLayoutEngineTests: XCTestCase {
         )
 
         XCTAssertEqual(selection.slot?.offset, CGPoint(x: 0, y: 0))
+        XCTAssertTrue(selection.isWithinSoftRadius)
         XCTAssertTrue(selection.isWithinHardRadius)
     }
 
@@ -91,6 +92,33 @@ final class WindowSnapLayoutEngineTests: XCTestCase {
             configuration: config
         )
 
+        XCTAssertFalse(selection.isWithinSoftRadius)
+        XCTAssertFalse(selection.isWithinHardRadius)
+    }
+
+    func testNearestSlotIgnoresInvalidCandidatesAndReportsNoValidSlot() {
+        let slots = [
+            WindowSnapLayoutEngine.Slot(
+                offset: CGPoint(x: 0, y: 0),
+                panelFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
+                isValid: false
+            ),
+            WindowSnapLayoutEngine.Slot(
+                offset: CGPoint(x: 1, y: 0),
+                panelFrame: CGRect(x: 200, y: 0, width: 300, height: 300),
+                isValid: false
+            )
+        ]
+
+        let draggedFrame = CGRect(x: 120, y: 0, width: 100, height: 100)
+        let selection = WindowSnapLayoutEngine.selectNearestSlot(
+            for: draggedFrame,
+            from: slots,
+            configuration: config
+        )
+
+        XCTAssertNil(selection.slot)
+        XCTAssertFalse(selection.isWithinSoftRadius)
         XCTAssertFalse(selection.isWithinHardRadius)
     }
 
