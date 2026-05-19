@@ -46,24 +46,52 @@ final class WindowSnapLayoutEngineTests: XCTestCase {
     }
 
     func testNearestSlotUsesPanelCenterDistance() {
-        let visibleFrame = CGRect(x: 0, y: 0, width: 1600, height: 1200)
-        let panelFrame = CGRect(x: 500, y: 300, width: 330, height: 560)
+        let slots = [
+            WindowSnapLayoutEngine.Slot(
+                offset: CGPoint(x: 0, y: 0),
+                panelFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
+                isValid: true
+            ),
+            WindowSnapLayoutEngine.Slot(
+                offset: CGPoint(x: 1, y: 0),
+                panelFrame: CGRect(x: 200, y: 0, width: 300, height: 300),
+                isValid: true
+            )
+        ]
 
-        let result = WindowSnapLayoutEngine.generateSlots(
-            around: panelFrame,
-            visibleFrame: visibleFrame,
-            configuration: config
-        )
-
-        let draggedFrame = CGRect(x: 730, y: 310, width: 330, height: 560)
+        let draggedFrame = CGRect(x: 120, y: 0, width: 100, height: 100)
         let selection = WindowSnapLayoutEngine.selectNearestSlot(
             for: draggedFrame,
-            from: result.slots,
+            from: slots,
             configuration: config
         )
 
-        XCTAssertEqual(selection.slot?.offset, CGPoint(x: 1, y: 0))
+        XCTAssertEqual(selection.slot?.offset, CGPoint(x: 0, y: 0))
         XCTAssertTrue(selection.isWithinHardRadius)
+    }
+
+    func testNearestSlotReportsOutOfHardSnapRadius() {
+        let slots = [
+            WindowSnapLayoutEngine.Slot(
+                offset: CGPoint(x: 0, y: 0),
+                panelFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
+                isValid: true
+            ),
+            WindowSnapLayoutEngine.Slot(
+                offset: CGPoint(x: 1, y: 0),
+                panelFrame: CGRect(x: 200, y: 0, width: 300, height: 300),
+                isValid: true
+            )
+        ]
+
+        let draggedFrame = CGRect(x: 1_000, y: 1_000, width: 100, height: 100)
+        let selection = WindowSnapLayoutEngine.selectNearestSlot(
+            for: draggedFrame,
+            from: slots,
+            configuration: config
+        )
+
+        XCTAssertFalse(selection.isWithinHardRadius)
     }
 
     func testClampPanelOriginKeepsWindowInsideVisibleFrame() {
