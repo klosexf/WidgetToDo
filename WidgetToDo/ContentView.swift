@@ -189,7 +189,7 @@ struct FloatingWidgetView: View {
                     ProgressView("正在加载任务...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if todoViewModel.tasks.isEmpty {
-                    ContentUnavailableView("今天没有任务", systemImage: "checklist")
+                    emptyTasksView
                 } else {
                     List(todoViewModel.tasks) { task in
                         HStack(alignment: .top, spacing: 12) {
@@ -313,6 +313,19 @@ struct FloatingWidgetView: View {
                 Label("日记", systemImage: "book.pages")
             }
         }
+    }
+
+    private var emptyTasksView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "checklist")
+                .font(.system(size: 30, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            Text("今天没有任务")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func syncText(for status: SyncStatus) -> String {
