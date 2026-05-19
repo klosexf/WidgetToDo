@@ -94,7 +94,7 @@ final class RootViewModel: ObservableObject {
         if todoListViewModel.errorMessage == nil, journalViewModel.errorMessage == nil {
             bannerMessage = "刚刚同步完成"
             Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(2))
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
                 self?.bannerMessage = nil
             }
         } else if let message = todoListViewModel.errorMessage ?? journalViewModel.errorMessage {

@@ -37,7 +37,7 @@ final class JournalViewModel: ObservableObject {
         autosaveTask?.cancel()
         statusMessage = "即将保存..."
         autosaveTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
             guard !Task.isCancelled else { return }
             await self?.save(text: text)
         }
