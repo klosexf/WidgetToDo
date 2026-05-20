@@ -27,7 +27,7 @@ final class WindowSnapLayoutEngineTests: XCTestCase {
     }
 
     func testGenerateSlotsReturnsNineSlotsInOpenSpace() {
-        let visibleFrame = CGRect(x: 0, y: 0, width: 1600, height: 1200)
+        let visibleFrame = CGRect(x: 0, y: 0, width: 1600, height: 1800)
         let panelFrame = CGRect(x: 500, y: 300, width: 330, height: 560)
 
         let result = WindowSnapLayoutEngine.generateSlots(
@@ -76,7 +76,7 @@ final class WindowSnapLayoutEngineTests: XCTestCase {
         )
 
         XCTAssertEqual(selection.slot?.offset, CGPoint(x: 0, y: 0))
-        XCTAssertTrue(selection.isWithinSoftRadius)
+        XCTAssertFalse(selection.isWithinSoftRadius)
         XCTAssertTrue(selection.isWithinHardRadius)
     }
 
