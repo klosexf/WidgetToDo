@@ -14,9 +14,20 @@ private final class FloatingPanel: NSPanel {
 @MainActor
 final class FloatingWindowManager: NSObject {
     private let panel: NSPanel
+    private var pendingSnapTask: Task<Void, Never>?
     private var isDragging = false
-    private let gridSize: CGFloat = 20
-    private var localEventMonitor: Any?
+    private var isSnappingToSlot = false
+    private var overlayController: WindowSnapOverlayController?
+    private var activeScreen: NSScreen?
+    private var slotLayout: WindowSnapLayoutEngine.SlotLayout?
+    private var activeSlotID: String?
+    private let snapConfiguration = WindowSnapLayoutEngine.Configuration(
+        horizontalGap: 32,
+        verticalGap: 32,
+        softSnapRadius: 90,
+        hardSnapRadius: 160,
+        reanchorDistance: 120
+    )
 
     init(rootView: ContentView) {
         let panel = FloatingPanel(
@@ -40,16 +51,10 @@ final class FloatingWindowManager: NSObject {
         self.panel = panel
         super.init()
         panel.delegate = self
-
-        localEventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
-            self?.snapToGrid()
-        }
     }
 
     deinit {
-        if let monitor = localEventMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
+        pendingSnapTask?.cancel()
     }
 
     func show() {
@@ -65,44 +70,154 @@ final class FloatingWindowManager: NSObject {
         panel.isVisible ? hide() : show()
     }
 
-    private func snapToGrid() {
+    private func beginDragging() {
+        guard !isDragging else { return }
+        isDragging = true
+        pendingSnapTask?.cancel()
+        activeScreen = screenForCurrentPanelFrame()
+        refreshSlotLayout(force: true)
+        updateOverlaySelection()
+    }
+
+    private func scheduleFinishDragging() {
+        pendingSnapTask?.cancel()
+        pendingSnapTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled else { return }
+            self?.finishDragging()
+        }
+    }
+
+    private func updateDragging() {
+        guard isDragging, !isSnappingToSlot else { return }
+        refreshSlotLayout(force: false)
+        updateOverlaySelection()
+        scheduleFinishDragging()
+    }
+
+    private func finishDragging() {
         guard isDragging else { return }
-        isDragging = false
+        pendingSnapTask?.cancel()
 
-        guard let screen = panel.screen ?? NSScreen.main else { return }
-        let visibleFrame = screen.visibleFrame
-        let frame = panel.frame
+        guard
+            let screen = activeScreen ?? screenForCurrentPanelFrame(),
+            let slotLayout
+        else {
+            cleanupDragState()
+            return
+        }
 
-        var newOrigin = NSPoint(
-            x: round(frame.origin.x / gridSize) * gridSize,
-            y: round(frame.origin.y / gridSize) * gridSize
+        let selection = WindowSnapLayoutEngine.selectNearestSlot(
+            for: panel.frame,
+            from: slotLayout.slots,
+            configuration: snapConfiguration
         )
 
-        if newOrigin.x < visibleFrame.minX {
-            newOrigin.x = visibleFrame.minX
-        }
-        if newOrigin.y < visibleFrame.minY {
-            newOrigin.y = visibleFrame.minY
-        }
-        if newOrigin.x + frame.width > visibleFrame.maxX {
-            newOrigin.x = visibleFrame.maxX - frame.width
-        }
-        if newOrigin.y + frame.height > visibleFrame.maxY {
-            newOrigin.y = visibleFrame.maxY - frame.height
+        let targetOrigin: CGPoint
+        if let slot = selection.slot, selection.isWithinHardRadius {
+            targetOrigin = WindowSnapLayoutEngine.clampPanelOrigin(
+                slot.origin,
+                panelSize: panel.frame.size,
+                visibleFrame: screen.visibleFrame
+            )
+        } else {
+            targetOrigin = WindowSnapLayoutEngine.clampPanelOrigin(
+                panel.frame.origin,
+                panelSize: panel.frame.size,
+                visibleFrame: screen.visibleFrame
+            )
         }
 
-        if newOrigin != frame.origin {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.15
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                panel.animator().setFrameOrigin(newOrigin)
-            }
+        guard targetOrigin != panel.frame.origin else {
+            cleanupDragState()
+            return
         }
+
+        isSnappingToSlot = true
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.16
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().setFrameOrigin(targetOrigin)
+        } completionHandler: { [weak self] in
+            self?.isSnappingToSlot = false
+            self?.cleanupDragState()
+        }
+    }
+
+    private func refreshSlotLayout(force: Bool) {
+        guard let screen = screenForCurrentPanelFrame() else { return }
+        activeScreen = screen
+
+        if overlayController == nil {
+            overlayController = WindowSnapOverlayController(screenFrame: screen.frame)
+        }
+
+        if force || shouldReanchorLayout(for: panel.frame) {
+            slotLayout = WindowSnapLayoutEngine.generateSlots(
+                around: panel.frame,
+                visibleFrame: screen.visibleFrame,
+                configuration: snapConfiguration
+            )
+        }
+
+        overlayController?.show(on: screen)
+    }
+
+    private func shouldReanchorLayout(for frame: CGRect) -> Bool {
+        guard let slotLayout else { return true }
+        return WindowSnapLayoutEngine.shouldReanchor(
+            from: slotLayout.anchorOrigin,
+            to: frame,
+            configuration: snapConfiguration
+        )
+    }
+
+    private func updateOverlaySelection() {
+        guard let slotLayout else { return }
+        let selection = WindowSnapLayoutEngine.selectNearestSlot(
+            for: panel.frame,
+            from: slotLayout.slots,
+            configuration: snapConfiguration
+        )
+        activeSlotID = selection.slot?.id
+        let previewFrame = selection.isWithinHardRadius ? selection.slot?.panelFrame : nil
+        overlayController?.update(
+            slots: slotLayout.slots,
+            activeSlotID: activeSlotID,
+            previewFrame: previewFrame
+        )
+    }
+
+    private func cleanupDragState() {
+        isDragging = false
+        activeSlotID = nil
+        slotLayout = nil
+        overlayController?.hide()
+    }
+
+    private func screenForCurrentPanelFrame() -> NSScreen? {
+        panel.screen
+            ?? NSScreen.screens.max(by: { lhs, rhs in
+                lhs.frame.intersection(panel.frame).area < rhs.frame.intersection(panel.frame).area
+            })
+            ?? NSScreen.main
     }
 }
 
 extension FloatingWindowManager: NSWindowDelegate {
     func windowWillMove(_ notification: Notification) {
-        isDragging = true
+        pendingSnapTask?.cancel()
+        beginDragging()
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        updateDragging()
+    }
+}
+
+private extension CGRect {
+    var area: CGFloat {
+        guard !isNull else { return 0 }
+        return width * height
     }
 }

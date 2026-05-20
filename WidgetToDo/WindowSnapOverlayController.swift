@@ -6,7 +6,7 @@ final class WindowSnapOverlayController {
     private let overlayView: OverlayView
 
     init(screenFrame: CGRect) {
-        overlayView = OverlayView(frame: screenFrame)
+        overlayView = OverlayView(frame: CGRect(origin: .zero, size: screenFrame.size))
         window = NSWindow(
             contentRect: screenFrame,
             styleMask: .borderless,
@@ -24,7 +24,8 @@ final class WindowSnapOverlayController {
 
     func show(on screen: NSScreen) {
         window.setFrame(screen.frame, display: false)
-        overlayView.frame = screen.frame
+        overlayView.frame = CGRect(origin: .zero, size: screen.frame.size)
+        overlayView.screenOrigin = screen.frame.origin
         window.orderFrontRegardless()
     }
 
@@ -44,6 +45,7 @@ private final class OverlayView: NSView {
     var slots: [WindowSnapLayoutEngine.Slot] = []
     var activeSlotID: String?
     var previewFrame: CGRect?
+    var screenOrigin: CGPoint = .zero
 
     override var isFlipped: Bool {
         false
@@ -55,7 +57,7 @@ private final class OverlayView: NSView {
 
         for slot in slots where slot.isValid {
             let isActive = slot.id == activeSlotID
-            let path = NSBezierPath(roundedRect: slot.panelFrame, xRadius: 36, yRadius: 36)
+            let path = NSBezierPath(roundedRect: localRect(for: slot.panelFrame), xRadius: 36, yRadius: 36)
             (isActive ? NSColor.white.withAlphaComponent(0.18) : NSColor.white.withAlphaComponent(0.08)).setFill()
             path.fill()
             path.lineWidth = isActive ? 3 : 1.5
@@ -64,11 +66,15 @@ private final class OverlayView: NSView {
         }
 
         if let previewFrame {
-            let previewPath = NSBezierPath(roundedRect: previewFrame, xRadius: 36, yRadius: 36)
+            let previewPath = NSBezierPath(roundedRect: localRect(for: previewFrame), xRadius: 36, yRadius: 36)
             previewPath.setLineDash([10, 8], count: 2, phase: 0)
             previewPath.lineWidth = 2
             NSColor.white.withAlphaComponent(0.72).setStroke()
             previewPath.stroke()
         }
+    }
+
+    private func localRect(for rect: CGRect) -> CGRect {
+        rect.offsetBy(dx: -screenOrigin.x, dy: -screenOrigin.y)
     }
 }
