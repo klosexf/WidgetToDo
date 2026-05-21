@@ -22,6 +22,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try journalContentBuilderConvertsLinesToParagraphBlocks()
             try notionClientHttpErrorExposesReadableDescription()
             try notionRepositoryValidationErrorExposesReadableDescription()
+            try floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring()
             try await notionClientBuildsDatabaseSchemaURLWithoutQuery()
             try await notionClientPreservesQueryItemsInBlockChildrenURL()
             print("All smoke tests passed.")
@@ -136,6 +137,26 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             error.localizedDescription == "数据库字段校验失败：缺少必填字段：Name(title)；缺少必填字段：Date(date)",
             "repository validation errors should join validation issues into one readable message"
+        )
+    }
+
+    static func floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let managerURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("FloatingWindowManager.swift")
+        let source = try String(contentsOf: managerURL, encoding: .utf8)
+
+        try expect(
+            !source.contains("addGlobalMonitorForEvents"),
+            "floating window drag completion must not rely on global mouse-up monitoring"
+        )
+        try expect(
+            source.contains("windowDidMove"),
+            "floating window drag completion should be driven by window movement callbacks"
         )
     }
 

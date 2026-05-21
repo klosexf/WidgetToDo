@@ -16,28 +16,13 @@ struct ContentView: View {
                 FloatingWidgetView(
                     todoViewModel: rootViewModel.todoListViewModel,
                     journalViewModel: rootViewModel.journalViewModel,
-                    bannerMessage: rootViewModel.bannerMessage,
-                    refreshAction: rootViewModel.refreshWorkspace
+                    refreshAction: rootViewModel.refreshWorkspace,
+                    bannerMessage: rootViewModel.bannerMessage
                 )
             }
         }
         .frame(width: 340, height: 560)
         .background(Color(nsColor: .windowBackgroundColor))
-        .overlay(alignment: .top) {
-            if let banner = rootViewModel.bannerMessage {
-                Text(banner)
-                    .font(.caption)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-            }
-        }
         .task {
             if rootViewModel.screen == .loading {
                 await rootViewModel.bootstrap()
@@ -62,7 +47,7 @@ final class RootViewModel: ObservableObject {
     let journalViewModel: JournalViewModel
 
     init(repository: NotionRepository, openURL: @escaping @MainActor (URL) -> Void) {
-        todoListViewModel = TodoListViewModel(repository: repository, openURL: openURL)
+        todoListViewModel = TodoListViewModel(repository: repository, hasPriorityField: true, openURL: openURL)
         journalViewModel = JournalViewModel(repository: repository, openURL: openURL)
         onboardingViewModel = OnboardingViewModel(repository: repository)
         onboardingViewModel.didFinishSetup = { [weak self] in
@@ -75,6 +60,7 @@ final class RootViewModel: ObservableObject {
     func bootstrap() async {
         do {
             let snapshot = try await onboardingViewModel.loadSnapshot()
+            todoListViewModel.newTaskViewModel.hasPriorityField = snapshot.hasPriorityField
             if snapshot.hasToken, snapshot.tasksDatabaseID != nil, snapshot.journalDatabaseID != nil {
                 screen = .widget
                 await refreshWorkspace()
@@ -155,16 +141,38 @@ struct OnboardingView: View {
 struct FloatingWidgetView: View {
     @ObservedObject var todoViewModel: TodoListViewModel
     @ObservedObject var journalViewModel: JournalViewModel
-    let bannerMessage: String?
     let refreshAction: @MainActor () async -> Void
+    var bannerMessage: String?
 
     var body: some View {
         TabView {
+            todoTab
+                .tabItem {
+                    Label("待办", systemImage: "checklist")
+                }
+
+            journalTab
+                .tabItem {
+                    Label("日记", systemImage: "book.pages")
+                }
+        }
+    }
+
+    private var todoTab: some View {
+        ZStack {
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
+                HStack(spacing: 10) {
                     Text("今天")
                         .font(.title3.weight(.semibold))
                     Spacer()
+                    Button {
+                        todoViewModel.openNewTaskForm()
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .buttonStyle(.plain)
+                    .help("新建任务")
+
                     Button {
                         Task { await refreshAction() }
                     } label: {
@@ -172,15 +180,25 @@ struct FloatingWidgetView: View {
                     }
                     .buttonStyle(.plain)
                     .help("刷新")
+
+                    if let firstTaskWithUrl = todoViewModel.tasks.first(where: { $0.url != nil }) {
+                        Button {
+                            todoViewModel.openInNotion(firstTaskWithUrl.url!)
+                        } label: {
+                            Image(systemName: "arrow.up.forward.square")
+                        }
+                        .buttonStyle(.plain)
+                        .help("在 Notion 中打开")
+                    }
                 }
 
                 if let banner = bannerMessage {
                     Text(banner)
                         .font(.caption)
-                        .lineLimit(3)
+                        .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 6)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .background(.ultraThinMaterial, in: Capsule())
                 }
@@ -188,60 +206,71 @@ struct FloatingWidgetView: View {
                 if todoViewModel.isLoading {
                     ProgressView("正在加载任务...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if todoViewModel.tasks.isEmpty {
+                } else if todoViewModel.tasks.isEmpty && todoViewModel.pendingTask == nil {
                     emptyTasksView
                 } else {
-                    List(todoViewModel.tasks) { task in
-                        HStack(alignment: .top, spacing: 12) {
-                            Button {
-                                Task {
-                                    await todoViewModel.toggleTask(task)
-                                }
-                            } label: {
-                                Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(task.isDone ? .green : .secondary)
-                            }
-                            .buttonStyle(.plain)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(task.title)
-                                    .strikethrough(task.isDone)
-                                HStack(spacing: 8) {
-                                    if let priority = task.priority {
-                                        Text(priority)
-                                            .font(.caption)
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .background(Color.accentColor.opacity(0.12), in: Capsule())
-                                    }
-
-                                    Text(syncText(for: task.syncStatus))
-                                        .font(.caption)
-                                        .foregroundStyle(syncColor(for: task.syncStatus))
-                                }
-                            }
-
-                            Spacer()
-
-                            if let url = task.url {
+                    List {
+                        if let pending = todoViewModel.pendingTask {
+                            PendingTodoRowView(item: pending, showFailure: todoViewModel.showFailureHighlight)
+                        }
+                        ForEach(todoViewModel.tasks) { task in
+                            HStack(alignment: .top, spacing: 12) {
                                 Button {
-                                    todoViewModel.openInNotion(url)
+                                    Task {
+                                        await todoViewModel.toggleTask(task)
+                                    }
                                 } label: {
-                                    Image(systemName: "arrow.up.forward.square")
+                                    Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(task.isDone ? .green : .secondary)
                                 }
                                 .buttonStyle(.plain)
-                            }
 
-                            if task.syncStatus == .failed {
-                                Button("重试") {
-                                    Task {
-                                        await todoViewModel.retry(task)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(task.title)
+                                        .overlay(alignment: .center) {
+                                            if task.isDone {
+                                                Rectangle()
+                                                    .fill(Color.primary)
+                                                    .frame(height: 1)
+                                            }
+                                        }
+                                    HStack(spacing: 8) {
+                                        if let priority = task.priority {
+                                            Text(priority)
+                                                .font(.caption)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(Color.accentColor.opacity(0.12), in: Capsule())
+                                        }
+
+                                        Text(syncText(for: task.syncStatus))
+                                            .font(.caption)
+                                            .foregroundStyle(syncColor(for: task.syncStatus))
                                     }
                                 }
-                                .buttonStyle(.borderless)
+
+                                Spacer()
+
+                                if let url = task.url {
+                                    Button {
+                                        todoViewModel.openInNotion(url)
+                                    } label: {
+                                        Image(systemName: "arrow.up.forward.square")
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+
+                                if task.syncStatus == .failed {
+                                    Button("重试") {
+                                        Task {
+                                            await todoViewModel.retry(task)
+                                        }
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
                             }
+                            .padding(.vertical, 4)
                         }
-                        .padding(.vertical, 4)
                     }
                     .listStyle(.plain)
                 }
@@ -253,66 +282,80 @@ struct FloatingWidgetView: View {
                 }
             }
             .padding(20)
-            .tabItem {
-                Label("待办", systemImage: "checklist")
+
+            if todoViewModel.newTaskViewModel.showForm {
+                Color.black.opacity(0.3)
+                    .onTapGesture {
+                        todoViewModel.newTaskViewModel.dismissForm()
+                    }
+                NewTaskFormCard(viewModel: todoViewModel.newTaskViewModel)
             }
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack {
+                Spacer()
                 HStack {
-                    Text("日记")
-                        .font(.title3.weight(.semibold))
                     Spacer()
-                    if let url = journalViewModel.entry?.url {
-                        Button {
-                            journalViewModel.openInNotion(url)
-                        } label: {
-                            Image(systemName: "arrow.up.forward.square")
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    ToastHostView(toast: todoViewModel.toast)
                 }
-
-                if let entry = journalViewModel.entry {
-                    Text(entry.date.formatted(date: .abbreviated, time: .omitted))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if journalViewModel.isLoading {
-                    ProgressView("正在加载日记...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    TextEditor(text: $journalViewModel.editorText)
-                        .font(.body)
-                        .padding(8)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.secondary.opacity(0.2))
-                        }
-                        .onChange(of: journalViewModel.editorText) { newValue in
-                            journalViewModel.scheduleAutosave(text: newValue)
-                        }
-                }
-
-                HStack {
-                    Text(journalViewModel.statusMessage ?? "2 秒后自动保存")
-                        .font(.caption)
-                        .foregroundStyle(journalViewModel.errorMessage == nil ? Color.secondary : Color.red)
-                    Spacer()
-                    if journalViewModel.entry?.syncStatus == .failed {
-                        Button("重试") {
-                            Task {
-                                await journalViewModel.forceSave()
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(20)
-            .tabItem {
-                Label("日记", systemImage: "book.pages")
+                .padding(.trailing, 8)
+                .padding(.bottom, 8)
             }
         }
+    }
+
+    private var journalTab: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("日记")
+                    .font(.title3.weight(.semibold))
+                Spacer()
+                if let url = journalViewModel.entry?.url {
+                    Button {
+                        journalViewModel.openInNotion(url)
+                    } label: {
+                        Image(systemName: "arrow.up.forward.square")
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if let entry = journalViewModel.entry {
+                Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if journalViewModel.isLoading {
+                ProgressView("正在加载日记...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                TextEditor(text: $journalViewModel.editorText)
+                    .font(.body)
+                    .padding(8)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.secondary.opacity(0.2))
+                    }
+                    .onChange(of: journalViewModel.editorText) { newValue in
+                        journalViewModel.scheduleAutosave(text: newValue)
+                    }
+            }
+
+            HStack {
+                Text(journalViewModel.statusMessage ?? "2 秒后自动保存")
+                    .font(.caption)
+                    .foregroundStyle(journalViewModel.errorMessage == nil ? Color.secondary : Color.red)
+                Spacer()
+                if journalViewModel.entry?.syncStatus == .failed {
+                    Button("重试") {
+                        Task {
+                            await journalViewModel.forceSave()
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
     }
 
     private var emptyTasksView: some View {
@@ -374,8 +417,8 @@ struct FloatingWidgetView: View {
     FloatingWidgetView(
         todoViewModel: makePreviewTodoListViewModel(),
         journalViewModel: makePreviewJournalViewModel(),
-        bannerMessage: "刚刚同步完成",
-        refreshAction: {}
+        refreshAction: {},
+        bannerMessage: "刚刚同步完成"
     )
     .frame(width: 340, height: 560)
 }
@@ -423,7 +466,7 @@ private func makePreviewOnboardingViewModel() -> OnboardingViewModel {
 
 @MainActor
 private func makePreviewTodoListViewModel() -> TodoListViewModel {
-    let viewModel = TodoListViewModel(repository: makePreviewRepository(), openURL: { _ in })
+    let viewModel = TodoListViewModel(repository: makePreviewRepository(), hasPriorityField: true, openURL: { _ in })
     viewModel.tasks = previewTasks
     return viewModel
 }

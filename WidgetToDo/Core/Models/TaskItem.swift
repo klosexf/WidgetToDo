@@ -35,6 +35,31 @@ public struct TaskItem: Equatable, Sendable, Identifiable {
     }
 }
 
+public struct PendingTaskItem: Equatable, Sendable, Identifiable {
+    public let id: String
+    public var title: String
+    public var date: Date
+    public var priority: String?
+    public var createdAt: Date
+    public var isFailed: Bool
+
+    public init(
+        id: String = UUID().uuidString,
+        title: String,
+        date: Date,
+        priority: String?,
+        createdAt: Date = Date(),
+        isFailed: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.date = date
+        self.priority = priority
+        self.createdAt = createdAt
+        self.isFailed = isFailed
+    }
+}
+
 public enum TaskSorting {
     public static func sort(_ tasks: [TaskItem]) -> [TaskItem] {
         tasks.sorted { lhs, rhs in

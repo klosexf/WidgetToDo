@@ -27,6 +27,10 @@ final class AppCoordinator {
             onToggle: { [weak floatingWindowManager] in
                 floatingWindowManager?.toggle()
             },
+            onNewTask: { [weak rootViewModel, weak floatingWindowManager] in
+                floatingWindowManager?.show()
+                rootViewModel?.todoListViewModel.openNewTaskForm()
+            },
             onQuit: {
                 NSApp.terminate(nil)
             }

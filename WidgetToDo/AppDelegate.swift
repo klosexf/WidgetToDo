@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
@@ -19,17 +20,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         NSApp.disableRelaunchOnLogin()
+        terminateOtherRunningInstances()
 
         do {
             let coordinator = try AppCoordinator()
             self.coordinator = coordinator
             coordinator.start()
+            scheduleDeferredInstanceCleanup()
         } catch {
             let alert = NSAlert()
             alert.messageText = "启动 Notion Float 失败"
             alert.informativeText = error.localizedDescription
             alert.runModal()
             NSApp.terminate(nil)
+        }
+    }
+
+    private func scheduleDeferredInstanceCleanup() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.terminateOtherRunningInstances()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.terminateOtherRunningInstances()
+        }
+    }
+
+    private func terminateOtherRunningInstances() {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return }
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+
+        for app in NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+        where app.processIdentifier != currentPID
+        {
+            if !app.terminate() {
+                _ = app.forceTerminate()
+            }
+            kill(app.processIdentifier, SIGKILL)
         }
     }
 }

@@ -51,6 +51,46 @@ public actor NotionClient {
         let _: PageResponse = try await perform(request)
     }
 
+    public func createTask(databaseID: String, title: String, date: Date, priority: String?, hasPriorityField: Bool, token: String) async throws -> TaskItem {
+        let dateString = Self.dayFormatter.string(from: date)
+        var properties: [String: Any] = [
+            "Name": [
+                "title": [
+                    [
+                        "type": "text",
+                        "text": [
+                            "content": title
+                        ]
+                    ]
+                ]
+            ],
+            "Date": [
+                "date": [
+                    "start": dateString
+                ]
+            ],
+            "Done": [
+                "checkbox": false
+            ]
+        ]
+        if hasPriorityField, let priority {
+            properties["Priority"] = [
+                "select": [
+                    "name": priority
+                ]
+            ]
+        }
+        let body: [String: Any] = [
+            "parent": [
+                "database_id": databaseID
+            ],
+            "properties": properties
+        ]
+        let request = try makeRequest(path: "pages", method: "POST", token: token, body: body)
+        let page: PageResponse = try await perform(request)
+        return try Self.mapTask(page: page)
+    }
+
     public func findJournalPage(databaseID: String, token: String, date: Date) async throws -> JournalEntry? {
         let dateString = Self.dayFormatter.string(from: date)
         let body: [String: Any] = [

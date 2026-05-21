@@ -8,6 +8,7 @@ public enum PendingMutationTarget: String, Codable, Sendable {
 public enum PendingMutationType: String, Codable, Sendable {
     case toggleCheckbox
     case replaceJournalText
+    case createTask
 }
 
 public enum PendingMutationStatus: String, Codable, Sendable {

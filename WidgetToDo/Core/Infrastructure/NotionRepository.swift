@@ -24,7 +24,8 @@ public actor NotionRepository {
         return ConfigurationSnapshot(
             hasToken: token?.isEmpty == false,
             tasksDatabaseID: settings?.tasksDatabaseID,
-            journalDatabaseID: settings?.journalDatabaseID
+            journalDatabaseID: settings?.journalDatabaseID,
+            hasPriorityField: settings?.hasPriorityField ?? true
         )
     }
 
@@ -48,10 +49,12 @@ public actor NotionRepository {
             throw NotionRepositoryError.validationFailed(issues)
         }
 
+        let hasPriorityField = taskSchema.contains { $0.name == "Priority" && $0.type == "select" }
         let settings = AppSettings(
             tasksDatabaseID: tasksReference.rawValue,
             journalDatabaseID: journalReference.rawValue,
-            lastValidatedAt: Date()
+            lastValidatedAt: Date(),
+            hasPriorityField: hasPriorityField
         )
         try await settingsStore.save(settings)
         return settings
@@ -113,6 +116,20 @@ public actor NotionRepository {
             throw NotionRepositoryError.missingCacheRecord("任务缓存记录不存在。")
         }
         return try await toggleTask(id: id, isDone: task.isDone)
+    }
+
+    public func createTask(title: String, date: Date, priority: String?, hasPriorityField: Bool) async throws -> TaskItem {
+        let context = try await configurationContext()
+        let task = try await notionClient.createTask(
+            databaseID: context.settings.tasksDatabaseID,
+            title: title,
+            date: date,
+            priority: priority,
+            hasPriorityField: hasPriorityField,
+            token: context.token
+        )
+        try cache.upsert(task)
+        return task
     }
 
     public func loadOrCreateJournal(for date: Date = Date()) async throws -> JournalEntry {
@@ -189,11 +206,13 @@ public struct ConfigurationSnapshot: Sendable {
     public let hasToken: Bool
     public let tasksDatabaseID: String?
     public let journalDatabaseID: String?
+    public let hasPriorityField: Bool
 
-    public init(hasToken: Bool, tasksDatabaseID: String?, journalDatabaseID: String?) {
+    public init(hasToken: Bool, tasksDatabaseID: String?, journalDatabaseID: String?, hasPriorityField: Bool = true) {
         self.hasToken = hasToken
         self.tasksDatabaseID = tasksDatabaseID
         self.journalDatabaseID = journalDatabaseID
+        self.hasPriorityField = hasPriorityField
     }
 }
 
