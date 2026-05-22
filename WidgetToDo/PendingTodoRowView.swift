@@ -22,7 +22,15 @@ struct PendingTodoRowView: View {
                             .background(Color.accentColor.opacity(0.12), in: Capsule())
                     }
 
-                    Text(item.date.formatted(date: .abbreviated, time: .omitted))
+                    Text(
+                        item.date.formatted(
+                            .dateTime
+                                .year()
+                                .month()
+                                .day()
+                                .locale(Locale(identifier: "zh_CN"))
+                        )
+                    )
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

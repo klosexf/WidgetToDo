@@ -139,10 +139,27 @@ struct OnboardingView: View {
 }
 
 struct FloatingWidgetView: View {
+    private let todoDateTitleWidth: CGFloat = 104
+    private let jumpToTodayWidth: CGFloat = 56
     @ObservedObject var todoViewModel: TodoListViewModel
     @ObservedObject var journalViewModel: JournalViewModel
+    @ObservedObject private var newTaskViewModel: NewTaskViewModel
+    @State private var taskPendingDeletion: TaskItem?
     let refreshAction: @MainActor () async -> Void
     var bannerMessage: String?
+
+    init(
+        todoViewModel: TodoListViewModel,
+        journalViewModel: JournalViewModel,
+        refreshAction: @escaping @MainActor () async -> Void,
+        bannerMessage: String?
+    ) {
+        self.todoViewModel = todoViewModel
+        self.journalViewModel = journalViewModel
+        _newTaskViewModel = ObservedObject(wrappedValue: todoViewModel.newTaskViewModel)
+        self.refreshAction = refreshAction
+        self.bannerMessage = bannerMessage
+    }
 
     var body: some View {
         TabView {
@@ -162,8 +179,48 @@ struct FloatingWidgetView: View {
         ZStack {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 10) {
-                    Text("今天")
+                    Button {
+                        Task {
+                            await todoViewModel.showPreviousDay()
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .buttonStyle(.plain)
+                    .help("前一天")
+
+                    Text(todoTitle)
                         .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .allowsTightening(true)
+                        .frame(height: 28)
+                        .frame(width: todoDateTitleWidth, alignment: .leading)
+
+                    Button {
+                        Task {
+                            await todoViewModel.showNextDay()
+                        }
+                    } label: {
+                        Image(systemName: "chevron.right")
+                    }
+                    .buttonStyle(.plain)
+                    .help("后一天")
+
+                    Button("回到今天") {
+                        guard !todoViewModel.isShowingToday else { return }
+                        Task {
+                            await todoViewModel.jumpToToday()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .frame(width: jumpToTodayWidth, alignment: .leading)
+                    .opacity(todoViewModel.isShowingToday ? 0 : 1)
+                    .allowsHitTesting(!todoViewModel.isShowingToday)
+                    .accessibilityHidden(todoViewModel.isShowingToday)
+
                     Spacer()
                     Button {
                         todoViewModel.openNewTaskForm()
@@ -181,9 +238,9 @@ struct FloatingWidgetView: View {
                     .buttonStyle(.plain)
                     .help("刷新")
 
-                    if let firstTaskWithUrl = todoViewModel.tasks.first(where: { $0.url != nil }) {
+                    if todoViewModel.tasksDatabaseURL != nil {
                         Button {
-                            todoViewModel.openInNotion(firstTaskWithUrl.url!)
+                            todoViewModel.openTasksDatabaseInNotion()
                         } label: {
                             Image(systemName: "arrow.up.forward.square")
                         }
@@ -251,13 +308,9 @@ struct FloatingWidgetView: View {
 
                                 Spacer()
 
-                                if let url = task.url {
-                                    Button {
-                                        todoViewModel.openInNotion(url)
-                                    } label: {
-                                        Image(systemName: "arrow.up.forward.square")
-                                    }
-                                    .buttonStyle(.plain)
+                                if todoViewModel.deletingTaskID == task.id {
+                                    ProgressView()
+                                        .controlSize(.small)
                                 }
 
                                 if task.syncStatus == .failed {
@@ -268,8 +321,20 @@ struct FloatingWidgetView: View {
                                     }
                                     .buttonStyle(.borderless)
                                 }
+
+                                Menu {
+                                    taskActionMenu(for: task)
+                                } label: {
+                                    Image(systemName: "ellipsis.circle")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .menuStyle(.borderlessButton)
+                                .menuIndicator(.hidden)
                             }
                             .padding(.vertical, 4)
+                            .contextMenu {
+                                taskActionMenu(for: task)
+                            }
                         }
                     }
                     .listStyle(.plain)
@@ -283,12 +348,21 @@ struct FloatingWidgetView: View {
             }
             .padding(20)
 
-            if todoViewModel.newTaskViewModel.showForm {
+            if newTaskViewModel.showForm {
                 Color.black.opacity(0.3)
                     .onTapGesture {
-                        todoViewModel.newTaskViewModel.dismissForm()
+                        newTaskViewModel.dismissForm()
                     }
-                NewTaskFormCard(viewModel: todoViewModel.newTaskViewModel)
+                NewTaskFormCard(viewModel: newTaskViewModel)
+            }
+
+            if todoViewModel.editingTask != nil {
+                Color.black.opacity(0.3)
+                    .onTapGesture {
+                        guard !todoViewModel.isSavingTaskEdit else { return }
+                        todoViewModel.cancelEditing()
+                    }
+                EditTaskFormCard(viewModel: todoViewModel)
             }
 
             VStack {
@@ -300,6 +374,41 @@ struct FloatingWidgetView: View {
                 .padding(.trailing, 8)
                 .padding(.bottom, 8)
             }
+        }
+        .confirmationDialog(
+            "删除这个任务？",
+            isPresented: Binding(
+                get: { taskPendingDeletion != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        taskPendingDeletion = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let taskPendingDeletion {
+                Button("删除任务", role: .destructive) {
+                    let taskToDelete = taskPendingDeletion
+                    self.taskPendingDeletion = nil
+                    Task {
+                        await todoViewModel.deleteTask(taskToDelete)
+                    }
+                }
+            }
+        } message: {
+            Text("删除后会在 Notion 中归档该任务，无法在这里直接恢复。")
+        }
+    }
+
+    @ViewBuilder
+    private func taskActionMenu(for task: TaskItem) -> some View {
+        Button("编辑任务") {
+            todoViewModel.beginEditing(task)
+        }
+
+        Button("删除任务", role: .destructive) {
+            taskPendingDeletion = task
         }
     }
 
@@ -364,11 +473,19 @@ struct FloatingWidgetView: View {
                 .font(.system(size: 30, weight: .medium))
                 .foregroundStyle(.secondary)
 
-            Text("今天没有任务")
+            Text(emptyTasksTitle)
                 .font(.headline)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var todoTitle: String {
+        TodoDateDisplayFormatter.title(for: todoViewModel.selectedDate)
+    }
+
+    private var emptyTasksTitle: String {
+        TodoDateDisplayFormatter.emptyStateTitle(for: todoViewModel.selectedDate)
     }
 
     private func syncText(for status: SyncStatus) -> String {
@@ -393,6 +510,71 @@ struct FloatingWidgetView: View {
         case .failed:
             .red
         }
+    }
+}
+
+struct EditTaskFormCard: View {
+    @ObservedObject var viewModel: TodoListViewModel
+    @FocusState private var isTitleFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("编辑任务")
+                .font(.system(size: 14, weight: .medium))
+
+            TextField("标题(必填)", text: $viewModel.editingTitle)
+                .textFieldStyle(.plain)
+                .font(.system(size: 14))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                )
+                .disabled(viewModel.isSavingTaskEdit)
+                .focused($isTitleFocused)
+                .onAppear {
+                    isTitleFocused = true
+                }
+
+            if viewModel.errorMessage == "任务标题不能为空。" {
+                Text("任务标题不能为空。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack {
+                Button("取消") {
+                    viewModel.cancelEditing()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .disabled(viewModel.isSavingTaskEdit)
+
+                Spacer()
+
+                if viewModel.isSavingTaskEdit {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                Button("保存") {
+                    Task {
+                        await viewModel.saveTaskEdit()
+                    }
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.accentColor)
+                .disabled(viewModel.isSavingTaskEdit)
+            }
+        }
+        .padding(16)
+        .frame(width: 280)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
     }
 }
 

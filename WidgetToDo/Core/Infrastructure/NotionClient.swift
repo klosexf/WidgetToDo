@@ -17,7 +17,7 @@ public actor NotionClient {
         return response.properties.map { NotionPropertySchema(name: $0.key, type: $0.value.type) }
     }
 
-    public func queryTodayTasks(databaseID: String, token: String, date: Date) async throws -> [TaskItem] {
+    public func queryTasks(on date: Date, databaseID: String, token: String) async throws -> [TaskItem] {
         let dateString = Self.dayFormatter.string(from: date)
         let body: [String: Any] = [
             "filter": [
@@ -47,6 +47,32 @@ public actor NotionClient {
                 ]
             ]
         ]
+        let request = try makeRequest(path: "pages/\(pageID)", method: "PATCH", token: token, body: body)
+        let _: PageResponse = try await perform(request)
+    }
+
+    public func updateTaskTitle(pageID: String, title: String, token: String) async throws -> TaskItem {
+        let body: [String: Any] = [
+            "properties": [
+                "Name": [
+                    "title": [
+                        [
+                            "type": "text",
+                            "text": [
+                                "content": title
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+        let request = try makeRequest(path: "pages/\(pageID)", method: "PATCH", token: token, body: body)
+        let page: PageResponse = try await perform(request)
+        return try Self.mapTask(page: page)
+    }
+
+    public func deleteTask(pageID: String, token: String) async throws {
+        let body: [String: Any] = ["archived": true]
         let request = try makeRequest(path: "pages/\(pageID)", method: "PATCH", token: token, body: body)
         let _: PageResponse = try await perform(request)
     }
@@ -288,7 +314,7 @@ public actor NotionClient {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.timeZone = .current
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()

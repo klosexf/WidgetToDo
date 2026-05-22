@@ -15,14 +15,6 @@ private final class FloatingPanel: NSPanel {
 
     override func sendEvent(_ event: NSEvent) {
         if event.type == .leftMouseDown {
-            if !NSApp.isActive {
-                NSApp.activate(ignoringOtherApps: true)
-            }
-
-            if !isKeyWindow {
-                makeKeyAndOrderFront(nil)
-            }
-
             dragStartMouseLocation = NSEvent.mouseLocation
             dragStartFrameOrigin = frame.origin
         } else if event.type == .leftMouseDragged,

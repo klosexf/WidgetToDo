@@ -1,13 +1,13 @@
 import Foundation
 
 public actor NotionRepository {
-    private let tokenStore: KeychainTokenStore
+    private let tokenStore: any TokenStore
     private let settingsStore: SettingsStore
     private let cache: SQLiteCache
     private let notionClient: NotionClient
 
     public init(
-        tokenStore: KeychainTokenStore,
+        tokenStore: any TokenStore,
         settingsStore: SettingsStore,
         cache: SQLiteCache,
         notionClient: NotionClient
@@ -65,17 +65,29 @@ public actor NotionRepository {
 
         do {
             let tasks = TaskSorting.sort(
-                try await notionClient.queryTodayTasks(databaseID: context.settings.tasksDatabaseID, token: context.token, date: date)
+                try await notionClient.queryTasks(on: date, databaseID: context.settings.tasksDatabaseID, token: context.token)
             )
-            try cache.saveTasks(tasks)
+            try cache.saveTasks(tasks, for: date)
             return tasks
         } catch {
-            let cached = try cache.loadTasks()
+            let cached = try cache.loadTasks(for: date)
             guard !cached.isEmpty else {
                 throw error
             }
             return TaskSorting.sort(cached)
         }
+    }
+
+    public func tasksDatabasePageURL() async throws -> URL {
+        let context = try await configurationContext()
+        if let savedURL = context.settings.tasksPageURL {
+            return savedURL
+        }
+
+        guard let url = URL(string: "https://www.notion.so/\(context.settings.tasksDatabaseID.replacingOccurrences(of: "-", with: ""))") else {
+            throw NotionRepositoryError.invalidDatabaseInput("任务数据库 URL 无效。")
+        }
+        return url
     }
 
     public func toggleTask(id: String, isDone: Bool) async throws -> TaskItem {
@@ -116,6 +128,37 @@ public actor NotionRepository {
             throw NotionRepositoryError.missingCacheRecord("任务缓存记录不存在。")
         }
         return try await toggleTask(id: id, isDone: task.isDone)
+    }
+
+    public func updateTaskTitle(id: String, title: String) async throws -> TaskItem {
+        guard var task = try cache.task(id: id) else {
+            throw NotionRepositoryError.missingCacheRecord("任务缓存记录不存在。")
+        }
+
+        task.title = title
+        task.syncStatus = .localPending
+        try cache.upsert(task)
+
+        do {
+            let context = try await configurationContext()
+            let updated = try await notionClient.updateTaskTitle(pageID: id, title: title, token: context.token)
+            try cache.upsert(updated)
+            return updated
+        } catch {
+            task.syncStatus = .failed
+            try cache.upsert(task)
+            throw error
+        }
+    }
+
+    public func deleteTask(id: String) async throws {
+        guard try cache.task(id: id) != nil else {
+            throw NotionRepositoryError.missingCacheRecord("任务缓存记录不存在。")
+        }
+
+        let context = try await configurationContext()
+        try await notionClient.deleteTask(pageID: id, token: context.token)
+        try cache.deleteTask(id: id)
     }
 
     public func createTask(title: String, date: Date, priority: String?, hasPriorityField: Bool) async throws -> TaskItem {

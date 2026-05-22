@@ -4,6 +4,7 @@ import SQLite3
 public final class SQLiteCache: @unchecked Sendable {
     private let db: OpaquePointer?
     private let iso8601 = ISO8601DateFormatter()
+    private let calendar = Calendar(identifier: .gregorian)
 
     public init(baseURL: URL? = nil) throws {
         let fileURL = try Self.resolveDatabaseURL(baseURL: baseURL)
@@ -69,34 +70,48 @@ public final class SQLiteCache: @unchecked Sendable {
     public func loadTasks() throws -> [TaskItem] {
         let sql = "SELECT id, title, is_done, priority, notion_date, url, sync_status FROM tasks;"
         return try query(sql) { statement in
-            let id = Self.readString(from: statement, at: 0)
-            let title = Self.readString(from: statement, at: 1)
-            let isDone = sqlite3_column_int(statement, 2) == 1
-            let priority = Self.readOptionalString(from: statement, at: 3)
-            let date = try parseDate(Self.readString(from: statement, at: 4))
-            let url = Self.readOptionalString(from: statement, at: 5).flatMap(URL.init(string:))
-            let syncStatus = SyncStatus(rawValue: Self.readString(from: statement, at: 6)) ?? .synced
-            return TaskItem(id: id, title: title, isDone: isDone, priority: priority, date: date, url: url, syncStatus: syncStatus)
+            try readTask(from: statement)
+        }
+    }
+
+    public func loadTasks(for date: Date) throws -> [TaskItem] {
+        let sql = """
+        SELECT id, title, is_done, priority, notion_date, url, sync_status
+        FROM tasks
+        WHERE notion_date >= ? AND notion_date < ?;
+        """
+        let bounds = try dayBounds(for: date)
+        return try query(sql, bindings: [bounds.start, bounds.end]) { statement in
+            try readTask(from: statement)
         }
     }
 
     public func task(id: String) throws -> TaskItem? {
         let sql = "SELECT id, title, is_done, priority, notion_date, url, sync_status FROM tasks WHERE id = ? LIMIT 1;"
         let rows = try query(sql, bindings: [id]) { statement in
-            let taskID = Self.readString(from: statement, at: 0)
-            let title = Self.readString(from: statement, at: 1)
-            let isDone = sqlite3_column_int(statement, 2) == 1
-            let priority = Self.readOptionalString(from: statement, at: 3)
-            let date = try parseDate(Self.readString(from: statement, at: 4))
-            let url = Self.readOptionalString(from: statement, at: 5).flatMap(URL.init(string:))
-            let syncStatus = SyncStatus(rawValue: Self.readString(from: statement, at: 6)) ?? .synced
-            return TaskItem(id: taskID, title: title, isDone: isDone, priority: priority, date: date, url: url, syncStatus: syncStatus)
+            try readTask(from: statement)
         }
         return rows.first
     }
 
     public func saveTasks(_ tasks: [TaskItem]) throws {
-        try execute("DELETE FROM tasks;")
+        let days = Set(tasks.map { calendar.startOfDay(for: $0.date) })
+        guard !days.isEmpty else { return }
+        try replaceTasks(tasks, for: days)
+    }
+
+    public func saveTasks(_ tasks: [TaskItem], for date: Date) throws {
+        try replaceTasks(tasks, for: [calendar.startOfDay(for: date)])
+    }
+
+    private func replaceTasks(_ tasks: [TaskItem], for dates: Set<Date>) throws {
+        for date in dates {
+            let bounds = try dayBounds(for: date)
+            try execute(
+                "DELETE FROM tasks WHERE notion_date >= ? AND notion_date < ?;",
+                bindings: [bounds.start, bounds.end]
+            )
+        }
         for task in tasks {
             try upsert(task)
         }
@@ -127,6 +142,10 @@ public final class SQLiteCache: @unchecked Sendable {
                 iso8601.string(from: Date())
             ]
         )
+    }
+
+    public func deleteTask(id: String) throws {
+        try execute("DELETE FROM tasks WHERE id = ?;", bindings: [id])
     }
 
     public func journalEntry(for date: Date) throws -> JournalEntry? {
@@ -249,6 +268,25 @@ public final class SQLiteCache: @unchecked Sendable {
             throw SQLiteCacheError.invalidDate(value)
         }
         return date
+    }
+
+    private func dayBounds(for date: Date) throws -> (start: String, end: String) {
+        let startDate = calendar.startOfDay(for: date)
+        guard let endDate = calendar.date(byAdding: .day, value: 1, to: startDate) else {
+            throw SQLiteCacheError.invalidDate("\(date)")
+        }
+        return (iso8601.string(from: startDate), iso8601.string(from: endDate))
+    }
+
+    private func readTask(from statement: OpaquePointer) throws -> TaskItem {
+        let id = Self.readString(from: statement, at: 0)
+        let title = Self.readString(from: statement, at: 1)
+        let isDone = sqlite3_column_int(statement, 2) == 1
+        let priority = Self.readOptionalString(from: statement, at: 3)
+        let date = try parseDate(Self.readString(from: statement, at: 4))
+        let url = Self.readOptionalString(from: statement, at: 5).flatMap(URL.init(string:))
+        let syncStatus = SyncStatus(rawValue: Self.readString(from: statement, at: 6)) ?? .synced
+        return TaskItem(id: id, title: title, isDone: isDone, priority: priority, date: date, url: url, syncStatus: syncStatus)
     }
 
     private static func readString(from statement: OpaquePointer, at index: Int32) -> String {

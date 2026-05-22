@@ -26,17 +26,17 @@ final class NewTaskViewModel: ObservableObject {
 
     var onSubmit: ((PendingTaskItem) -> Void)?
     var onCreateSuccess: ((TaskItem) -> Void)?
-    var onCreateFailure: ((PendingTaskItem) -> Void)?
+    var onCreateFailure: ((PendingTaskItem, String) -> Void)?
 
     init(repository: NotionRepository, hasPriorityField: Bool) {
         self.repository = repository
         self.hasPriorityField = hasPriorityField
     }
 
-    func openForm() {
+    func openForm(defaultDate: Date) {
         restoreDraftIfNeeded()
         if title.isEmpty {
-            taskDate = Date()
+            taskDate = defaultDate
             priority = "Medium"
         }
         formState = .idle
@@ -61,7 +61,7 @@ final class NewTaskViewModel: ObservableObject {
         let pendingItem = PendingTaskItem(
             title: trimmedTitle,
             date: taskDate,
-            priority: hasPriorityField ? priority : nil
+            priority: nil
         )
         dismissForm()
         onSubmit?(pendingItem)
@@ -71,13 +71,13 @@ final class NewTaskViewModel: ObservableObject {
                 let task = try await repository.createTask(
                     title: trimmedTitle,
                     date: taskDate,
-                    priority: hasPriorityField ? priority : nil,
-                    hasPriorityField: hasPriorityField
+                    priority: nil,
+                    hasPriorityField: false
                 )
                 onCreateSuccess?(task)
             } catch {
                 saveDraft()
-                onCreateFailure?(pendingItem)
+                onCreateFailure?(pendingItem, error.localizedDescription)
             }
         }
     }

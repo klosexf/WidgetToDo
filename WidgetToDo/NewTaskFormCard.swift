@@ -41,18 +41,6 @@ struct NewTaskFormCard: View {
             }
 
             HStack {
-                Text("优先级:")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                Picker("", selection: $viewModel.priority) {
-                    ForEach(viewModel.priorityOptions, id: \.self) { option in
-                        Text(option).tag(option)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-
-            HStack {
                 Button("Esc 取消") {
                     viewModel.dismissForm()
                 }
@@ -71,7 +59,7 @@ struct NewTaskFormCard: View {
             }
         }
         .padding(16)
-        .frame(width: 280, height: 220)
+        .frame(width: 280, height: 190)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
     }

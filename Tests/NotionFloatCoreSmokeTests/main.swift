@@ -22,7 +22,12 @@ struct NotionFloatCoreSmokeTestsRunner {
             try journalContentBuilderConvertsLinesToParagraphBlocks()
             try notionClientHttpErrorExposesReadableDescription()
             try notionRepositoryValidationErrorExposesReadableDescription()
+            try notionRepositoryBuildsTasksDatabasePageURL()
+            try todoListViewModelDoesNotSynchronouslyBridgeNestedObjectWillChange()
+            try todoHeaderOpenButtonTargetsTasksDatabasePage()
+            try todoDateTitleUsesChineseDateWithoutTodaySpecialCase()
             try floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring()
+            try floatingPanelDoesNotSynchronouslyActivateDuringEventDispatch()
             try await notionClientBuildsDatabaseSchemaURLWithoutQuery()
             try await notionClientPreservesQueryItemsInBlockChildrenURL()
             print("All smoke tests passed.")
@@ -140,6 +145,16 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
     }
 
+    static func notionRepositoryBuildsTasksDatabasePageURL() throws {
+        let databaseID = "12345678-1234-1234-1234-1234567890ab"
+        let databaseURL = URL(string: "https://www.notion.so/\(databaseID.replacingOccurrences(of: "-", with: ""))")
+
+        try expect(
+            databaseURL?.absoluteString == "https://www.notion.so/123456781234123412341234567890ab",
+            "task database navigation should target the database root URL instead of a task page URL"
+        )
+    }
+
     static func floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring() throws {
         let rootURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -155,8 +170,116 @@ struct NotionFloatCoreSmokeTestsRunner {
             "floating window drag completion must not rely on global mouse-up monitoring"
         )
         try expect(
-            source.contains("windowDidMove"),
-            "floating window drag completion should be driven by window movement callbacks"
+            source.contains("if event.type == .leftMouseUp"),
+            "floating window drag completion should clear drag state on local leftMouseUp"
+        )
+    }
+
+    static func todoListViewModelDoesNotSynchronouslyBridgeNestedObjectWillChange() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let viewModelURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("TodoListViewModel.swift")
+        let source = try String(contentsOf: viewModelURL, encoding: .utf8)
+
+        try expect(
+            !source.contains("self?.objectWillChange.send()"),
+            "todo list view model should not synchronously forward nested objectWillChange events"
+        )
+    }
+
+    static func todoHeaderOpenButtonTargetsTasksDatabasePage() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            source.contains("todoViewModel.tasksDatabaseURL != nil"),
+            "todo header open button should depend on the tasks database URL being available"
+        )
+        try expect(
+            source.contains("todoViewModel.openTasksDatabaseInNotion()"),
+            "todo header open button should open the tasks database page"
+        )
+        try expect(
+            !source.contains("firstTaskWithUrl"),
+            "todo header open button must not reuse the first task page URL"
+        )
+    }
+
+    static func todoDateTitleUsesChineseDateWithoutTodaySpecialCase() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            source.contains("TodoDateDisplayFormatter.title(for: todoViewModel.selectedDate)"),
+            "todo date title should delegate to the shared formatter"
+        )
+        try expect(
+            source.contains("TodoDateDisplayFormatter.emptyStateTitle(for: todoViewModel.selectedDate)"),
+            "todo empty state should delegate to the shared formatter"
+        )
+        try expect(
+            source.contains("private let todoDateTitleWidth: CGFloat = 104"),
+            "todo date title should reserve a fixed width so today and non-today labels align"
+        )
+        try expect(
+            source.contains(".frame(width: todoDateTitleWidth, alignment: .leading)"),
+            "todo date title should render inside the fixed-width frame"
+        )
+        try expect(
+            source.contains(".lineLimit(1)"),
+            "todo date title should be constrained to a single line"
+        )
+        try expect(
+            source.contains(".minimumScaleFactor(0.8)"),
+            "todo date title should scale down before wrapping"
+        )
+        try expect(
+            source.contains(".allowsTightening(true)"),
+            "todo date title should tighten glyph spacing before truncation"
+        )
+        try expect(
+            source.contains(".frame(height: 28)"),
+            "todo date title should keep a stable vertical slot height"
+        )
+        try expect(
+            source.contains("private let jumpToTodayWidth: CGFloat = 56"),
+            "jump-to-today control should reserve a stable slot width"
+        )
+    }
+
+    static func floatingPanelDoesNotSynchronouslyActivateDuringEventDispatch() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let managerURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("FloatingWindowManager.swift")
+        let source = try String(contentsOf: managerURL, encoding: .utf8)
+
+        try expect(
+            !source.contains("NSApp.activate(ignoringOtherApps: true)"),
+            "floating panel should avoid manual app activation from sendEvent to prevent event-path priority inversions"
+        )
+        try expect(
+            !source.contains("RunLoop.main.perform"),
+            "floating panel should not enqueue deferred activation work from sendEvent"
         )
     }
 

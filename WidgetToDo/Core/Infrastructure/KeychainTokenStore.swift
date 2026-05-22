@@ -1,7 +1,13 @@
 import Foundation
 import Security
 
-public final class KeychainTokenStore: Sendable {
+public protocol TokenStore: Sendable {
+    func save(token: String) throws
+    func loadToken() throws -> String?
+    func deleteToken()
+}
+
+public final class KeychainTokenStore: TokenStore {
     private let service = "com.xiaofengchen.NotionFloat"
     private let account = "notion-token"
 
