@@ -32,8 +32,12 @@ final class StatusBarController: NSObject {
 
             button.layer?.sublayers?.forEach { $0.removeFromSuperlayer() }
 
+            let iconSize: CGFloat = 18
+            let offsetX = max(0, (button.bounds.width - iconSize) / 2)
+            let offsetY = max(0, (button.bounds.height - iconSize) / 2)
+
             let docLayer = CAShapeLayer()
-            docLayer.frame = NSRect(x: 3, y: 1, width: 18, height: 18)
+            docLayer.frame = NSRect(x: offsetX, y: offsetY, width: iconSize, height: iconSize)
             docLayer.path = Self.makeDocOutlinePath(size: 18)
             docLayer.strokeColor = NSColor.white.cgColor
             docLayer.fillColor = NSColor.clear.cgColor
@@ -43,7 +47,7 @@ final class StatusBarController: NSObject {
             button.layer?.addSublayer(docLayer)
 
             let checkLayer = CAShapeLayer()
-            checkLayer.frame = NSRect(x: 3, y: 1, width: 18, height: 18)
+            checkLayer.frame = NSRect(x: offsetX, y: offsetY, width: iconSize, height: iconSize)
             checkLayer.path = Self.makeCheckPath(size: 18)
             checkLayer.strokeColor = NSColor.white.cgColor
             checkLayer.fillColor = NSColor.clear.cgColor

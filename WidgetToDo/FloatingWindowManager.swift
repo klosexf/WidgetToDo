@@ -88,7 +88,10 @@ final class FloatingWindowManager: NSObject {
     }
 
     func show() {
-        panel.center()
+        let wasVisible = panel.isVisible
+        if !wasVisible {
+            panel.center()
+        }
         panel.makeKeyAndOrderFront(nil)
         closeUnexpectedWindows()
     }
