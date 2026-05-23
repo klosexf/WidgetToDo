@@ -11,7 +11,13 @@ struct ContentView: View {
                 ProgressView("正在加载 Notion Float...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .onboarding:
-                OnboardingView(viewModel: rootViewModel.onboardingViewModel)
+                OnboardingView(viewModel: rootViewModel.onboardingViewModel, mode: .onboarding)
+            case .settings:
+                OnboardingView(
+                    viewModel: rootViewModel.onboardingViewModel,
+                    mode: .settings,
+                    onBack: rootViewModel.returnFromSettings
+                )
             case .widget:
                 FloatingWidgetView(
                     todoViewModel: rootViewModel.todoListViewModel,
@@ -36,11 +42,13 @@ final class RootViewModel: ObservableObject {
     enum Screen {
         case loading
         case onboarding
+        case settings
         case widget
     }
 
     @Published var screen: Screen = .loading
     @Published var bannerMessage: String?
+    private var screenBeforeSettings: Screen = .widget
 
     let onboardingViewModel: OnboardingViewModel
     let todoListViewModel: TodoListViewModel
@@ -87,27 +95,114 @@ final class RootViewModel: ObservableObject {
             bannerMessage = message
         }
     }
+
+    func openSettings() {
+        if screen != .settings {
+            screenBeforeSettings = screen
+        }
+        screen = .settings
+        Task { @MainActor [weak self] in
+            do {
+                let snapshot = try await self?.onboardingViewModel.loadSnapshot()
+                if let snapshot {
+                    self?.todoListViewModel.newTaskViewModel.hasPriorityField = snapshot.hasPriorityField
+                }
+            } catch {
+                self?.onboardingViewModel.statusMessage = "读取设置失败：\(error.localizedDescription)"
+                self?.onboardingViewModel.isErrorState = true
+            }
+        }
+    }
+
+    func returnFromSettings() {
+        screen = screenBeforeSettings
+    }
 }
 
 struct OnboardingView: View {
+    enum Mode {
+        case onboarding
+        case settings
+    }
+
     @ObservedObject var viewModel: OnboardingViewModel
+    let mode: Mode
+    var onBack: (() -> Void)?
+    @State private var isShowingTokenHelp = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("连接 Notion")
+            HStack {
+                if mode == .settings {
+                    Button {
+                        onBack?()
+                    } label: {
+                        Label("返回", systemImage: "chevron.left")
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                }
+            }
+
+            Text(mode == .settings ? "设置" : "连接 Notion")
                 .font(.title2.weight(.semibold))
 
             Text("这个版本需要一个 Notion 集成令牌，以及一个任务数据库和一个日记数据库。")
                 .foregroundStyle(.secondary)
 
-            SecureField("内部集成令牌 / PAT", text: $viewModel.token)
-                .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Notion Token")
+                        .font(.headline)
+                    Spacer()
+                    Button {
+                        isShowingTokenHelp = true
+                    } label: {
+                        Text("如何获取?")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tint)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("如何获取?")
+                }
+                SecureField("Notion Token", text: $viewModel.token)
+                    .textFieldStyle(.roundedBorder)
+                Text("令牌只保存在本机钥匙串。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
-            TextField("任务数据库 URL 或 ID", text: $viewModel.tasksDatabaseInput)
-                .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Tasks Database ID")
+                        .font(.headline)
+                    Spacer()
+                    Text("粘贴整个URL自动提取")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                TextField("任务数据库 URL 或 ID", text: $viewModel.tasksDatabaseInput)
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: viewModel.tasksDatabaseInput) { _ in
+                        viewModel.normalizeTasksDatabaseInput()
+                    }
+            }
 
-            TextField("日记数据库 URL 或 ID", text: $viewModel.journalDatabaseInput)
-                .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Journal Database ID")
+                        .font(.headline)
+                    Spacer()
+                    Text("粘贴整个URL自动提取")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                TextField("日记数据库 URL 或 ID", text: $viewModel.journalDatabaseInput)
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: viewModel.journalDatabaseInput) { _ in
+                        viewModel.normalizeJournalDatabaseInput()
+                    }
+            }
 
             if let message = viewModel.statusMessage {
                 Text(message)
@@ -125,16 +220,52 @@ struct OnboardingView: View {
                         .controlSize(.small)
                         .frame(maxWidth: .infinity)
                 } else {
-                    Text("验证并继续")
+                    Text(mode == .settings ? "保存设置" : "验证并继续")
                         .frame(maxWidth: .infinity)
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(viewModel.isWorking || viewModel.token.isEmpty || viewModel.tasksDatabaseInput.isEmpty || viewModel.journalDatabaseInput.isEmpty)
+            .disabled(viewModel.isWorking)
 
             Spacer()
         }
         .padding(24)
+        .sheet(isPresented: $isShowingTokenHelp) {
+            NotionTokenHelpView()
+        }
+    }
+}
+
+private struct NotionTokenHelpView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("获取 Notion Token")
+                    .font(.title3.weight(.semibold))
+                Spacer()
+                Button("关闭") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("1. 打开 Notion 的 My integrations，创建一个 Internal Integration。")
+                Text("2. 在该 integration 的 Configuration 页面复制 Installation access token。")
+                Text("3. 打开 Tasks 和 Journal 数据库右上角菜单，把这个 integration 添加到 Connections。")
+                Text("4. 回到这里粘贴 token，并把两个数据库的完整 URL 粘贴到对应输入框。")
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+
+            Link("打开 Notion integrations", destination: URL(string: "https://www.notion.so/my-integrations")!)
+
+            Spacer()
+        }
+        .padding(24)
+        .frame(width: 420, height: 260)
     }
 }
 
@@ -591,7 +722,12 @@ struct EditTaskFormCard: View {
 }
 
 #Preview("初始配置") {
-    OnboardingView(viewModel: makePreviewOnboardingViewModel())
+    OnboardingView(viewModel: makePreviewOnboardingViewModel(), mode: .onboarding)
+        .frame(width: 340, height: 560)
+}
+
+#Preview("设置") {
+    OnboardingView(viewModel: makePreviewOnboardingViewModel(), mode: .settings, onBack: {})
         .frame(width: 340, height: 560)
 }
 

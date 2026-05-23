@@ -23,6 +23,7 @@ public actor NotionRepository {
         let token = try tokenStore.loadToken()
         return ConfigurationSnapshot(
             hasToken: token?.isEmpty == false,
+            token: token,
             tasksDatabaseID: settings?.tasksDatabaseID,
             journalDatabaseID: settings?.journalDatabaseID,
             hasPriorityField: settings?.hasPriorityField ?? true
@@ -247,12 +248,14 @@ public actor NotionRepository {
 
 public struct ConfigurationSnapshot: Sendable {
     public let hasToken: Bool
+    public let token: String?
     public let tasksDatabaseID: String?
     public let journalDatabaseID: String?
     public let hasPriorityField: Bool
 
-    public init(hasToken: Bool, tasksDatabaseID: String?, journalDatabaseID: String?, hasPriorityField: Bool = true) {
+    public init(hasToken: Bool, token: String? = nil, tasksDatabaseID: String?, journalDatabaseID: String?, hasPriorityField: Bool = true) {
         self.hasToken = hasToken
+        self.token = token
         self.tasksDatabaseID = tasksDatabaseID
         self.journalDatabaseID = journalDatabaseID
         self.hasPriorityField = hasPriorityField

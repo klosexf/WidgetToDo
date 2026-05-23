@@ -25,6 +25,8 @@ struct NotionFloatCoreSmokeTestsRunner {
             try notionRepositoryBuildsTasksDatabasePageURL()
             try todoListViewModelDoesNotSynchronouslyBridgeNestedObjectWillChange()
             try todoHeaderOpenButtonTargetsTasksDatabasePage()
+            try statusBarMenuContainsSettingsEntry()
+            try configurationFormContainsSettingsHelpAndExtractionCopy()
             try todoDateTitleUsesChineseDateWithoutTodaySpecialCase()
             try floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring()
             try floatingPanelDoesNotSynchronouslyActivateDuringEventDispatch()
@@ -212,6 +214,94 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             !source.contains("firstTaskWithUrl"),
             "todo header open button must not reuse the first task page URL"
+        )
+    }
+
+    static func statusBarMenuContainsSettingsEntry() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let statusBarURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("StatusBarController.swift")
+        let source = try String(contentsOf: statusBarURL, encoding: .utf8)
+
+        try expect(
+            source.contains("private let onSettings: () -> Void"),
+            "status bar controller should expose a settings callback"
+        )
+        try expect(
+            source.contains("NSMenuItem(title: \"设置\""),
+            "status bar menu should include a settings item"
+        )
+        try expect(
+            source.contains("button.layer?.backgroundColor = NSColor.black.cgColor"),
+            "status bar item should apply a visible background layer when native content drawing is unreliable"
+        )
+        try expect(
+            source.contains("button.title = \" N \""),
+            "status bar item should render a readable fallback title"
+        )
+        try expect(
+            source.contains("button.attributedTitle = NSAttributedString"),
+            "status bar item should force a high-contrast title color"
+        )
+        try expect(
+            source.contains("button.sendAction(on: .leftMouseUp)"),
+            "status bar item should handle left mouse click via button action"
+        )
+        try expect(
+            source.contains("NSEvent.addLocalMonitorForEvents(matching: .rightMouseUp)"),
+            "status bar item should handle right mouse click via local event monitor since NSStatusBarButton ignores sendAction for right click"
+        )
+        try expect(
+            source.contains("NSMenu.popUpContextMenu(menu, with: event, for: button)"),
+            "status bar item should pop the menu using NSMenu.popUpContextMenu with the triggering event"
+        )
+        try expect(
+            source.contains("item.length = NSStatusItem.variableLength"),
+            "status bar item should reserve enough width for the visible title and icon"
+        )
+        try expect(
+            !source.contains("button.title = \" Notion\""),
+            "status bar item should no longer rely on the previous text-only Notion title path"
+        )
+        try expect(
+            source.contains("#selector(openSettings)"),
+            "settings menu item should call the settings action"
+        )
+    }
+
+    static func configurationFormContainsSettingsHelpAndExtractionCopy() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let viewModelURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("OnboardingViewModel.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+        let viewModelSource = try String(contentsOf: viewModelURL, encoding: .utf8)
+
+        try expect(
+            source.contains("SecureField(\"Notion Token\""),
+            "configuration form should use SecureField for the Notion token"
+        )
+        try expect(
+            source.contains("如何获取?"),
+            "configuration form should include token help copy"
+        )
+        try expect(
+            source.contains("粘贴整个URL自动提取"),
+            "database inputs should explain automatic URL extraction"
+        )
+        try expect(
+            viewModelSource.contains("ConfigurationInputNormalizer.normalizeDatabaseInput"),
+            "configuration view model should normalize pasted database URLs"
         )
     }
 

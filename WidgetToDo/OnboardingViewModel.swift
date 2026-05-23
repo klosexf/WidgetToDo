@@ -20,6 +20,7 @@ final class OnboardingViewModel: ObservableObject {
 
     func loadSnapshot() async throws -> ConfigurationSnapshot {
         let snapshot = try await repository.loadConfigurationSnapshot()
+        token = snapshot.token ?? ""
         tasksDatabaseInput = snapshot.tasksDatabaseID ?? ""
         journalDatabaseInput = snapshot.journalDatabaseID ?? ""
         if snapshot.hasToken {
@@ -30,6 +31,17 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     func validateAndSave() async {
+        let issues = ConfigurationInputNormalizer.validate(
+            token: token,
+            tasksInput: tasksDatabaseInput,
+            journalInput: journalDatabaseInput
+        )
+        guard issues.isEmpty else {
+            statusMessage = issues.map(\.message).joined(separator: "\n")
+            isErrorState = true
+            return
+        }
+
         isWorking = true
         defer { isWorking = false }
 
@@ -52,5 +64,23 @@ final class OnboardingViewModel: ObservableObject {
             statusMessage = error.localizedDescription
             isErrorState = true
         }
+    }
+
+    func normalizeTasksDatabaseInput() {
+        guard let normalized = ConfigurationInputNormalizer.normalizeDatabaseInput(tasksDatabaseInput),
+              normalized != tasksDatabaseInput
+        else {
+            return
+        }
+        tasksDatabaseInput = normalized
+    }
+
+    func normalizeJournalDatabaseInput() {
+        guard let normalized = ConfigurationInputNormalizer.normalizeDatabaseInput(journalDatabaseInput),
+              normalized != journalDatabaseInput
+        else {
+            return
+        }
+        journalDatabaseInput = normalized
     }
 }

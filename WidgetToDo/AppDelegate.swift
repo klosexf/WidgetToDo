@@ -43,6 +43,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.terminateOtherRunningInstances()
         }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            self?.terminateOtherRunningInstances()
+        }
     }
 
     private func terminateOtherRunningInstances() {
