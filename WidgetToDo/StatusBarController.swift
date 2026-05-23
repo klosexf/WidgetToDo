@@ -4,7 +4,6 @@ import AppKit
 final class StatusBarController: NSObject {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let onToggle: () -> Void
-    private let onNewTask: () -> Void
     private let onSettings: () -> Void
     private let onQuit: () -> Void
     private var menu: NSMenu?
@@ -12,12 +11,10 @@ final class StatusBarController: NSObject {
 
     init(
         onToggle: @escaping () -> Void,
-        onNewTask: @escaping () -> Void,
         onSettings: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.onToggle = onToggle
-        self.onNewTask = onNewTask
         self.onSettings = onSettings
         self.onQuit = onQuit
     }
@@ -73,7 +70,6 @@ final class StatusBarController: NSObject {
 
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "显示 / 隐藏 Notion 浮窗", action: #selector(togglePanel), keyEquivalent: "\\"))
-        menu.addItem(NSMenuItem(title: "新建任务", action: #selector(newTask), keyEquivalent: "n"))
         menu.addItem(NSMenuItem(title: "设置", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q"))
@@ -108,11 +104,6 @@ final class StatusBarController: NSObject {
     @objc
     private func togglePanel() {
         onToggle()
-    }
-
-    @objc
-    private func newTask() {
-        onNewTask()
     }
 
     @objc
