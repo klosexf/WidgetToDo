@@ -236,16 +236,12 @@ struct NotionFloatCoreSmokeTestsRunner {
             "status bar menu should include a settings item"
         )
         try expect(
-            source.contains("button.layer?.backgroundColor = NSColor.black.cgColor"),
-            "status bar item should apply a visible background layer when native content drawing is unreliable"
+            source.contains("effectiveAppearance"),
+            "status bar icon color should adapt to menu bar appearance (light/dark)"
         )
         try expect(
-            source.contains("button.title = \" N \""),
-            "status bar item should render a readable fallback title"
-        )
-        try expect(
-            source.contains("button.attributedTitle = NSAttributedString"),
-            "status bar item should force a high-contrast title color"
+            source.contains("button.layer?.addSublayer"),
+            "status bar icon should add shape layers as sublayers of the button"
         )
         try expect(
             source.contains("button.sendAction(on: .leftMouseUp)"),

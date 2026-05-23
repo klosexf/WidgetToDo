@@ -23,22 +23,44 @@ final class StatusBarController: NSObject {
     }
 
     func install() {
-        item.length = NSStatusItem.variableLength
+        item.length = NSStatusItem.squareLength
         if let button = item.button {
             button.image = nil
+
+            button.wantsLayer = true
+            button.layer?.backgroundColor = NSColor.clear.cgColor
+
+            button.layer?.sublayers?.forEach { $0.removeFromSuperlayer() }
+
+            let docLayer = CAShapeLayer()
+            docLayer.frame = NSRect(x: 3, y: 1, width: 18, height: 18)
+            docLayer.path = Self.makeDocOutlinePath(size: 18)
+            docLayer.strokeColor = NSColor.white.cgColor
+            docLayer.fillColor = NSColor.clear.cgColor
+            docLayer.lineWidth = 1.4
+            docLayer.lineCap = .round
+            docLayer.lineJoin = .round
+            button.layer?.addSublayer(docLayer)
+
+            let checkLayer = CAShapeLayer()
+            checkLayer.frame = NSRect(x: 3, y: 1, width: 18, height: 18)
+            checkLayer.path = Self.makeCheckPath(size: 18)
+            checkLayer.strokeColor = NSColor.white.cgColor
+            checkLayer.fillColor = NSColor.clear.cgColor
+            checkLayer.lineWidth = 1.7
+            checkLayer.lineCap = .round
+            checkLayer.lineJoin = .round
+            button.layer?.addSublayer(checkLayer)
+
             button.attributedTitle = NSAttributedString(
-                string: " N ",
+                string: "     ",
                 attributes: [
-                    .font: NSFont.systemFont(ofSize: 13, weight: .bold),
-                    .foregroundColor: NSColor.white
+                    .font: NSFont.systemFont(ofSize: 1),
+                    .foregroundColor: NSColor.clear
                 ]
             )
-            button.title = " N "
-            button.wantsLayer = true
-            button.layer?.backgroundColor = NSColor.black.cgColor
-            button.layer?.cornerRadius = 5
-            button.layer?.borderWidth = 1
-            button.layer?.borderColor = NSColor.white.withAlphaComponent(0.9).cgColor
+            button.title = "     "
+
             button.toolTip = "Notion 浮窗"
             button.target = self
             button.action = #selector(handleLeftClick(_:))
@@ -97,5 +119,30 @@ final class StatusBarController: NSObject {
     @objc
     private func quit() {
         onQuit()
+    }
+
+    private static func makeDocOutlinePath(size: CGFloat) -> CGPath {
+        let s = size / 16.0
+        let path = CGMutablePath()
+        // Y 坐标已翻转：lockFocus(原点左上角) → CAShapeLayer(原点左下角)
+        path.move(to: CGPoint(x: 3.5 * s, y: 14.5 * s))
+        path.addLine(to: CGPoint(x: 3.5 * s, y: 1.5 * s))
+        path.addLine(to: CGPoint(x: 9.0 * s, y: 1.5 * s))
+        path.addLine(to: CGPoint(x: 12.5 * s, y: 5.0 * s))
+        path.addLine(to: CGPoint(x: 12.5 * s, y: 14.5 * s))
+        path.closeSubpath()
+        path.move(to: CGPoint(x: 9.0 * s, y: 1.5 * s))
+        path.addLine(to: CGPoint(x: 9.0 * s, y: 5.0 * s))
+        path.addLine(to: CGPoint(x: 12.5 * s, y: 5.0 * s))
+        return path
+    }
+
+    private static func makeCheckPath(size: CGFloat) -> CGPath {
+        let s = size / 16.0
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 5.8 * s, y: 9.5 * s))
+        path.addLine(to: CGPoint(x: 7.2 * s, y: 11.0 * s))
+        path.addLine(to: CGPoint(x: 10.5 * s, y: 7.5 * s))
+        return path
     }
 }
