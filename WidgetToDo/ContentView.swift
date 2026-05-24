@@ -10,6 +10,10 @@ struct ContentView: View {
             case .loading:
                 ProgressView("正在加载 Notion Float...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .welcome:
+                WelcomeView {
+                    rootViewModel.screen = .onboarding
+                }
             case .onboarding:
                 OnboardingView(viewModel: rootViewModel.onboardingViewModel, mode: .onboarding)
             case .settings:
@@ -41,6 +45,7 @@ struct ContentView: View {
 final class RootViewModel: ObservableObject {
     enum Screen {
         case loading
+        case welcome
         case onboarding
         case settings
         case widget
@@ -73,10 +78,10 @@ final class RootViewModel: ObservableObject {
                 screen = .widget
                 await refreshWorkspace()
             } else {
-                screen = .onboarding
+                screen = .welcome
             }
         } catch {
-            screen = .onboarding
+            screen = .welcome
             bannerMessage = "启动失败：\(error.localizedDescription)"
         }
     }
@@ -713,6 +718,10 @@ struct EditTaskFormCard: View {
     ContentView(rootViewModel: makePreviewRootViewModel(state: .loading))
 }
 
+#Preview("内容 / 欢迎") {
+    ContentView(rootViewModel: makePreviewRootViewModel(state: .welcome))
+}
+
 #Preview("内容 / 初始配置") {
     ContentView(rootViewModel: makePreviewRootViewModel(state: .onboarding))
 }
@@ -743,6 +752,7 @@ struct EditTaskFormCard: View {
 
 private enum PreviewRootState {
     case loading
+    case welcome
     case onboarding
     case widget
 }
@@ -754,6 +764,8 @@ private func makePreviewRootViewModel(state: PreviewRootState) -> RootViewModel 
     switch state {
     case .loading:
         rootViewModel.screen = .loading
+    case .welcome:
+        rootViewModel.screen = .welcome
     case .onboarding:
         rootViewModel.screen = .onboarding
         rootViewModel.onboardingViewModel.token = "secret_preview_token"
