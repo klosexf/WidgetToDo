@@ -1,81 +1,194 @@
 import SwiftUI
 
-struct WelcomeView: View {
-    let onStartConfig: () -> Void
+private enum WelcomeMetrics {
+    static let horizontalPadding: CGFloat = 14
+    static let topPadding: CGFloat = 12
+    static let headerHeight: CGFloat = 30
+    static let illustrationHeight: CGFloat = 186
+    static let illustrationBottomSpacing: CGFloat = 12
+    static let titleBottomSpacing: CGFloat = 8
+    static let subtitleBottomSpacing: CGFloat = 2
+    static let featuresBottomSpacing: CGFloat = 20
+    static let buttonMinWidth: CGFloat = 170
+    static let buttonHorizontalPadding: CGFloat = 28
+    static let buttonVerticalPadding: CGFloat = 10
+    static let buttonCornerRadius: CGFloat = 8
+    static let progressTopSpacing: CGFloat = 16
+}
 
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
+private struct WelcomeCTAButtonStyle: ButtonStyle {
+    let isHovered: Bool
 
-            // 产品图标
-            HStack(spacing: 4) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 40, weight: .medium))
-                    .foregroundStyle(.green)
-                Image(systemName: "book.pages.fill")
-                    .font(.system(size: 40, weight: .medium))
-                    .foregroundStyle(Color.accentColor)
-            }
-
-            Spacer().frame(height: 24)
-
-            // 产品名称
-            Text("欢迎使用 WidgetToDo")
-                .font(.system(size: 22, weight: .semibold))
-
-            Spacer().frame(height: 12)
-
-            // 一句话价值说明
-            Text("一个常驻桌面的 Notion 小窗口")
-                .font(.system(size: 14))
-                .foregroundStyle(.secondary)
-
-            Spacer().frame(height: 4)
-
-            Text("待办 · 日记 · 一目了然")
-                .font(.system(size: 14))
-                .foregroundStyle(.secondary)
-
-            Spacer().frame(height: 32)
-
-            // 开始配置按钮
-            Button {
-                onStartConfig()
-            } label: {
-                HStack(spacing: 6) {
-                    Text("开始配置")
-                        .font(.system(size: 14, weight: .medium))
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-
-            Spacer().frame(height: 24)
-
-            // 5 步进度点
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(Color.accentColor)
-                    .frame(width: 8, height: 8)
-                ForEach(1..<5, id: \.self) { _ in
-                    Circle()
-                        .fill(Color.secondary.opacity(0.3))
-                        .frame(width: 8, height: 8)
-                }
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 40)
-        .padding(.vertical, 32)
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, WelcomeMetrics.buttonHorizontalPadding)
+            .padding(.vertical, WelcomeMetrics.buttonVerticalPadding)
+            .background(
+                RoundedRectangle(cornerRadius: WelcomeMetrics.buttonCornerRadius, style: .continuous)
+                    .fill(Color(red: 45 / 255, green: 45 / 255, blue: 45 / 255))
+            )
+            .shadow(
+                color: .black.opacity(isHovered ? 0.22 : 0.16),
+                radius: isHovered ? 16 : 10,
+                x: 0,
+                y: isHovered ? 10 : 6
+            )
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .offset(y: isHovered && !configuration.isPressed ? -1 : 0)
+            .animation(.easeOut(duration: 0.18), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.22), value: isHovered)
     }
 }
 
-#Preview("Welcome") {
-    WelcomeView(onStartConfig: {})
-        .frame(width: 340, height: 560)
+struct WelcomeView: View {
+    let onStartConfig: () -> Void
+
+    @State private var isAppeared = false
+    @State private var isButtonHovered = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            headerPlaceholder
+                .frame(height: WelcomeMetrics.headerHeight)
+                .padding(.top, WelcomeMetrics.topPadding)
+
+            illustrationViewport
+                .padding(.top, 6)
+                .padding(.bottom, WelcomeMetrics.illustrationBottomSpacing)
+
+            titleView
+                .padding(.bottom, WelcomeMetrics.titleBottomSpacing)
+
+            subtitleView
+                .padding(.bottom, WelcomeMetrics.subtitleBottomSpacing)
+
+            featuresView
+                .padding(.bottom, WelcomeMetrics.featuresBottomSpacing)
+
+            Button {
+                onStartConfig()
+            } label: {
+                ctaLabel
+                    .frame(minWidth: WelcomeMetrics.buttonMinWidth)
+            }
+            .buttonStyle(WelcomeCTAButtonStyle(isHovered: isButtonHovered))
+            .onHover { hovering in
+                isButtonHovered = hovering
+            }
+
+            progressDots
+                .padding(.top, WelcomeMetrics.progressTopSpacing)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, WelcomeMetrics.horizontalPadding)
+        .opacity(isAppeared ? 1 : 0)
+        .scaleEffect(isAppeared ? 1 : 0.965)
+        .offset(y: isAppeared ? 0 : 16)
+        .animation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.48), value: isAppeared)
+        .onAppear {
+            guard !isAppeared else { return }
+            isAppeared = true
+        }
+    }
+
+    private var headerPlaceholder: some View {
+        HStack {
+            Spacer()
+
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color.black.opacity(0.06))
+                    .frame(width: 6, height: 6)
+
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.black.opacity(0.045))
+                    .frame(width: 24, height: 24)
+                    .overlay {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.26))
+                    }
+            }
+        }
+    }
+
+    private var illustrationViewport: some View {
+        Image("WelcomeIllustration")
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(maxWidth: .infinity)
+            .frame(height: WelcomeMetrics.illustrationHeight)
+            .clipped()
+            .scaleEffect(1.34)
+            .offset(y: 8)
+            .accessibilityHidden(true)
+    }
+
+    private var titleView: some View {
+        Text("欢迎使用 WidgetToDo")
+            .font(.system(size: 24, weight: .bold))
+            .tracking(-0.25)
+            .foregroundStyle(Color(red: 26 / 255, green: 26 / 255, blue: 26 / 255))
+            .multilineTextAlignment(.center)
+    }
+
+    private var subtitleView: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text("一个常驻桌面的")
+                .foregroundStyle(Color(red: 107 / 255, green: 107 / 255, blue: 107 / 255))
+
+            Text("Notion")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color(red: 26 / 255, green: 26 / 255, blue: 26 / 255))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Color(red: 245 / 255, green: 245 / 255, blue: 245 / 255))
+                )
+
+            Text("小窗口")
+                .foregroundStyle(Color(red: 107 / 255, green: 107 / 255, blue: 107 / 255))
+        }
+        .font(.system(size: 14))
+        .frame(maxWidth: .infinity)
+    }
+
+    private var featuresView: some View {
+        Text("待办 · 日记 · 一目了然")
+            .font(.system(size: 14, weight: .medium))
+            .tracking(0.5)
+            .foregroundStyle(Color(red: 107 / 255, green: 107 / 255, blue: 107 / 255))
+            .multilineTextAlignment(.center)
+    }
+
+    private var ctaLabel: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "book.pages.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+
+            Text("开始配置")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+
+            Image(systemName: "arrow.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .offset(x: isButtonHovered ? 3 : 0)
+                .animation(.easeOut(duration: 0.2), value: isButtonHovered)
+        }
+    }
+
+    private var progressDots: some View {
+        HStack(spacing: 7) {
+            ForEach(0..<5, id: \.self) { index in
+                Circle()
+                    .fill(index == 0 ? Color(red: 45 / 255, green: 45 / 255, blue: 45 / 255) : Color.black.opacity(0.14))
+                    .frame(width: index == 0 ? 7 : 6, height: index == 0 ? 7 : 6)
+            }
+        }
+    }
 }
