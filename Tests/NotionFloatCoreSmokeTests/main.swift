@@ -28,10 +28,12 @@ struct NotionFloatCoreSmokeTestsRunner {
             try statusBarMenuContainsSettingsEntry()
             try configurationFormContainsSettingsHelpAndExtractionCopy()
             try todoDateTitleUsesChineseDateWithoutTodaySpecialCase()
+            try welcomeViewUsesDedicatedIllustrationAssetAndCallback()
             try floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring()
             try floatingPanelDoesNotSynchronouslyActivateDuringEventDispatch()
             try await notionClientBuildsDatabaseSchemaURLWithoutQuery()
             try await notionClientPreservesQueryItemsInBlockChildrenURL()
+            try await notionClientCreatesChineseJournalTitle()
             print("All smoke tests passed.")
         } catch {
             fputs("Smoke test failed: \(error)\n", stderr)
@@ -236,16 +238,12 @@ struct NotionFloatCoreSmokeTestsRunner {
             "status bar menu should include a settings item"
         )
         try expect(
-            source.contains("effectiveAppearance"),
-            "status bar icon color should adapt to menu bar appearance (light/dark)"
-        )
-        try expect(
             source.contains("button.layer?.addSublayer"),
             "status bar icon should add shape layers as sublayers of the button"
         )
         try expect(
-            source.contains("button.sendAction(on: .leftMouseUp)"),
-            "status bar item should handle left mouse click via button action"
+            source.contains("NSColor.white.cgColor"),
+            "status bar icon should render using white line strokes"
         )
         try expect(
             source.contains("NSEvent.addLocalMonitorForEvents(matching: .rightMouseUp)"),
@@ -256,8 +254,12 @@ struct NotionFloatCoreSmokeTestsRunner {
             "status bar item should pop the menu using NSMenu.popUpContextMenu with the triggering event"
         )
         try expect(
-            source.contains("item.length = NSStatusItem.variableLength"),
-            "status bar item should reserve enough width for the visible title and icon"
+            source.contains("item.menu = menu"),
+            "status bar item should keep the menu attached so right click shows the full native menu including settings"
+        )
+        try expect(
+            !source.contains("item.menu = nil"),
+            "status bar item should not clear its menu after building it"
         )
         try expect(
             !source.contains("button.title = \" Notion\""),
@@ -349,6 +351,30 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
     }
 
+    static func welcomeViewUsesDedicatedIllustrationAssetAndCallback() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let welcomeViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("WelcomeView.swift")
+        let source = try String(contentsOf: welcomeViewURL, encoding: .utf8)
+
+        try expect(
+            source.contains("Button {") && source.contains("onStartConfig()"),
+            "welcome view should keep the existing start-config callback wiring"
+        )
+        try expect(
+            source.contains("Image(\"WelcomeIllustration\")"),
+            "welcome view should render the dedicated asset-backed illustration"
+        )
+        try expect(
+            !source.contains(".buttonStyle(.borderedProminent)"),
+            "welcome CTA should no longer rely on the default bordered prominent style"
+        )
+    }
+
     static func floatingPanelDoesNotSynchronouslyActivateDuringEventDispatch() throws {
         let rootURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -406,6 +432,65 @@ struct NotionFloatCoreSmokeTestsRunner {
             requestURL.absoluteString == "https://api.notion.com/v1/databases/db-1234",
             "database schema requests should append the endpoint path without adding a query string"
         )
+    }
+
+    static func notionClientCreatesChineseJournalTitle() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [CapturingURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let client = NotionClient(session: session)
+        let date = ISO8601DateFormatter().date(from: "2026-05-24T00:00:00Z")!
+
+        CapturingURLProtocol.reset()
+        CapturingURLProtocol.responseBody = #"""
+        {
+          "id": "journal-page-1",
+          "url": "https://www.notion.so/journal-page-1",
+          "properties": {
+            "Name": { "title": [{ "plain_text": "日记 2026年5月24日" }] },
+            "Date": { "date": { "start": "2026-05-24" } }
+          }
+        }
+        """#.data(using: .utf8)!
+        _ = try await client.createJournalPage(databaseID: "journal-db", token: "secret_test_token", date: date)
+
+        guard
+            let request = CapturingURLProtocol.lastRequest,
+            let body = request.httpBody ?? readBody(from: request.httpBodyStream),
+            let jsonObject = try JSONSerialization.jsonObject(with: body) as? [String: Any],
+            let properties = jsonObject["properties"] as? [String: Any],
+            let name = properties["Name"] as? [String: Any],
+            let title = name["title"] as? [Any],
+            let firstTitle = title.first as? [String: Any],
+            let text = firstTitle["text"] as? [String: Any],
+            let content = text["content"] as? String
+        else {
+            throw SmokeTestFailure(description: "expected createJournalPage to send a parsable title payload")
+        }
+
+        try expect(
+            content == "日记 2026年5月24日",
+            "journal page title should use a Chinese date label in the Name property"
+        )
+    }
+
+    static func readBody(from stream: InputStream?) -> Data? {
+        guard let stream else { return nil }
+
+        stream.open()
+        defer { stream.close() }
+
+        let bufferSize = 1024
+        var buffer = [UInt8](repeating: 0, count: bufferSize)
+        var data = Data()
+
+        while stream.hasBytesAvailable {
+            let readCount = stream.read(&buffer, maxLength: bufferSize)
+            guard readCount > 0 else { break }
+            data.append(buffer, count: readCount)
+        }
+
+        return data.isEmpty ? nil : data
     }
 }
 
