@@ -5,7 +5,10 @@ private enum WelcomeMetrics {
     static let topPadding: CGFloat = 12
     static let headerHeight: CGFloat = 30
     static let illustrationHeight: CGFloat = 186
+    static let illustrationTopPadding: CGFloat = 6
     static let illustrationBottomSpacing: CGFloat = 12
+    static let illustrationScale: CGFloat = 1.34
+    static let illustrationOffsetY: CGFloat = 8
     static let titleBottomSpacing: CGFloat = 8
     static let subtitleBottomSpacing: CGFloat = 2
     static let featuresBottomSpacing: CGFloat = 20
@@ -14,6 +17,7 @@ private enum WelcomeMetrics {
     static let buttonVerticalPadding: CGFloat = 10
     static let buttonCornerRadius: CGFloat = 8
     static let progressTopSpacing: CGFloat = 16
+    static let ctaArrowHoverOffset: CGFloat = 3
 }
 
 private struct WelcomeCTAButtonStyle: ButtonStyle {
@@ -53,7 +57,7 @@ struct WelcomeView: View {
                 .padding(.top, WelcomeMetrics.topPadding)
 
             illustrationViewport
-                .padding(.top, 6)
+                .padding(.top, WelcomeMetrics.illustrationTopPadding)
                 .padding(.bottom, WelcomeMetrics.illustrationBottomSpacing)
 
             titleView
@@ -112,6 +116,7 @@ struct WelcomeView: View {
                     }
             }
         }
+        .accessibilityHidden(true)
     }
 
     private var illustrationViewport: some View {
@@ -121,8 +126,8 @@ struct WelcomeView: View {
             .frame(maxWidth: .infinity)
             .frame(height: WelcomeMetrics.illustrationHeight)
             .clipped()
-            .scaleEffect(1.34)
-            .offset(y: 8)
+            .scaleEffect(WelcomeMetrics.illustrationScale)
+            .offset(y: WelcomeMetrics.illustrationOffsetY)
             .accessibilityHidden(true)
     }
 
@@ -177,7 +182,7 @@ struct WelcomeView: View {
             Image(systemName: "arrow.right")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white)
-                .offset(x: isButtonHovered ? 3 : 0)
+                .offset(x: isButtonHovered ? WelcomeMetrics.ctaArrowHoverOffset : 0)
                 .animation(.easeOut(duration: 0.2), value: isButtonHovered)
         }
     }
@@ -192,3 +197,10 @@ struct WelcomeView: View {
         }
     }
 }
+
+#if canImport(PreviewsMacros)
+#Preview {
+    WelcomeView(onStartConfig: {})
+        .frame(width: 340, height: 560)
+}
+#endif
