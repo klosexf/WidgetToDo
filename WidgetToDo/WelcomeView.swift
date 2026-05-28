@@ -120,15 +120,18 @@ struct WelcomeView: View {
     }
 
     private var illustrationViewport: some View {
-        Image("WelcomeIllustration")
-            .resizable()
-            .aspectRatio(contentMode: .fill)
-            .frame(maxWidth: .infinity)
-            .frame(height: WelcomeMetrics.illustrationHeight)
-            .clipped()
-            .scaleEffect(WelcomeMetrics.illustrationScale)
-            .offset(y: WelcomeMetrics.illustrationOffsetY)
-            .accessibilityHidden(true)
+        ZStack {
+            Image("WelcomeIllustration")
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scaleEffect(WelcomeMetrics.illustrationScale)
+                .offset(y: WelcomeMetrics.illustrationOffsetY)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: WelcomeMetrics.illustrationHeight)
+        .clipped()
+        .accessibilityHidden(true)
     }
 
     private var titleView: some View {
