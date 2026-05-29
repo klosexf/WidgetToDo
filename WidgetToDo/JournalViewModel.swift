@@ -47,6 +47,11 @@ final class JournalViewModel: ObservableObject {
         await save(text: editorText)
     }
 
+    func reloadFromNotion() async {
+        autosaveTask?.cancel()
+        await load()
+    }
+
     func openInNotion(_ url: URL) {
         openURL(url)
     }

@@ -1,0 +1,256 @@
+<style>
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .card-image {
+    padding: 14px;
+    background:
+      radial-gradient(circle at top, rgba(255,255,255,0.88), rgba(240,238,234,0.96)),
+      linear-gradient(180deg, #e7e2da 0%, #d8d2ca 100%);
+  }
+
+  .widget-shell {
+    border-radius: 28px;
+    border: 1px solid rgba(120, 110, 96, 0.18);
+    background: linear-gradient(180deg, #e6e1db 0%, #d8d2ca 100%);
+    box-shadow: 0 28px 50px rgba(95, 87, 74, 0.16);
+    padding: 18px;
+    min-height: 370px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .widget-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+
+  .chip {
+    width: 96px;
+    height: 32px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.72);
+    border: 1px solid rgba(120,110,96,0.12);
+  }
+
+  .icon-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .icon-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(120,110,96,0.12);
+  }
+
+  .panel {
+    margin-top: 18px;
+    height: 220px;
+    border-radius: 22px;
+    background: rgba(252,251,249,0.86);
+    border: 1px solid rgba(120,110,96,0.12);
+    position: relative;
+    box-shadow: 0 16px 32px rgba(93, 85, 73, 0.12);
+  }
+
+  .overlay {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(248,247,244,0.96), rgba(243,240,235,0.96));
+    border: 1px solid rgba(120,110,96,0.12);
+    box-shadow: 0 18px 36px rgba(93, 85, 73, 0.14);
+    padding: 18px;
+    color: #37332d;
+  }
+
+  .overlay.compact { bottom: 24px; padding: 16px; }
+  .overlay.anchored { left: 24px; right: 24px; bottom: 24px; }
+
+  .mini-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #5c564c;
+    margin-bottom: 14px;
+  }
+
+  .form-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  .form-title .plus {
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background: #efebe5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .field {
+    height: 38px;
+    border-radius: 12px;
+    border: 1px solid rgba(120,110,96,0.16);
+    background: rgba(255,255,255,0.76);
+    margin-bottom: 12px;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .date-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #6e675d;
+    font-size: 11px;
+  }
+
+  .date-pill {
+    width: 102px;
+    height: 28px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.72);
+    border: 1px solid rgba(120,110,96,0.12);
+  }
+
+  .actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .actions .secondary { color: #8a847b; }
+  .actions .primary { color: #2f6fd6; }
+
+  .inline-row {
+    display: grid;
+    grid-template-columns: 1fr 110px;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .stub-lines {
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    top: 74px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .stub-lines div {
+    height: 28px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.32);
+  }
+</style>
+
+<h2>新建任务弹窗视觉方向</h2>
+<p class="subtitle">都保持现有功能和交互不变，只比较它如何并入主界面的卡片语言。你已经选了“更贴近主界面卡片风格”，所以下面是这个方向下的 3 个强弱版本。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="widget-shell">
+        <div class="widget-top">
+          <div class="chip"></div>
+          <div class="icon-row"><div class="icon-dot"></div><div class="icon-dot"></div></div>
+        </div>
+        <div class="panel">
+          <div class="stub-lines"><div></div><div></div><div></div></div>
+          <div class="overlay compact">
+            <div class="mini-title">Option A</div>
+            <div class="form-title"><span class="plus">+</span> 新建任务</div>
+            <div class="field"></div>
+            <div class="date-group"><span>日期</span><div class="date-pill"></div></div>
+            <div class="actions"><span class="secondary">Esc 取消</span><span class="primary">Enter 创建</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>嵌入式浮层</h3>
+      <p>最贴近当前待办面板。像从任务列表里长出来的一张卡，而不是独立 modal。改动克制，风险最低。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="widget-shell">
+        <div class="widget-top">
+          <div class="chip"></div>
+          <div class="icon-row"><div class="icon-dot"></div><div class="icon-dot"></div></div>
+        </div>
+        <div class="panel">
+          <div class="stub-lines"><div></div><div></div><div></div></div>
+          <div class="overlay anchored">
+            <div class="mini-title">Option B</div>
+            <div class="form-title"><span class="plus">+</span> 新建任务</div>
+            <div class="inline-row">
+              <div class="field" style="margin-bottom:0"></div>
+              <div class="field" style="margin-bottom:0;height:38px"></div>
+            </div>
+            <div class="actions"><span class="secondary">Esc 取消</span><span class="primary">创建</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>工具条式编辑卡</h3>
+      <p>更紧凑，输入和日期并排，更像主界面里的快速编辑器。信息密度高，但仍保留明显的提交区。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="widget-shell">
+        <div class="widget-top">
+          <div class="chip"></div>
+          <div class="icon-row"><div class="icon-dot"></div><div class="icon-dot"></div></div>
+        </div>
+        <div class="panel">
+          <div class="overlay">
+            <div class="mini-title">Option C</div>
+            <div class="form-title"><span class="plus">+</span> 新建任务</div>
+            <div class="field"></div>
+            <div class="row" style="margin-bottom:10px">
+              <div class="date-group"><span>日期</span><div class="date-pill"></div></div>
+              <div style="width:72px;height:28px;border-radius:999px;background:rgba(255,255,255,0.72);border:1px solid rgba(120,110,96,0.12)"></div>
+            </div>
+            <div class="actions"><span class="secondary">取消</span><span class="primary">创建任务</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>完整卡片面板</h3>
+      <p>层次最完整，像一个 mini panel 放进主面板里。视觉更稳，但比现有交互显得更“重”。</p>
+    </div>
+  </div>
+</div>

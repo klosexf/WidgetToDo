@@ -231,6 +231,11 @@ public actor NotionRepository {
         return entry
     }
 
+    public func resetConfiguration() async throws {
+        tokenStore.deleteToken()
+        try await settingsStore.clear()
+    }
+
     public func cachedJournal(for date: Date = Date()) async throws -> JournalEntry? {
         try cache.journalEntry(for: date)
     }

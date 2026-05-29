@@ -25,9 +25,13 @@ struct NotionFloatCoreSmokeTestsRunner {
             try notionRepositoryBuildsTasksDatabasePageURL()
             try todoListViewModelDoesNotSynchronouslyBridgeNestedObjectWillChange()
             try todoHeaderOpenButtonTargetsTasksDatabasePage()
+            try journalHeaderContainsManualSyncButton()
+            try topBarDoesNotShowExpandButton()
             try welcomeViewUsesDedicatedIllustrationAssetAndCallback()
-            try statusBarMenuContainsSettingsEntry()
             try configurationFormContainsSettingsHelpAndExtractionCopy()
+            try onboardingVisualAlignmentKeepsExistingBehaviorContract()
+            try settingsResetFlowReturnsUserToWelcome()
+            try statusBarMenuContainsSettingsEntry()
             try todoDateTitleUsesChineseDateWithoutTodaySpecialCase()
             try floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring()
             try floatingPanelDoesNotSynchronouslyActivateDuringEventDispatch()
@@ -218,6 +222,62 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
     }
 
+    static func journalHeaderContainsManualSyncButton() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            source.contains("private var journalToolbar: some View"),
+            "journal tab should define a dedicated header toolbar"
+        )
+        try expect(
+            source.contains("Image(systemName: \"arrow.triangle.2.circlepath\")"),
+            "journal header should expose the same sync icon used by the todo header"
+        )
+        try expect(
+            source.contains("await journalViewModel.reloadFromNotion()"),
+            "journal header sync button should reload the current journal from Notion"
+        )
+        let journalViewModelURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("JournalViewModel.swift")
+        let journalViewModelSource = try String(contentsOf: journalViewModelURL, encoding: .utf8)
+        try expect(
+            journalViewModelSource.contains("func reloadFromNotion() async"),
+            "journal view model should define an explicit reload entry point"
+        )
+        try expect(
+            journalViewModelSource.contains("autosaveTask?.cancel()"),
+            "reloading from Notion should cancel any pending autosave before overwriting local text"
+        )
+        try expect(
+            journalViewModelSource.contains("await load()"),
+            "reloading from Notion should reuse the existing journal load path"
+        )
+    }
+
+    static func topBarDoesNotShowExpandButton() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            !source.contains("Image(systemName: \"arrow.up.left.and.arrow.down.right\")"),
+            "top bar should not render the expand button in todo or journal tabs"
+        )
+    }
+
     static func statusBarMenuContainsSettingsEntry() throws {
         let rootURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -285,20 +345,201 @@ struct NotionFloatCoreSmokeTestsRunner {
         let viewModelSource = try String(contentsOf: viewModelURL, encoding: .utf8)
 
         try expect(
-            source.contains("SecureField(\"Notion Token\""),
-            "configuration form should use SecureField for the Notion token"
+            source.contains("SecureField(\"\", text: $viewModel.token"),
+            "configuration form should keep the secure token field binding"
         )
         try expect(
-            source.contains("如何获取?"),
+            source.contains("accessibilityLabel(\"Notion Token\")"),
+            "configuration form should keep an accessibility label for the token field"
+        )
+        try expect(
+            source.contains("Text(\"如何获取？\")"),
             "configuration form should include token help copy"
         )
         try expect(
-            source.contains("粘贴整个URL自动提取"),
-            "database inputs should explain automatic URL extraction"
+            source.contains("Text(\"粘贴整个URL自动提取\")"),
+            "database sections should explain automatic URL extraction"
+        )
+        try expect(
+            source.contains("mode: .onboarding,") && source.contains("rootViewModel.screen = .welcome"),
+            "onboarding flow should expose a back action that returns to welcome"
         )
         try expect(
             viewModelSource.contains("ConfigurationInputNormalizer.normalizeDatabaseInput"),
             "configuration view model should normalize pasted database URLs"
+        )
+    }
+
+    static func onboardingVisualAlignmentKeepsExistingBehaviorContract() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        func functionScope(in source: String, signature: String) -> Substring? {
+            guard let signatureRange = source.range(of: signature) else {
+                return nil
+            }
+
+            let searchStart = signatureRange.lowerBound
+            let endCandidates = [
+                source.range(of: "\n    private var ", range: signatureRange.upperBound..<source.endIndex)?.lowerBound,
+                source.range(of: "\n    private func ", range: signatureRange.upperBound..<source.endIndex)?.lowerBound,
+                source.range(of: "\n    func ", range: signatureRange.upperBound..<source.endIndex)?.lowerBound,
+                source.range(of: "\n}\n\nstruct ", range: signatureRange.upperBound..<source.endIndex)?.lowerBound,
+            ].compactMap { $0 }
+
+            let endIndex = endCandidates.min() ?? source.endIndex
+            return source[searchStart..<endIndex]
+        }
+
+        guard let tokenSectionScope = functionScope(
+            in: source,
+            signature: "private var tokenSection: some View"
+        ) else {
+            throw SmokeTestFailure(
+                description: "onboarding alignment refresh must keep a dedicated tokenSection view"
+            )
+        }
+        guard let databaseSectionScope = functionScope(
+            in: source,
+            signature: "private func databaseSection(title: String, placeholder: String, text: Binding<String>, normalize: @escaping () -> Void) -> some View"
+        ) else {
+            throw SmokeTestFailure(
+                description: "onboarding alignment refresh must keep the shared databaseSection builder"
+            )
+        }
+        guard let primaryButtonScope = functionScope(
+            in: source,
+            signature: "private var primaryButton: some View"
+        ) else {
+            throw SmokeTestFailure(
+                description: "onboarding alignment refresh must keep a dedicated primaryButton view"
+            )
+        }
+
+        try expect(
+            tokenSectionScope.contains("SecureField("),
+            "onboarding alignment refresh must keep the secure token field"
+        )
+        try expect(
+            tokenSectionScope.contains("isShowingTokenHelp = true"),
+            "onboarding alignment refresh must keep the token help toggle action"
+        )
+        try expect(
+            source.contains("normalize: viewModel.normalizeTasksDatabaseInput"),
+            "onboarding alignment refresh must keep the tasks database normalization hook"
+        )
+        try expect(
+            source.contains("normalize: viewModel.normalizeJournalDatabaseInput"),
+            "onboarding alignment refresh must keep the journal database normalization hook"
+        )
+        try expect(
+            databaseSectionScope.contains(".onChange(of: text.wrappedValue)"),
+            "onboarding alignment refresh must keep the generic text-change normalization trigger"
+        )
+        try expect(
+            databaseSectionScope.contains("normalize()"),
+            "onboarding alignment refresh must keep the generic normalization invocation path"
+        )
+        try expect(
+            primaryButtonScope.contains("await viewModel.validateAndSave()"),
+            "onboarding alignment refresh must keep the validate-and-save action"
+        )
+        try expect(
+            primaryButtonScope.contains("mode == .settings ? \"保存设置\" : \"验证并继续\""),
+            "onboarding alignment refresh must keep the existing CTA copy contract"
+        )
+    }
+
+    static func settingsResetFlowReturnsUserToWelcome() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let viewModelURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("OnboardingViewModel.swift")
+        let contentSource = try String(contentsOf: contentViewURL, encoding: .utf8)
+        let viewModelSource = try String(contentsOf: viewModelURL, encoding: .utf8)
+
+        func functionScope(in source: String, signature: String) -> Substring? {
+            guard let signatureRange = source.range(of: signature) else {
+                return nil
+            }
+
+            let searchStart = signatureRange.lowerBound
+            let endCandidates = [
+                source.range(of: "\n    func ", range: signatureRange.upperBound..<source.endIndex)?.lowerBound,
+                source.range(of: "\n}\n\nstruct ", range: signatureRange.upperBound..<source.endIndex)?.lowerBound,
+            ].compactMap { $0 }
+
+            let endIndex = endCandidates.min() ?? source.endIndex
+            return source[searchStart..<endIndex]
+        }
+
+        try expect(
+            contentSource.contains("初始化配置"),
+            "settings UI should expose the reset configuration entry point"
+        )
+        try expect(
+            contentSource.contains("不会清除本地缓存的任务和日记内容"),
+            "settings reset confirmation should explain local cache remains intact"
+        )
+        try expect(
+            contentSource.contains("showingResetConfirmation"),
+            "settings reset flow should track confirmation presentation state"
+        )
+        try expect(
+            contentSource.contains("isResetActionPending"),
+            "settings reset flow should keep a local pending flag while the confirmed reset task is in flight"
+        )
+        try expect(
+            contentSource.contains("await rootViewModel.resetConfigurationFromSettings()"),
+            "settings reset flow should invoke the root view model reset action"
+        )
+        guard let settingsBackRowScope = functionScope(
+            in: contentSource,
+            signature: "private var settingsBackRow: some View"
+        ) else {
+            throw SmokeTestFailure(
+                description: "settings reset flow should keep a dedicated settingsBackRow view"
+            )
+        }
+        try expect(
+            settingsBackRowScope.contains(".disabled(viewModel.isWorking || isResetActionPending)"),
+            "settingsBackRow should be disabled while reset is running or locally pending"
+        )
+        guard let rootResetScope = functionScope(
+            in: contentSource,
+            signature: "func resetConfigurationFromSettings() async"
+        ) else {
+            throw SmokeTestFailure(
+                description: "settings reset flow should define a dedicated root reset coordinator"
+            )
+        }
+        try expect(
+            rootResetScope.contains("screenBeforeSettings = .welcome"),
+            "root reset coordinator should restore settings return state to welcome inside resetConfigurationFromSettings()"
+        )
+        try expect(
+            rootResetScope.contains("screen = .welcome"),
+            "root reset coordinator should route back to welcome inside resetConfigurationFromSettings()"
+        )
+        try expect(
+            rootResetScope.contains("try await onboardingViewModel.resetConfigurationForRestart()"),
+            "root reset coordinator should only restore welcome after awaiting onboardingViewModel.resetConfigurationForRestart()"
+        )
+        try expect(
+            viewModelSource.contains("try await repository.resetConfiguration()"),
+            "onboarding view model reset should delegate to repository.resetConfiguration"
         )
     }
 
@@ -355,10 +596,17 @@ struct NotionFloatCoreSmokeTestsRunner {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
+        let assetSetURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("Assets.xcassets")
+            .appendingPathComponent("WelcomeIllustration.imageset")
+        let assetContentsURL = assetSetURL.appendingPathComponent("Contents.json")
+        let assetImageURL = assetSetURL.appendingPathComponent("welcome-illustration.png")
         let welcomeViewURL = rootURL
             .appendingPathComponent("WidgetToDo")
             .appendingPathComponent("WelcomeView.swift")
         let source = try String(contentsOf: welcomeViewURL, encoding: .utf8)
+        let fileManager = FileManager.default
 
         try expect(
             source.contains("Button {") && source.contains("onStartConfig()"),
@@ -367,6 +615,14 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             source.contains("Image(\"WelcomeIllustration\")"),
             "welcome view should render the dedicated asset-backed illustration"
+        )
+        try expect(
+            fileManager.fileExists(atPath: assetContentsURL.path),
+            "welcome illustration asset set should include Contents.json"
+        )
+        try expect(
+            fileManager.fileExists(atPath: assetImageURL.path),
+            "welcome illustration asset set should include the welcome illustration PNG"
         )
         try expect(
             !source.contains(".buttonStyle(.borderedProminent)"),

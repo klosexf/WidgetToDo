@@ -147,6 +147,7 @@ public actor NotionClient {
 
     public func createJournalPage(databaseID: String, token: String, date: Date) async throws -> JournalEntry {
         let dateString = Self.dayFormatter.string(from: date)
+        let journalTitle = "日记 \(Self.journalTitleDateFormatter.string(from: date))"
         let body: [String: Any] = [
             "parent": [
                 "database_id": databaseID
@@ -157,7 +158,7 @@ public actor NotionClient {
                         [
                             "type": "text",
                             "text": [
-                                "content": "Journal \(dateString)"
+                                "content": journalTitle
                             ]
                         ]
                     ]
@@ -316,6 +317,15 @@ public actor NotionClient {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = .current
         formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    private static let journalTitleDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "zh_Hans_CN")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy年M月d日"
         return formatter
     }()
 }

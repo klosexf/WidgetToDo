@@ -4,6 +4,8 @@ private enum WelcomeMetrics {
     static let horizontalPadding: CGFloat = 14
     static let topPadding: CGFloat = 12
     static let headerHeight: CGFloat = 30
+    static let closeButtonSize: CGFloat = 24
+    static let closeButtonCornerRadius: CGFloat = 6
     static let illustrationHeight: CGFloat = 186
     static let illustrationTopPadding: CGFloat = 6
     static let illustrationBottomSpacing: CGFloat = 12
@@ -46,9 +48,11 @@ private struct WelcomeCTAButtonStyle: ButtonStyle {
 
 struct WelcomeView: View {
     let onStartConfig: () -> Void
+    let onClose: () -> Void
 
     @State private var isAppeared = false
     @State private var isButtonHovered = false
+    @State private var isCloseButtonHovered = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -98,25 +102,27 @@ struct WelcomeView: View {
     }
 
     private var headerPlaceholder: some View {
-        HStack {
-            Spacer()
-
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(Color.black.opacity(0.06))
-                    .frame(width: 6, height: 6)
-
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.black.opacity(0.045))
-                    .frame(width: 24, height: 24)
-                    .overlay {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(Color.black.opacity(0.26))
-                    }
+        Color.clear
+            .overlay(alignment: .trailing) {
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.black.opacity(isCloseButtonHovered ? 0.56 : 0.42))
+                        .frame(width: WelcomeMetrics.closeButtonSize, height: WelcomeMetrics.closeButtonSize)
+                        .background(
+                            RoundedRectangle(cornerRadius: WelcomeMetrics.closeButtonCornerRadius, style: .continuous)
+                                .fill(Color.black.opacity(isCloseButtonHovered ? 0.06 : 0.04))
+                        )
+                }
+                .buttonStyle(.plain)
+                .onHover { hovering in
+                    isCloseButtonHovered = hovering
+                }
+                .accessibilityLabel("关闭")
             }
-        }
-        .accessibilityHidden(true)
+            .frame(maxWidth: .infinity)
     }
 
     private var illustrationViewport: some View {
@@ -203,7 +209,7 @@ struct WelcomeView: View {
 
 #if canImport(PreviewsMacros)
 #Preview {
-    WelcomeView(onStartConfig: {})
+    WelcomeView(onStartConfig: {}, onClose: {})
         .frame(width: 340, height: 560)
 }
 #endif

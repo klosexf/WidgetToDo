@@ -51,6 +51,12 @@ private final class WindowDragHostingView<Content: View>: NSHostingView<Content>
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
     }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+    }
 }
 
 private final class WindowDragHostingController<Content: View>: NSHostingController<Content> {
@@ -66,7 +72,7 @@ final class FloatingWindowManager: NSObject {
     init(rootView: ContentView) {
         let panel = FloatingPanel(
             contentRect: NSRect(x: 240, y: 240, width: 340, height: 560),
-            styleMask: [.titled, .closable, .fullSizeContentView, .resizable],
+            styleMask: [.borderless, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -74,12 +80,10 @@ final class FloatingWindowManager: NSObject {
         panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         panel.hidesOnDeactivate = false
-        panel.hasShadow = false
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
+        panel.hasShadow = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
         panel.isMovableByWindowBackground = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.contentViewController = WindowDragHostingController(rootView: rootView)
         panel.isReleasedWhenClosed = false
         panel.isRestorable = false

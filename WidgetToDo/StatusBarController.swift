@@ -63,11 +63,18 @@ final class StatusBarController: NSObject {
             button.title = "     "
 
             button.toolTip = "Notion 浮窗"
-            button.target = self
-            button.action = #selector(handleLeftClick(_:))
-            button.sendAction(on: .leftMouseUp)
         }
 
+        let menu = makeMenu()
+        self.menu = menu
+        item.menu = menu
+
+        rightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseUp) { [weak self] event in
+            self?.handleRightMouseUp(event) ?? event
+        }
+    }
+
+    private func makeMenu() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "显示 / 隐藏 Notion 浮窗", action: #selector(togglePanel), keyEquivalent: "\\"))
         menu.addItem(NSMenuItem(title: "设置", action: #selector(openSettings), keyEquivalent: ","))
@@ -76,29 +83,18 @@ final class StatusBarController: NSObject {
         menu.items.forEach {
             $0.target = self
         }
-        self.menu = menu
-        item.menu = nil
-
-        rightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseUp) { [weak self] event in
-            self?.handleRightMouseUp(event)
-            return event
-        }
+        return menu
     }
 
-    @objc
-    private func handleLeftClick(_ sender: Any?) {
-        guard let button = item.button, let menu, let event = NSApp.currentEvent else { return }
-        NSMenu.popUpContextMenu(menu, with: event, for: button)
-    }
-
-    private func handleRightMouseUp(_ event: NSEvent) {
+    private func handleRightMouseUp(_ event: NSEvent) -> NSEvent? {
         guard let button = item.button,
               let buttonWindow = button.window,
-              event.window === buttonWindow else { return }
+              event.window === buttonWindow else { return event }
 
         let clickPoint = button.convert(event.locationInWindow, from: nil)
-        guard button.bounds.contains(clickPoint), let menu else { return }
+        guard button.bounds.contains(clickPoint), let menu else { return event }
         NSMenu.popUpContextMenu(menu, with: event, for: button)
+        return nil
     }
 
     @objc

@@ -1,6 +1,10 @@
 import Combine
 import SwiftUI
 
+private enum AppWindowChrome {
+    static let cornerRadius: CGFloat = 20
+}
+
 struct ContentView: View {
     @ObservedObject var rootViewModel: RootViewModel
 
@@ -11,16 +15,30 @@ struct ContentView: View {
                 ProgressView("正在加载 Notion Float...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .welcome:
-                WelcomeView {
-                    rootViewModel.screen = .onboarding
-                }
+                WelcomeView(
+                    onStartConfig: {
+                        rootViewModel.screen = .onboarding
+                    },
+                    onClose: {
+                        NSApp.keyWindow?.orderOut(nil)
+                    }
+                )
             case .onboarding:
-                OnboardingView(viewModel: rootViewModel.onboardingViewModel, mode: .onboarding)
+                OnboardingView(
+                    viewModel: rootViewModel.onboardingViewModel,
+                    mode: .onboarding,
+                    onBack: {
+                        rootViewModel.screen = .welcome
+                    }
+                )
             case .settings:
                 OnboardingView(
                     viewModel: rootViewModel.onboardingViewModel,
                     mode: .settings,
-                    onBack: rootViewModel.returnFromSettings
+                    onBack: rootViewModel.returnFromSettings,
+                    onResetConfiguration: {
+                        await rootViewModel.resetConfigurationFromSettings()
+                    }
                 )
             case .widget:
                 FloatingWidgetView(
@@ -32,7 +50,11 @@ struct ContentView: View {
             }
         }
         .frame(width: 340, height: 560)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(
+            RoundedRectangle(cornerRadius: AppWindowChrome.cornerRadius, style: .continuous)
+                .fill(Color(nsColor: .windowBackgroundColor))
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppWindowChrome.cornerRadius, style: .continuous))
         .task {
             if rootViewModel.screen == .loading {
                 await rootViewModel.bootstrap()
@@ -119,6 +141,18 @@ final class RootViewModel: ObservableObject {
         }
     }
 
+    func resetConfigurationFromSettings() async {
+        do {
+            try await onboardingViewModel.resetConfigurationForRestart()
+            screenBeforeSettings = .welcome
+            bannerMessage = nil
+            screen = .welcome
+        } catch {
+            onboardingViewModel.statusMessage = error.localizedDescription
+            onboardingViewModel.isErrorState = true
+        }
+    }
+
     func returnFromSettings() {
         screen = screenBeforeSettings
     }
@@ -133,111 +167,551 @@ struct OnboardingView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let mode: Mode
     var onBack: (() -> Void)?
+    var onResetConfiguration: (() async -> Void)?
     @State private var isShowingTokenHelp = false
+    @State private var showingResetConfirmation = false
+    @State private var isResetActionPending = false
+    @State private var isAppeared = false
+    @State private var isPrimaryButtonHovered = false
+    
+    private var isOnboardingMode: Bool {
+        mode == .onboarding
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                if mode == .settings {
-                    Button {
-                        onBack?()
-                    } label: {
-                        Label("返回", systemImage: "chevron.left")
+        ZStack {
+            Color(nsColor: .windowBackgroundColor)
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                modalHeader
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: mode == .onboarding ? OnboardingModalMetrics.onboardingContentSpacing : OnboardingModalMetrics.settingsContentSpacing) {
+                        if mode == .settings {
+                            settingsIntro
+                        } else {
+                            onboardingHero
+                        }
+
+                        tokenSection
+                        databaseSection(
+                            title: mode == .settings ? "Tasks Database ID" : "Tasks Database",
+                            placeholder: mode == .settings ? "任务数据库 ID" : "粘贴任务数据库链接",
+                            text: $viewModel.tasksDatabaseInput,
+                            normalize: viewModel.normalizeTasksDatabaseInput
+                        )
+                        databaseSection(
+                            title: mode == .settings ? "Journal Database ID" : "Journal Database",
+                            placeholder: mode == .settings ? "日记数据库 ID" : "粘贴日记数据库链接",
+                            text: $viewModel.journalDatabaseInput,
+                            normalize: viewModel.normalizeJournalDatabaseInput
+                        )
+
+                        if let message = viewModel.statusMessage {
+                            statusBanner(message: message)
+                        }
+
+                        if mode == .settings {
+                            resetSection
+                        }
+
+                        primaryButton
                     }
-                    .buttonStyle(.plain)
-                    Spacer()
+                    .padding(.horizontal, mode == .onboarding ? OnboardingModalMetrics.onboardingHorizontalPadding : OnboardingModalMetrics.horizontalPadding)
+                    .padding(.top, mode == .onboarding ? OnboardingModalMetrics.onboardingTopPadding : 18)
+                    .padding(.bottom, mode == .onboarding ? OnboardingModalMetrics.onboardingBottomPadding : 24)
                 }
             }
-
-            Text(mode == .settings ? "设置" : "连接 Notion")
-                .font(.title2.weight(.semibold))
-
-            Text("这个版本需要一个 Notion 集成令牌，以及一个任务数据库和一个日记数据库。")
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Notion Token")
-                        .font(.headline)
-                    Spacer()
-                    Button {
-                        isShowingTokenHelp = true
-                    } label: {
-                        Text("如何获取?")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tint)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("如何获取?")
-                }
-                SecureField("Notion Token", text: $viewModel.token)
-                    .textFieldStyle(.roundedBorder)
-                Text("令牌只保存在本机钥匙串。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Tasks Database ID")
-                        .font(.headline)
-                    Spacer()
-                    Text("粘贴整个URL自动提取")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                TextField("任务数据库 URL 或 ID", text: $viewModel.tasksDatabaseInput)
-                    .textFieldStyle(.roundedBorder)
-                    .onChange(of: viewModel.tasksDatabaseInput) { _ in
-                        viewModel.normalizeTasksDatabaseInput()
-                    }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Journal Database ID")
-                        .font(.headline)
-                    Spacer()
-                    Text("粘贴整个URL自动提取")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                TextField("日记数据库 URL 或 ID", text: $viewModel.journalDatabaseInput)
-                    .textFieldStyle(.roundedBorder)
-                    .onChange(of: viewModel.journalDatabaseInput) { _ in
-                        viewModel.normalizeJournalDatabaseInput()
-                    }
-            }
-
-            if let message = viewModel.statusMessage {
-                Text(message)
-                    .font(.callout)
-                    .foregroundStyle(viewModel.isErrorState ? .red : .secondary)
-            }
-
-            Button {
-                Task {
-                    await viewModel.validateAndSave()
-                }
-            } label: {
-                if viewModel.isWorking {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Text(mode == .settings ? "保存设置" : "验证并继续")
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(viewModel.isWorking)
-
-            Spacer()
+            .background(
+                RoundedRectangle(cornerRadius: OnboardingModalMetrics.cardCornerRadius, style: .continuous)
+                    .fill(OnboardingModalPalette.modalBackground)
+                    .shadow(
+                        color: OnboardingModalPalette.cardShadow,
+                        radius: 24,
+                        x: 0,
+                        y: 12
+                    )
+            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .opacity(isAppeared ? 1 : 0)
+            .offset(y: isAppeared ? 0 : 10)
+            .animation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.32), value: isAppeared)
         }
-        .padding(24)
         .sheet(isPresented: $isShowingTokenHelp) {
             NotionTokenHelpView()
         }
+        .confirmationDialog(
+            "初始化配置",
+            isPresented: $showingResetConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("初始化配置", role: .destructive) {
+                guard !(viewModel.isWorking || isResetActionPending) else { return }
+                isResetActionPending = true
+                Task {
+                    await onResetConfiguration?()
+                    await MainActor.run {
+                        isResetActionPending = false
+                    }
+                }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("这会清空当前配置，不会清除本地缓存的任务和日记内容，完成后返回欢迎页。")
+        }
+        .onAppear {
+            guard !isAppeared else { return }
+            isAppeared = true
+        }
+    }
+
+    private var modalHeader: some View {
+        ZStack {
+            if mode == .settings {
+                Text("设置")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(OnboardingModalPalette.primaryText)
+            }
+
+            HStack {
+                if let onBack {
+                    Button {
+                        onBack()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(OnboardingModalPalette.secondaryText)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(mode == .settings && (viewModel.isWorking || isResetActionPending))
+                } else {
+                    headerBalancePlaceholder
+                }
+
+                Spacer()
+                if mode == .onboarding {
+                    Text("初始配置")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(OnboardingModalPalette.primaryText)
+                        .frame(maxWidth: .infinity)
+                }
+                Spacer()
+                headerBalancePlaceholder
+            }
+        }
+        .padding(.horizontal, mode == .onboarding ? 16 : 24)
+        .padding(.vertical, mode == .onboarding ? 14 : 16)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(OnboardingModalPalette.border)
+                .frame(height: 1)
+        }
+    }
+
+    private var headerBalancePlaceholder: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(OnboardingModalPalette.placeholderDecoration)
+                .frame(width: 4, height: 4)
+            Circle()
+                .fill(OnboardingModalPalette.placeholderDecoration.opacity(0.7))
+                .frame(width: 4, height: 4)
+            Circle()
+                .fill(OnboardingModalPalette.placeholderDecoration.opacity(0.45))
+                .frame(width: 4, height: 4)
+        }
+        .frame(width: 32, height: 32)
+        .accessibilityHidden(true)
+    }
+
+    private var onboardingHero: some View {
+        HStack(alignment: .top, spacing: OnboardingModalMetrics.onboardingHeroSpacing) {
+            Image("ConnectModalHero")
+                .resizable()
+                .scaledToFit()
+                .frame(
+                    width: OnboardingModalMetrics.onboardingHeroIllustrationSize,
+                    height: OnboardingModalMetrics.onboardingHeroIllustrationSize
+                )
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: OnboardingModalMetrics.onboardingHeroTextSpacing) {
+                Text("连接 Notion")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(OnboardingModalPalette.primaryText)
+                Text("使用你的 Notion 工作区\n同步任务与日记内容")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(OnboardingModalPalette.secondaryText)
+                    .lineSpacing(3)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var settingsIntro: some View {
+        ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("这个版本需要一个 Notion 集成令牌，以及一个任务数据库和一个日记数据库。")
+                    .font(.system(size: 14))
+                    .foregroundStyle(OnboardingModalPalette.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            settingsDecorationCluster
+        }
+        .padding(.bottom, 4)
+    }
+
+    private var tokenSection: some View {
+        VStack(alignment: .leading, spacing: mode == .onboarding ? OnboardingModalMetrics.onboardingSectionSpacing : 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Notion Token")
+                    .font(.system(size: mode == .onboarding ? 12 : 13, weight: .semibold))
+                    .foregroundStyle(OnboardingModalPalette.primaryText)
+                Spacer()
+                Button {
+                    isShowingTokenHelp = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("如何获取？")
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: mode == .onboarding ? 9 : 10, weight: .semibold))
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(OnboardingModalPalette.secondaryText)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("如何获取？")
+            }
+
+            inputShell(icon: "lock") {
+                SecureField("", text: $viewModel.token, prompt: Text("输入你的 Notion Token").foregroundColor(OnboardingModalPalette.placeholderText))
+                    .textFieldStyle(.plain)
+                    .disabled(viewModel.isWorking)
+                    .accessibilityLabel("Notion Token")
+            }
+
+            HStack(alignment: .center, spacing: mode == .onboarding ? 6 : 8) {
+                Image(systemName: "lock")
+                    .font(.system(size: mode == .onboarding ? 10 : 11, weight: .medium))
+                Text(mode == .settings ? "令牌只保存在本机钥匙串。" : "令牌只保存在本机钥匙串中，安全加密存储。")
+                    .font(.system(size: 12))
+            }
+            .foregroundStyle(OnboardingModalPalette.secondaryText)
+        }
+    }
+
+    private func databaseSection(title: String, placeholder: String, text: Binding<String>, normalize: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: mode == .onboarding ? OnboardingModalMetrics.onboardingSectionSpacing : 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.system(size: mode == .onboarding ? 12 : 13, weight: .semibold))
+                    .foregroundStyle(OnboardingModalPalette.primaryText)
+                Spacer()
+                Text("粘贴整个URL自动提取")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(OnboardingModalPalette.secondaryText)
+            }
+
+            inputShell(icon: "doc.text") {
+                TextField("", text: text, prompt: Text(placeholder).foregroundColor(OnboardingModalPalette.placeholderText))
+                    .textFieldStyle(.plain)
+                    .disabled(viewModel.isWorking)
+                    .accessibilityLabel(title)
+                    .onChange(of: text.wrappedValue) { _ in
+                        normalize()
+                    }
+            }
+        }
+    }
+
+    private var settingsDecorationCluster: some View {
+        ZStack {
+            VStack(spacing: 4) {
+                ForEach(0..<3, id: \.self) { _ in
+                    HStack(spacing: 4) {
+                        ForEach(0..<5, id: \.self) { _ in
+                            Circle()
+                                .fill(OnboardingModalPalette.decoDot)
+                                .frame(width: 3, height: 3)
+                        }
+                    }
+                }
+            }
+            .offset(x: -8, y: -2)
+
+            Image(systemName: "sparkle")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(OnboardingModalPalette.decoAccent)
+                .offset(x: 26, y: 8)
+
+            SettingsCurveShape()
+                .stroke(OnboardingModalPalette.decoAccent.opacity(0.45), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                .frame(width: 26, height: 18)
+                .offset(x: 18, y: 28)
+        }
+        .frame(width: 72, height: 54)
+        .accessibilityHidden(true)
+    }
+
+    private func inputShell<Field: View>(icon: String, @ViewBuilder field: () -> Field) -> some View {
+        HStack(spacing: isOnboardingMode ? OnboardingModalMetrics.onboardingInputIconSpacing : 10) {
+            Image(systemName: icon)
+                .font(.system(size: isOnboardingMode ? OnboardingModalMetrics.onboardingInputIconSize : 14, weight: .medium))
+                .foregroundStyle(OnboardingModalPalette.tertiaryText)
+                .frame(width: isOnboardingMode ? OnboardingModalMetrics.onboardingInputIconWidth : 16)
+
+            field()
+                .font(.system(size: isOnboardingMode ? 13 : 14))
+                .foregroundStyle(OnboardingModalPalette.primaryText)
+        }
+        .padding(.horizontal, isOnboardingMode ? OnboardingModalMetrics.onboardingInputHorizontalPadding : 14)
+        .padding(.vertical, isOnboardingMode ? OnboardingModalMetrics.onboardingInputVerticalPadding : 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(OnboardingModalPalette.inputBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(OnboardingModalPalette.inputBorder, lineWidth: 1)
+        )
+    }
+
+    private func statusBanner(message: String) -> some View {
+        HStack(alignment: .top, spacing: mode == .onboarding ? 8 : 10) {
+            Image(systemName: viewModel.isErrorState ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                .font(.system(size: mode == .onboarding ? 14 : 15, weight: .semibold))
+            Text(message)
+                .font(.system(size: mode == .onboarding ? 12 : 13))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(viewModel.isErrorState ? OnboardingModalPalette.errorText : OnboardingModalPalette.successText)
+        .padding(.horizontal, mode == .onboarding ? OnboardingModalMetrics.onboardingStatusHorizontalPadding : 14)
+        .padding(.vertical, mode == .onboarding ? OnboardingModalMetrics.onboardingStatusVerticalPadding : 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(viewModel.isErrorState ? OnboardingModalPalette.errorBackground : OnboardingModalPalette.successBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(viewModel.isErrorState ? OnboardingModalPalette.errorBorder : OnboardingModalPalette.successBorder, lineWidth: 1)
+        )
+    }
+
+    private var resetSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("初始化配置")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(OnboardingModalPalette.errorText)
+
+            Text("清空当前保存的 Notion Token 与数据库配置，完成后返回欢迎页。不会清除本地缓存的任务和日记内容。")
+                .font(.system(size: 12))
+                .foregroundStyle(OnboardingModalPalette.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                showingResetConfirmation = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("初始化配置")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 42)
+            }
+            .buttonStyle(DestructiveSecondaryButtonStyle())
+            .disabled(viewModel.isWorking || isResetActionPending)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(OnboardingModalPalette.errorBackground.opacity(0.72))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(OnboardingModalPalette.errorBorder, lineWidth: 1)
+        )
+    }
+
+    private var primaryButton: some View {
+        Button {
+            Task {
+                await viewModel.validateAndSave()
+            }
+        } label: {
+            HStack(spacing: isOnboardingMode ? OnboardingModalMetrics.onboardingButtonSpacing : 10) {
+                if viewModel.isWorking {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                } else {
+                    notionMark
+                }
+
+                Text(mode == .settings ? "保存设置" : "验证并继续")
+                    .font(.system(size: isOnboardingMode ? 13 : 14, weight: .semibold))
+
+                if !viewModel.isWorking {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: isOnboardingMode ? 12 : 13, weight: .semibold))
+                        .offset(x: isPrimaryButtonHovered ? (isOnboardingMode ? OnboardingModalMetrics.onboardingButtonHoverOffset : 3) : 0)
+                }
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: isOnboardingMode ? OnboardingModalMetrics.onboardingButtonHeight : 48)
+        }
+        .buttonStyle(OnboardingPrimaryButtonStyle(isHovered: isPrimaryButtonHovered))
+        .onHover { isHovering in
+            isPrimaryButtonHovered = isHovering
+        }
+        .disabled(viewModel.isWorking)
+    }
+
+    private var notionMark: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: mode == .onboarding ? 3.5 : 4, style: .continuous)
+                .fill(Color.white)
+                .frame(width: mode == .onboarding ? 16 : 18, height: mode == .onboarding ? 16 : 18)
+            RoundedRectangle(cornerRadius: mode == .onboarding ? 3.5 : 4, style: .continuous)
+                .stroke(Color.black.opacity(0.18), lineWidth: 0.8)
+                .frame(width: mode == .onboarding ? 16 : 18, height: mode == .onboarding ? 16 : 18)
+            Text("N")
+                .font(.system(size: mode == .onboarding ? 9 : 10, weight: .black))
+                .foregroundStyle(Color.black)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private enum OnboardingModalMetrics {
+    static let horizontalPadding: CGFloat = 24
+    static let onboardingHorizontalPadding: CGFloat = 16
+    static let onboardingTopPadding: CGFloat = 20
+    static let onboardingBottomPadding: CGFloat = 20
+    static let onboardingContentSpacing: CGFloat = 18
+    static let onboardingHeroSpacing: CGFloat = 14
+    static let onboardingHeroIllustrationSize: CGFloat = 68
+    static let onboardingHeroTextSpacing: CGFloat = 6
+    static let onboardingSectionSpacing: CGFloat = 8
+    static let onboardingInputHorizontalPadding: CGFloat = 12
+    static let onboardingInputVerticalPadding: CGFloat = 10
+    static let onboardingInputIconSpacing: CGFloat = 8
+    static let onboardingInputIconSize: CGFloat = 13
+    static let onboardingInputIconWidth: CGFloat = 14
+    static let onboardingStatusHorizontalPadding: CGFloat = 12
+    static let onboardingStatusVerticalPadding: CGFloat = 10
+    static let onboardingButtonHeight: CGFloat = 44
+    static let onboardingButtonSpacing: CGFloat = 8
+    static let onboardingButtonHoverOffset: CGFloat = 2
+    static let settingsContentSpacing: CGFloat = 18
+    static let cardCornerRadius: CGFloat = 18
+}
+
+private enum OnboardingModalPalette {
+    static let modalBackground = Color.white
+    static let cardShadow = Color.black.opacity(0.08)
+    static let inputBackground = Color(red: 0.976, green: 0.976, blue: 0.976)
+    static let inputBorder = Color(red: 0.91, green: 0.91, blue: 0.91)
+    static let border = Color(red: 0.91, green: 0.91, blue: 0.91)
+    static let primaryText = Color(red: 0.102, green: 0.102, blue: 0.102)
+    static let secondaryText = Color(red: 0.42, green: 0.42, blue: 0.42)
+    static let tertiaryText = Color(red: 0.612, green: 0.639, blue: 0.686)
+    static let placeholderText = Color(red: 0.75, green: 0.75, blue: 0.75)
+    static let placeholderDecoration = Color(red: 0.84, green: 0.84, blue: 0.84)
+    static let buttonFill = Color(red: 0.176, green: 0.176, blue: 0.176)
+    static let buttonPressed = Color(red: 0.239, green: 0.239, blue: 0.239)
+    static let buttonShadow = Color.black.opacity(0.18)
+    static let buttonHoverShadow = Color.black.opacity(0.24)
+    static let successText = Color(red: 0.298, green: 0.686, blue: 0.314)
+    static let successBackground = Color(red: 0.953, green: 0.985, blue: 0.953)
+    static let successBorder = Color(red: 0.808, green: 0.925, blue: 0.812)
+    static let errorText = Color(red: 0.76, green: 0.208, blue: 0.208)
+    static let errorBackground = Color(red: 0.996, green: 0.949, blue: 0.949)
+    static let errorBorder = Color(red: 0.945, green: 0.792, blue: 0.792)
+    static let decoDot = Color(red: 0.65, green: 0.65, blue: 0.65).opacity(0.28)
+    static let decoAccent = Color(red: 0.72, green: 0.72, blue: 0.72)
+}
+
+private struct OnboardingPrimaryButtonStyle: ButtonStyle {
+    let isHovered: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(configuration.isPressed ? OnboardingModalPalette.buttonPressed : OnboardingModalPalette.buttonFill)
+            )
+            .shadow(
+                color: isHovered ? OnboardingModalPalette.buttonHoverShadow : OnboardingModalPalette.buttonShadow,
+                radius: configuration.isPressed ? 6 : (isHovered ? 16 : 12),
+                y: configuration.isPressed ? 4 : (isHovered ? 10 : 8)
+            )
+            .offset(y: isHovered && !configuration.isPressed ? -1 : 0)
+            .scaleEffect(configuration.isPressed ? 0.995 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.16), value: isHovered)
+    }
+}
+
+private struct DestructiveSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(foregroundColor(for: configuration))
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(backgroundColor(for: configuration))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(borderColor, lineWidth: 1)
+            )
+            .opacity(isEnabled ? 1 : 0.72)
+            .scaleEffect(configuration.isPressed && isEnabled ? 0.992 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.12), value: isEnabled)
+    }
+
+    private func foregroundColor(for configuration: Configuration) -> Color {
+        guard isEnabled else {
+            return OnboardingModalPalette.errorText.opacity(0.45)
+        }
+        return configuration.isPressed ? Color.white.opacity(0.95) : OnboardingModalPalette.errorText
+    }
+
+    private func backgroundColor(for configuration: Configuration) -> Color {
+        guard isEnabled else {
+            return OnboardingModalPalette.errorBackground.opacity(0.42)
+        }
+        return configuration.isPressed ? OnboardingModalPalette.errorText : Color.white.opacity(0.9)
+    }
+
+    private var borderColor: Color {
+        guard isEnabled else {
+            return OnboardingModalPalette.errorBorder.opacity(0.45)
+        }
+        return OnboardingModalPalette.errorBorder
+    }
+}
+
+private struct SettingsCurveShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY),
+            control: CGPoint(x: rect.midX * 0.9, y: rect.midY)
+        )
+        return path
     }
 }
 
@@ -274,9 +748,80 @@ private struct NotionTokenHelpView: View {
     }
 }
 
+private enum FloatingWidgetPalette {
+    static let shellBackground = Color.white
+    static let tabPillBg = Color(red: 0.984, green: 0.976, blue: 0.965).opacity(0.94)
+    static let tabPillBorder = Color(red: 0.89, green: 0.87, blue: 0.85).opacity(0.92)
+    static let tabPillShadow = Color(red: 0.631, green: 0.569, blue: 0.506).opacity(0.1)
+    static let tabText = Color(red: 0.137, green: 0.137, blue: 0.137)
+    static let activeTabTop = Color(red: 0.945, green: 0.937, blue: 0.925)
+    static let activeTabBottom = Color(red: 0.925, green: 0.91, blue: 0.894)
+    static let activeTabShadow = Color(red: 0.702, green: 0.647, blue: 0.592).opacity(0.16)
+    static let todoToolbarText = Color(red: 0.129, green: 0.125, blue: 0.122)
+    static let syncBannerBg = Color(red: 0.965, green: 0.953, blue: 0.937).opacity(0.96)
+    static let syncBannerText = Color(red: 0.49, green: 0.47, blue: 0.447)
+    static let taskTitle = Color(red: 0.137, green: 0.133, blue: 0.129)
+    static let checkboxBorder = Color(red: 0.741, green: 0.714, blue: 0.686)
+    static let checkboxCompleteTop = Color(red: 0.49, green: 0.835, blue: 0.427)
+    static let checkboxCompleteBottom = Color(red: 0.4, green: 0.78, blue: 0.373)
+    static let priorityBg = Color(red: 0.918, green: 0.949, blue: 1.0)
+    static let priorityText = Color(red: 0.133, green: 0.129, blue: 0.125)
+    static let metaText = Color(red: 0.545, green: 0.522, blue: 0.494)
+    static let dangerText = Color(red: 1.0, green: 0.294, blue: 0.243)
+    static let warningText = Color(red: 1.0, green: 0.616, blue: 0.184)
+    static let retryText = Color(red: 0.4, green: 0.376, blue: 0.353)
+    static let dividerColor = Color(red: 0.914, green: 0.894, blue: 0.875).opacity(0.95)
+    static let journalHeading = Color(red: 0.133, green: 0.129, blue: 0.125)
+    static let journalDate = Color(red: 0.604, green: 0.576, blue: 0.553)
+    static let editorBg = Color(red: 0.992, green: 0.988, blue: 0.98).opacity(0.96)
+    static let editorBorder = Color(red: 0.882, green: 0.863, blue: 0.839).opacity(0.96)
+    static let editorText = Color(red: 0.149, green: 0.145, blue: 0.141)
+    static let statusText = Color(red: 0.655, green: 0.627, blue: 0.604)
+    static let actionBtnColor = Color(red: 0.47, green: 0.459, blue: 0.447)
+    static let actionBtnHoverBg = Color(red: 0.949, green: 0.933, blue: 0.914).opacity(0.92)
+    static let actionBtnActiveBg = Color(red: 0.922, green: 0.902, blue: 0.878).opacity(0.96)
+    static let moreBtnBg = Color(red: 0.996, green: 0.992, blue: 0.984).opacity(0.96)
+    static let moreBtnBorder = Color(red: 0.918, green: 0.898, blue: 0.878).opacity(0.95)
+    static let scrollbarThumb = Color(red: 0.941, green: 0.925, blue: 0.91).opacity(0.98)
+    static let actionBtnHoverColor = Color(red: 0.333, green: 0.322, blue: 0.31)
+    static let expandHintBg = Color(red: 0.176, green: 0.176, blue: 0.176).opacity(0.88)
+    static let editorInset = Color(red: 0.965, green: 0.953, blue: 0.941).opacity(0.88)
+    static let todoDateTitle = Color(red: 0.129, green: 0.125, blue: 0.122)
+    static let checkBg = Color.white.opacity(0.92)
+}
+
+private enum FloatingWidgetMetrics {
+    static let shellPadding = EdgeInsets(top: 12, leading: 16, bottom: 16, trailing: 16)
+    static let topBarBottomSpacing: CGFloat = 18
+
+    static let todoToolbarBottomSpacing: CGFloat = 18
+    static let syncBannerBottomSpacing: CGFloat = 14
+
+    static let taskRowHorizontalSpacing: CGFloat = 10
+    static let taskRowCheckboxTopPadding: CGFloat = 2
+    static let taskRowTextStackSpacing: CGFloat = 6
+    static let taskRowMetaSpacing: CGFloat = 6
+    static let taskRowActionSpacing: CGFloat = 6
+    static let taskRowTopPadding: CGFloat = 14
+    static let taskRowBottomPadding: CGFloat = 16
+    static let todoListContentInsets = EdgeInsets(top: 14, leading: 14, bottom: 36, trailing: 16)
+
+    static let journalHeadingBottomSpacing: CGFloat = 6
+    static let journalDateBottomSpacing: CGFloat = 12
+    static let journalEditorInsets = EdgeInsets(top: 14, leading: 14, bottom: 36, trailing: 16)
+    static let journalStatusSpacing: CGFloat = 4
+    static let journalStatusTopSpacing: CGFloat = 10
+
+    static let panelCornerRadius: CGFloat = 12
+}
+
 struct FloatingWidgetView: View {
-    private let todoDateTitleWidth: CGFloat = 104
-    private let jumpToTodayWidth: CGFloat = 56
+    private enum WidgetTab: String, CaseIterable {
+        case todo = "待办"
+        case journal = "日记"
+    }
+
+    @State private var selectedTab: WidgetTab = .todo
     @ObservedObject var todoViewModel: TodoListViewModel
     @ObservedObject var journalViewModel: JournalViewModel
     @ObservedObject private var newTaskViewModel: NewTaskViewModel
@@ -298,103 +843,96 @@ struct FloatingWidgetView: View {
     }
 
     var body: some View {
-        TabView {
-            todoTab
-                .tabItem {
-                    Label("待办", systemImage: "checklist")
-                }
+        VStack(spacing: 0) {
+            topBar
+                .padding(.bottom, FloatingWidgetMetrics.topBarBottomSpacing)
 
-            journalTab
-                .tabItem {
-                    Label("日记", systemImage: "book.pages")
+            Group {
+                if selectedTab == .todo {
+                    todoPanel
+                } else {
+                    journalPanel
                 }
+            }
+        }
+        .padding(FloatingWidgetMetrics.shellPadding)
+        .background(FloatingWidgetPalette.shellBackground)
+    }
+
+    private var topBar: some View {
+        ZStack {
+            HStack(spacing: 0) {
+                ForEach(WidgetTab.allCases, id: \.self) { tab in
+                    tabButton(tab)
+                }
+            }
+            .padding(3)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(FloatingWidgetPalette.tabPillBg)
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(FloatingWidgetPalette.tabPillBorder, lineWidth: 1)
+            )
+            .shadow(color: FloatingWidgetPalette.tabPillShadow, radius: 6, y: 0)
+
+            HStack {
+                Spacer()
+
+                Color.clear
+                    .frame(width: 26, height: 26)
+                    .accessibilityHidden(true)
+
+                Button {
+                    NSApp.keyWindow?.orderOut(nil)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .buttonStyle(FloatingWidgetActionButtonStyle())
+            }
         }
     }
 
-    private var todoTab: some View {
+    private func tabButton(_ tab: WidgetTab) -> some View {
+        let isActive = selectedTab == tab
+        return Button {
+            withAnimation(.easeOut(duration: 0.22)) {
+                selectedTab = tab
+            }
+        } label: {
+            Text(tab.rawValue)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(FloatingWidgetPalette.tabText)
+                .modifier(TrackingModifier(value: -0.13))
+                .frame(minWidth: 64)
+                .frame(height: 32)
+        }
+        .buttonStyle(.plain)
+        .background(
+            Group {
+                if isActive {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [FloatingWidgetPalette.activeTabTop, FloatingWidgetPalette.activeTabBottom],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ))
+                        .shadow(color: FloatingWidgetPalette.activeTabShadow, radius: 4, y: 2)
+                }
+            }
+        )
+    }
+
+    private var todoPanel: some View {
         ZStack {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 10) {
-                    Button {
-                        Task {
-                            await todoViewModel.showPreviousDay()
-                        }
-                    } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                    .buttonStyle(.plain)
-                    .help("前一天")
+            VStack(alignment: .leading, spacing: 0) {
+                todoToolbar
+                    .padding(.bottom, FloatingWidgetMetrics.todoToolbarBottomSpacing)
 
-                    Text(todoTitle)
-                        .font(.title3.weight(.semibold))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .allowsTightening(true)
-                        .frame(height: 28)
-                        .frame(width: todoDateTitleWidth, alignment: .leading)
-
-                    Button {
-                        Task {
-                            await todoViewModel.showNextDay()
-                        }
-                    } label: {
-                        Image(systemName: "chevron.right")
-                    }
-                    .buttonStyle(.plain)
-                    .help("后一天")
-
-                    Button("回到今天") {
-                        guard !todoViewModel.isShowingToday else { return }
-                        Task {
-                            await todoViewModel.jumpToToday()
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .font(.caption)
-                    .frame(width: jumpToTodayWidth, alignment: .leading)
-                    .opacity(todoViewModel.isShowingToday ? 0 : 1)
-                    .allowsHitTesting(!todoViewModel.isShowingToday)
-                    .accessibilityHidden(todoViewModel.isShowingToday)
-
-                    Spacer()
-                    Button {
-                        todoViewModel.openNewTaskForm()
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .buttonStyle(.plain)
-                    .help("新建任务")
-
-                    Button {
-                        Task { await refreshAction() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .buttonStyle(.plain)
-                    .help("刷新")
-
-                    if todoViewModel.tasksDatabaseURL != nil {
-                        Button {
-                            todoViewModel.openTasksDatabaseInNotion()
-                        } label: {
-                            Image(systemName: "arrow.up.forward.square")
-                        }
-                        .buttonStyle(.plain)
-                        .help("在 Notion 中打开")
-                    }
-                }
-
-                if let banner = bannerMessage {
-                    Text(banner)
-                        .font(.caption)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .background(.ultraThinMaterial, in: Capsule())
-                }
+                syncBanner
+                    .padding(.bottom, FloatingWidgetMetrics.syncBannerBottomSpacing)
 
                 if todoViewModel.isLoading {
                     ProgressView("正在加载任务...")
@@ -402,87 +940,16 @@ struct FloatingWidgetView: View {
                 } else if todoViewModel.tasks.isEmpty && todoViewModel.pendingTask == nil {
                     emptyTasksView
                 } else {
-                    List {
-                        if let pending = todoViewModel.pendingTask {
-                            PendingTodoRowView(item: pending, showFailure: todoViewModel.showFailureHighlight)
-                        }
-                        ForEach(todoViewModel.tasks) { task in
-                            HStack(alignment: .top, spacing: 12) {
-                                Button {
-                                    Task {
-                                        await todoViewModel.toggleTask(task)
-                                    }
-                                } label: {
-                                    Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(task.isDone ? .green : .secondary)
-                                }
-                                .buttonStyle(.plain)
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(task.title)
-                                        .overlay(alignment: .center) {
-                                            if task.isDone {
-                                                Rectangle()
-                                                    .fill(Color.primary)
-                                                    .frame(height: 1)
-                                            }
-                                        }
-                                    HStack(spacing: 8) {
-                                        if let priority = task.priority {
-                                            Text(priority)
-                                                .font(.caption)
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 4)
-                                                .background(Color.accentColor.opacity(0.12), in: Capsule())
-                                        }
-
-                                        Text(syncText(for: task.syncStatus))
-                                            .font(.caption)
-                                            .foregroundStyle(syncColor(for: task.syncStatus))
-                                    }
-                                }
-
-                                Spacer()
-
-                                if todoViewModel.deletingTaskID == task.id {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                }
-
-                                if task.syncStatus == .failed {
-                                    Button("重试") {
-                                        Task {
-                                            await todoViewModel.retry(task)
-                                        }
-                                    }
-                                    .buttonStyle(.borderless)
-                                }
-
-                                Menu {
-                                    taskActionMenu(for: task)
-                                } label: {
-                                    Image(systemName: "ellipsis.circle")
-                                        .foregroundStyle(.secondary)
-                                }
-                                .menuStyle(.borderlessButton)
-                                .menuIndicator(.hidden)
-                            }
-                            .padding(.vertical, 4)
-                            .contextMenu {
-                                taskActionMenu(for: task)
-                            }
-                        }
-                    }
-                    .listStyle(.plain)
+                    taskListView
                 }
 
                 if let message = todoViewModel.errorMessage {
                     Text(message)
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(FloatingWidgetPalette.dangerText)
+                        .padding(.top, 8)
                 }
             }
-            .padding(20)
 
             if newTaskViewModel.showForm {
                 Color.black.opacity(0.3)
@@ -537,6 +1004,232 @@ struct FloatingWidgetView: View {
         }
     }
 
+    private var todoToolbar: some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 14) {
+                Button {
+                    Task { await todoViewModel.showPreviousDay() }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .buttonStyle(FloatingWidgetNavButtonStyle())
+
+                Text(todoTitle)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
+                    .modifier(TrackingModifier(value: -0.28))
+                    .lineLimit(1)
+
+                Button {
+                    Task { await todoViewModel.showNextDay() }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .buttonStyle(FloatingWidgetNavButtonStyle())
+            }
+
+            if !todoViewModel.isShowingToday {
+                Button("回到今天") {
+                    Task { await todoViewModel.jumpToToday() }
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(FloatingWidgetPalette.metaText)
+                .padding(.leading, 8)
+            }
+
+            Spacer()
+
+            HStack(spacing: 12) {
+                Button {
+                    todoViewModel.openNewTaskForm()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(FloatingWidgetIconButtonStyle())
+
+                Button {
+                    Task { await refreshAction() }
+                } label: {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(FloatingWidgetIconButtonStyle())
+
+                if todoViewModel.tasksDatabaseURL != nil {
+                    Button {
+                        todoViewModel.openTasksDatabaseInNotion()
+                    } label: {
+                        Image(systemName: "arrow.up.forward.square")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .buttonStyle(FloatingWidgetIconButtonStyle())
+                }
+            }
+        }
+    }
+
+    private var syncBanner: some View {
+        Group {
+            if let banner = bannerMessage {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.arrow.2.circlepath")
+                        .font(.system(size: 12, weight: .medium))
+                        .opacity(0.7)
+                    Text(banner)
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundStyle(FloatingWidgetPalette.syncBannerText)
+                .frame(maxWidth: .infinity)
+                .frame(height: 32)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(FloatingWidgetPalette.syncBannerBg)
+                )
+            }
+        }
+    }
+
+    private var taskListView: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            LazyVStack(spacing: 0) {
+                if let pending = todoViewModel.pendingTask {
+                    PendingTodoRowView(item: pending, showFailure: todoViewModel.showFailureHighlight)
+                        .padding(.top, FloatingWidgetMetrics.taskRowTopPadding)
+                        .padding(.bottom, FloatingWidgetMetrics.taskRowBottomPadding)
+                    Rectangle()
+                        .fill(FloatingWidgetPalette.dividerColor)
+                        .frame(height: 1)
+                }
+
+                ForEach(todoViewModel.tasks) { task in
+                    taskRowView(task)
+                    if task.id != todoViewModel.tasks.last?.id {
+                        Rectangle()
+                            .fill(FloatingWidgetPalette.dividerColor)
+                            .frame(height: 1)
+                    }
+                }
+            }
+            .padding(FloatingWidgetMetrics.todoListContentInsets)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: FloatingWidgetMetrics.panelCornerRadius, style: .continuous)
+                .fill(FloatingWidgetPalette.editorBg)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FloatingWidgetMetrics.panelCornerRadius, style: .continuous)
+                .stroke(FloatingWidgetPalette.editorBorder, lineWidth: 1.5)
+        )
+    }
+
+    private func taskRowView(_ task: TaskItem) -> some View {
+        HStack(alignment: .top, spacing: FloatingWidgetMetrics.taskRowHorizontalSpacing) {
+            Button {
+                Task { await todoViewModel.toggleTask(task) }
+            } label: {
+                taskCheckbox(isDone: task.isDone)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, FloatingWidgetMetrics.taskRowCheckboxTopPadding)
+
+            VStack(alignment: .leading, spacing: FloatingWidgetMetrics.taskRowTextStackSpacing) {
+                Text(task.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(FloatingWidgetPalette.taskTitle)
+                    .modifier(TrackingModifier(value: -0.24))
+
+                HStack(spacing: FloatingWidgetMetrics.taskRowMetaSpacing) {
+                    if let priority = task.priority {
+                        Text(priority)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(FloatingWidgetPalette.priorityText)
+                            .modifier(TrackingModifier(value: -0.2))
+                            .frame(minWidth: 24)
+                            .frame(height: 20)
+                            .padding(.horizontal, 7)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(FloatingWidgetPalette.priorityBg)
+                            )
+                    }
+
+                    Text(syncText(for: task.syncStatus))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(syncColor(for: task.syncStatus))
+                }
+            }
+
+            Spacer()
+
+            HStack(spacing: FloatingWidgetMetrics.taskRowActionSpacing) {
+                if todoViewModel.deletingTaskID == task.id {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                if task.syncStatus == .failed {
+                    Button("重试") {
+                        Task { await todoViewModel.retry(task) }
+                    }
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(FloatingWidgetPalette.retryText)
+                    .buttonStyle(.plain)
+                }
+
+                Menu {
+                    taskActionMenu(for: task)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(FloatingWidgetPalette.todoToolbarText)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .frame(width: 24, height: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(FloatingWidgetPalette.moreBtnBg)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(FloatingWidgetPalette.moreBtnBorder, lineWidth: 1)
+                )
+            }
+        }
+        .padding(.top, FloatingWidgetMetrics.taskRowTopPadding)
+        .padding(.bottom, FloatingWidgetMetrics.taskRowBottomPadding)
+        .contextMenu {
+            taskActionMenu(for: task)
+        }
+    }
+
+    private func taskCheckbox(isDone: Bool) -> some View {
+        ZStack {
+            if isDone {
+                Circle()
+                    .fill(LinearGradient(
+                        colors: [FloatingWidgetPalette.checkboxCompleteTop, FloatingWidgetPalette.checkboxCompleteBottom],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ))
+                    .frame(width: 16, height: 16)
+
+                Image(systemName: "checkmark")
+                    .font(.system(size: 7, weight: .bold))
+                    .foregroundStyle(.white)
+            } else {
+                Circle()
+                    .stroke(FloatingWidgetPalette.checkboxBorder, lineWidth: 1.5)
+                    .background(Circle().fill(FloatingWidgetPalette.checkBg))
+                    .frame(width: 16, height: 16)
+            }
+        }
+    }
+
     @ViewBuilder
     private func taskActionMenu(for task: TaskItem) -> some View {
         Button("编辑任务") {
@@ -548,26 +1241,16 @@ struct FloatingWidgetView: View {
         }
     }
 
-    private var journalTab: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("日记")
-                    .font(.title3.weight(.semibold))
-                Spacer()
-                if let url = journalViewModel.entry?.url {
-                    Button {
-                        journalViewModel.openInNotion(url)
-                    } label: {
-                        Image(systemName: "arrow.up.forward.square")
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+    private var journalPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            journalToolbar
+                .padding(.bottom, FloatingWidgetMetrics.journalHeadingBottomSpacing)
 
             if let entry = journalViewModel.entry {
-                Text(entry.date.formatted(date: .abbreviated, time: .omitted))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(journalDateString(from: entry.date))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(FloatingWidgetPalette.journalDate)
+                    .padding(.bottom, FloatingWidgetMetrics.journalDateBottomSpacing)
             }
 
             if journalViewModel.isLoading {
@@ -575,43 +1258,96 @@ struct FloatingWidgetView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 TextEditor(text: $journalViewModel.editorText)
-                    .font(.body)
-                    .padding(8)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.secondary.opacity(0.2))
-                    }
+                    .font(.system(size: 12))
+                    .foregroundStyle(FloatingWidgetPalette.editorText)
+                    .modifier(JournalEditorModifier())
+                    .modifier(TrackingModifier(value: -0.12))
+                    .padding(FloatingWidgetMetrics.journalEditorInsets)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: FloatingWidgetMetrics.panelCornerRadius, style: .continuous)
+                            .fill(FloatingWidgetPalette.editorBg)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FloatingWidgetMetrics.panelCornerRadius, style: .continuous)
+                            .stroke(FloatingWidgetPalette.editorBorder, lineWidth: 1.5)
+                    )
                     .onChange(of: journalViewModel.editorText) { newValue in
                         journalViewModel.scheduleAutosave(text: newValue)
                     }
             }
 
-            HStack {
+            HStack(spacing: FloatingWidgetMetrics.journalStatusSpacing) {
+                Image(systemName: "clock.arrow.2.circlepath")
+                    .font(.system(size: 12, weight: .medium))
+                    .opacity(0.7)
                 Text(journalViewModel.statusMessage ?? "2 秒后自动保存")
-                    .font(.caption)
-                    .foregroundStyle(journalViewModel.errorMessage == nil ? Color.secondary : Color.red)
+                    .font(.system(size: 11, weight: .semibold))
+                    .modifier(TrackingModifier(value: -0.11))
+                    .foregroundStyle(
+                        journalViewModel.errorMessage == nil
+                            ? FloatingWidgetPalette.statusText
+                            : FloatingWidgetPalette.dangerText
+                    )
+
                 Spacer()
-                if journalViewModel.entry?.syncStatus == .failed {
-                    Button("重试") {
-                        Task {
-                            await journalViewModel.forceSave()
+
+                if let url = journalViewModel.entry?.url {
+                    Button {
+                        journalViewModel.openInNotion(url)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.forward.square")
+                                .font(.system(size: 12))
+                            Text("在 Notion 中打开")
+                                .font(.system(size: 10, weight: .semibold))
                         }
                     }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(FloatingWidgetPalette.metaText)
+                }
+
+                if journalViewModel.entry?.syncStatus == .failed {
+                    Button("重试") {
+                        Task { await journalViewModel.forceSave() }
+                    }
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(FloatingWidgetPalette.dangerText)
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(.top, FloatingWidgetMetrics.journalStatusTopSpacing)
         }
-        .padding(20)
+    }
+
+    private var journalToolbar: some View {
+        HStack(spacing: 0) {
+            Text("日记")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(FloatingWidgetPalette.journalHeading)
+                .modifier(TrackingModifier(value: -0.63))
+
+            Spacer()
+
+            Button {
+                Task { await journalViewModel.reloadFromNotion() }
+            } label: {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .buttonStyle(FloatingWidgetIconButtonStyle())
+        }
     }
 
     private var emptyTasksView: some View {
         VStack(spacing: 12) {
             Image(systemName: "checklist")
-                .font(.system(size: 30, weight: .medium))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(FloatingWidgetPalette.metaText)
 
             Text(emptyTasksTitle)
-                .font(.headline)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(FloatingWidgetPalette.metaText)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -640,11 +1376,95 @@ struct FloatingWidgetView: View {
     private func syncColor(for status: SyncStatus) -> Color {
         switch status {
         case .synced:
-            .secondary
+            FloatingWidgetPalette.metaText
         case .syncing, .localPending:
-            .orange
+            FloatingWidgetPalette.warningText
         case .failed:
-            .red
+            FloatingWidgetPalette.dangerText
+        }
+    }
+
+    private func journalDateString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+}
+
+private struct FloatingWidgetActionButtonStyle: ButtonStyle {
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(isHovered ? FloatingWidgetPalette.actionBtnHoverColor : FloatingWidgetPalette.actionBtnColor)
+            .frame(width: 26, height: 26)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(configuration.isPressed
+                        ? FloatingWidgetPalette.actionBtnActiveBg
+                        : (isHovered ? FloatingWidgetPalette.actionBtnHoverBg : Color.clear))
+            )
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.easeOut(duration: 0.18), value: isHovered)
+            .animation(.easeOut(duration: 0.18), value: configuration.isPressed)
+            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .onHover { hovering in
+                isHovered = hovering
+            }
+    }
+}
+
+private struct FloatingWidgetNavButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
+            .frame(width: 22, height: 22)
+            .background(
+                Circle()
+                    .fill(configuration.isPressed
+                        ? FloatingWidgetPalette.actionBtnHoverBg
+                        : Color.clear)
+            )
+            .contentShape(Circle())
+    }
+}
+
+private struct FloatingWidgetIconButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
+            .frame(width: 24, height: 24)
+            .background(
+                Circle()
+                    .fill(configuration.isPressed
+                        ? FloatingWidgetPalette.actionBtnHoverBg
+                        : Color.clear)
+            )
+            .contentShape(Circle())
+    }
+}
+
+private struct JournalEditorModifier: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 13.0, *) {
+            content.scrollContentBackground(.hidden)
+        } else {
+            content
+        }
+    }
+}
+
+private struct TrackingModifier: ViewModifier {
+    let value: CGFloat
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 13.0, *) {
+            content.tracking(value)
+        } else {
+            content
         }
     }
 }

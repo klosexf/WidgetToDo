@@ -1,6 +1,18 @@
 import Combine
 import Foundation
 
+private struct OnboardingUserFacingError: LocalizedError {
+    let message: String
+
+    var errorDescription: String? {
+        message
+    }
+
+    static func resetConfigurationFailed() -> Self {
+        .init(message: "重置配置失败，请稍后重试。")
+    }
+}
+
 @MainActor
 final class OnboardingViewModel: ObservableObject {
     @Published var token = ""
@@ -82,5 +94,25 @@ final class OnboardingViewModel: ObservableObject {
             return
         }
         journalDatabaseInput = normalized
+    }
+
+    func resetConfigurationForRestart() async throws {
+        isWorking = true
+        statusMessage = "正在重置配置..."
+        isErrorState = false
+        defer { isWorking = false }
+
+        do {
+            try await repository.resetConfiguration()
+            token = ""
+            tasksDatabaseInput = ""
+            journalDatabaseInput = ""
+            statusMessage = nil
+            isErrorState = false
+        } catch {
+            statusMessage = nil
+            isErrorState = false
+            throw OnboardingUserFacingError.resetConfigurationFailed()
+        }
     }
 }
