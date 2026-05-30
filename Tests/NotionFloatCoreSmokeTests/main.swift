@@ -29,7 +29,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try topBarDoesNotShowExpandButton()
             try welcomeViewUsesDedicatedIllustrationAssetAndCallback()
             try configurationFormContainsSettingsHelpAndExtractionCopy()
-            try newTaskFormUsesWidgetCardStyle()
+            try newTaskFormKeepsCreateTaskContract()
             try onboardingVisualAlignmentKeepsExistingBehaviorContract()
             try settingsResetFlowReturnsUserToWelcome()
             try statusBarMenuContainsSettingsEntry()
@@ -371,7 +371,7 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
     }
 
-    static func newTaskFormUsesWidgetCardStyle() throws {
+    static func newTaskFormKeepsCreateTaskContract() throws {
         let rootURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -380,7 +380,11 @@ struct NotionFloatCoreSmokeTestsRunner {
             .appendingPathComponent("WidgetToDo")
             .appendingPathComponent("NewTaskFormCard.swift")
         let source = try String(contentsOf: formURL, encoding: .utf8)
-        let normalized = source.replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
+        guard let formStart = source.range(of: "struct NewTaskFormCard") else {
+            throw SmokeTestFailure(description: "new task form source should define NewTaskFormCard")
+        }
+        let formSource = String(source[formStart.lowerBound...])
+        let normalized = formSource.replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
 
         try expect(
             normalized.contains("viewModel.title"),
