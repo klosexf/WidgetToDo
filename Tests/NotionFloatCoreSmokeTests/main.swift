@@ -380,38 +380,47 @@ struct NotionFloatCoreSmokeTestsRunner {
             .appendingPathComponent("WidgetToDo")
             .appendingPathComponent("NewTaskFormCard.swift")
         let source = try String(contentsOf: formURL, encoding: .utf8)
+        let normalized = source.replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
+        guard let cardSurfaceStart = normalized.range(of: ".background(", options: .backwards)?.lowerBound else {
+            throw SmokeTestFailure(description: "new task form should define an outer card background")
+        }
+        let cardSurfaceSource = String(normalized[cardSurfaceStart...])
 
         try expect(
-            source.contains("TextField(\"标题(必填)\", text: $viewModel.title)"),
+            normalized.contains("TextField(\"标题(必填)\"") && normalized.contains("text:$viewModel.title"),
             "new task form should keep the title binding"
         )
         try expect(
-            source.contains("DatePicker(\"\", selection: $viewModel.taskDate, displayedComponents: .date)"),
+            normalized.contains("DatePicker(\"\"") &&
+                normalized.contains("selection:$viewModel.taskDate") &&
+                normalized.contains("displayedComponents:.date"),
             "new task form should keep the compact date binding"
         )
         try expect(
-            source.contains("viewModel.dismissForm()"),
+            normalized.contains("viewModel.dismissForm()"),
             "new task form should keep cancel behavior"
         )
         try expect(
-            source.contains("viewModel.submit()"),
+            normalized.contains("viewModel.submit()"),
             "new task form should keep submit behavior"
         )
         try expect(
-            source.contains("viewModel.formState == .validationFailed"),
+            normalized.contains("viewModel.formState==.validationFailed"),
             "new task form should keep validation state rendering"
         )
         try expect(
-            source.contains(".modifier(ShakeEffect(animatableData: viewModel.shakeAttempts))"),
+            normalized.contains("ShakeEffect(animatableData:viewModel.shakeAttempts)"),
             "new task form should keep the shake effect"
         )
         try expect(
-            !source.contains(".background(.regularMaterial"),
+            !normalized.contains(".background(.regularMaterial"),
             "new task form should no longer use the generic regularMaterial card"
         )
         try expect(
-            source.contains("RoundedRectangle") && source.contains(".shadow("),
-            "new task form should define a custom card surface with border or shadow"
+            cardSurfaceSource.contains("RoundedRectangle(") &&
+                cardSurfaceSource.contains(".fill(") &&
+                cardSurfaceSource.contains(".shadow("),
+            "new task form should replace the outer material card with a custom filled rounded card surface"
         )
     }
 
