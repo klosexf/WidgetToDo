@@ -29,6 +29,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try topBarDoesNotShowExpandButton()
             try welcomeViewUsesDedicatedIllustrationAssetAndCallback()
             try configurationFormContainsSettingsHelpAndExtractionCopy()
+            try newTaskFormUsesWidgetCardStyle()
             try onboardingVisualAlignmentKeepsExistingBehaviorContract()
             try settingsResetFlowReturnsUserToWelcome()
             try statusBarMenuContainsSettingsEntry()
@@ -367,6 +368,50 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             viewModelSource.contains("ConfigurationInputNormalizer.normalizeDatabaseInput"),
             "configuration view model should normalize pasted database URLs"
+        )
+    }
+
+    static func newTaskFormUsesWidgetCardStyle() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let formURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("NewTaskFormCard.swift")
+        let source = try String(contentsOf: formURL, encoding: .utf8)
+
+        try expect(
+            source.contains("TextField(\"标题(必填)\", text: $viewModel.title)"),
+            "new task form should keep the title binding"
+        )
+        try expect(
+            source.contains("DatePicker(\"\", selection: $viewModel.taskDate, displayedComponents: .date)"),
+            "new task form should keep the compact date binding"
+        )
+        try expect(
+            source.contains("viewModel.dismissForm()"),
+            "new task form should keep cancel behavior"
+        )
+        try expect(
+            source.contains("viewModel.submit()"),
+            "new task form should keep submit behavior"
+        )
+        try expect(
+            source.contains("viewModel.formState == .validationFailed"),
+            "new task form should keep validation state rendering"
+        )
+        try expect(
+            source.contains(".modifier(ShakeEffect(animatableData: viewModel.shakeAttempts))"),
+            "new task form should keep the shake effect"
+        )
+        try expect(
+            !source.contains(".background(.regularMaterial"),
+            "new task form should no longer use the generic regularMaterial card"
+        )
+        try expect(
+            source.contains("RoundedRectangle") && source.contains(".shadow("),
+            "new task form should define a custom card surface with border or shadow"
         )
     }
 
