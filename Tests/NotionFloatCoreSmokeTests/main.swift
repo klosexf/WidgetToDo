@@ -26,6 +26,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try todoListViewModelDoesNotSynchronouslyBridgeNestedObjectWillChange()
             try todoHeaderOpenButtonTargetsTasksDatabasePage()
             try journalHeaderContainsManualSyncButton()
+            try journalEditorTypographyUsesRelaxedEditorRhythm()
             try topBarDoesNotShowExpandButton()
             try welcomeViewUsesDedicatedIllustrationAssetAndCallback()
             try configurationFormContainsSettingsHelpAndExtractionCopy()
@@ -260,6 +261,46 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             journalViewModelSource.contains("await load()"),
             "reloading from Notion should reuse the existing journal load path"
+        )
+    }
+
+    static func journalEditorTypographyUsesRelaxedEditorRhythm() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            source.contains("static let journalHeadingBottomSpacing: CGFloat = 8"),
+            "journal heading should leave more breathing room before the date"
+        )
+        try expect(
+            source.contains("static let journalDateBottomSpacing: CGFloat = 14"),
+            "journal date should leave more breathing room before the editor"
+        )
+        try expect(
+            source.contains("static let journalEditorFontSize: CGFloat = 13"),
+            "journal editor should use a restrained 13pt body size"
+        )
+        try expect(
+            source.contains("static let journalEditorLineSpacing: CGFloat = 6"),
+            "journal editor should loosen line spacing for multi-line notes"
+        )
+        try expect(
+            source.contains("static let journalEditorInsets = EdgeInsets(top: 16, leading: 16, bottom: 40, trailing: 18)"),
+            "journal editor should use roomier text insets"
+        )
+        try expect(
+            source.contains(".lineSpacing(FloatingWidgetMetrics.journalEditorLineSpacing)"),
+            "journal editor should explicitly apply the relaxed line spacing"
+        )
+        try expect(
+            !source.contains(".modifier(TrackingModifier(value: -0.12))"),
+            "journal editor body should not squeeze glyph spacing with negative tracking"
         )
     }
 

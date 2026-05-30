@@ -49,7 +49,7 @@ struct ContentView: View {
                 )
             }
         }
-        .frame(width: 340, height: 560)
+        .frame(width: 340, height: 460)
         .background(
             RoundedRectangle(cornerRadius: AppWindowChrome.cornerRadius, style: .continuous)
                 .fill(Color(nsColor: .windowBackgroundColor))
@@ -187,7 +187,7 @@ struct OnboardingView: View {
                 modalHeader
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: mode == .onboarding ? OnboardingModalMetrics.onboardingContentSpacing : OnboardingModalMetrics.settingsContentSpacing) {
+                    VStack(alignment: .leading, spacing: OnboardingModalMetrics.onboardingContentSpacing) {
                         if mode == .settings {
                             settingsIntro
                         } else {
@@ -218,9 +218,9 @@ struct OnboardingView: View {
 
                         primaryButton
                     }
-                    .padding(.horizontal, mode == .onboarding ? OnboardingModalMetrics.onboardingHorizontalPadding : OnboardingModalMetrics.horizontalPadding)
-                    .padding(.top, mode == .onboarding ? OnboardingModalMetrics.onboardingTopPadding : 18)
-                    .padding(.bottom, mode == .onboarding ? OnboardingModalMetrics.onboardingBottomPadding : 24)
+                    .padding(.horizontal, OnboardingModalMetrics.onboardingHorizontalPadding)
+                    .padding(.top, OnboardingModalMetrics.onboardingTopPadding)
+                    .padding(.bottom, OnboardingModalMetrics.onboardingBottomPadding)
                 }
             }
             .background(
@@ -301,8 +301,8 @@ struct OnboardingView: View {
                 headerBalancePlaceholder
             }
         }
-        .padding(.horizontal, mode == .onboarding ? 16 : 24)
-        .padding(.vertical, mode == .onboarding ? 14 : 16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(OnboardingModalPalette.border)
@@ -366,10 +366,10 @@ struct OnboardingView: View {
     }
 
     private var tokenSection: some View {
-        VStack(alignment: .leading, spacing: mode == .onboarding ? OnboardingModalMetrics.onboardingSectionSpacing : 10) {
+        VStack(alignment: .leading, spacing: OnboardingModalMetrics.onboardingSectionSpacing) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Notion Token")
-                    .font(.system(size: mode == .onboarding ? 12 : 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OnboardingModalPalette.primaryText)
                 Spacer()
                 Button {
@@ -378,7 +378,7 @@ struct OnboardingView: View {
                     HStack(spacing: 4) {
                         Text("如何获取？")
                         Image(systemName: "chevron.right")
-                            .font(.system(size: mode == .onboarding ? 9 : 10, weight: .semibold))
+                            .font(.system(size: 9, weight: .semibold))
                     }
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(OnboardingModalPalette.secondaryText)
@@ -394,9 +394,9 @@ struct OnboardingView: View {
                     .accessibilityLabel("Notion Token")
             }
 
-            HStack(alignment: .center, spacing: mode == .onboarding ? 6 : 8) {
+            HStack(alignment: .center, spacing: 6) {
                 Image(systemName: "lock")
-                    .font(.system(size: mode == .onboarding ? 10 : 11, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                 Text(mode == .settings ? "令牌只保存在本机钥匙串。" : "令牌只保存在本机钥匙串中，安全加密存储。")
                     .font(.system(size: 12))
             }
@@ -405,10 +405,10 @@ struct OnboardingView: View {
     }
 
     private func databaseSection(title: String, placeholder: String, text: Binding<String>, normalize: @escaping () -> Void) -> some View {
-        VStack(alignment: .leading, spacing: mode == .onboarding ? OnboardingModalMetrics.onboardingSectionSpacing : 10) {
+        VStack(alignment: .leading, spacing: OnboardingModalMetrics.onboardingSectionSpacing) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
-                    .font(.system(size: mode == .onboarding ? 12 : 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OnboardingModalPalette.primaryText)
                 Spacer()
                 Text("粘贴整个URL自动提取")
@@ -458,18 +458,18 @@ struct OnboardingView: View {
     }
 
     private func inputShell<Field: View>(icon: String, @ViewBuilder field: () -> Field) -> some View {
-        HStack(spacing: isOnboardingMode ? OnboardingModalMetrics.onboardingInputIconSpacing : 10) {
+        HStack(spacing: OnboardingModalMetrics.onboardingInputIconSpacing) {
             Image(systemName: icon)
-                .font(.system(size: isOnboardingMode ? OnboardingModalMetrics.onboardingInputIconSize : 14, weight: .medium))
+                .font(.system(size: OnboardingModalMetrics.onboardingInputIconSize, weight: .medium))
                 .foregroundStyle(OnboardingModalPalette.tertiaryText)
-                .frame(width: isOnboardingMode ? OnboardingModalMetrics.onboardingInputIconWidth : 16)
+                .frame(width: OnboardingModalMetrics.onboardingInputIconWidth)
 
             field()
-                .font(.system(size: isOnboardingMode ? 13 : 14))
+                .font(.system(size: 13))
                 .foregroundStyle(OnboardingModalPalette.primaryText)
         }
-        .padding(.horizontal, isOnboardingMode ? OnboardingModalMetrics.onboardingInputHorizontalPadding : 14)
-        .padding(.vertical, isOnboardingMode ? OnboardingModalMetrics.onboardingInputVerticalPadding : 12)
+        .padding(.horizontal, OnboardingModalMetrics.onboardingInputHorizontalPadding)
+        .padding(.vertical, OnboardingModalMetrics.onboardingInputVerticalPadding)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(OnboardingModalPalette.inputBackground)
@@ -481,16 +481,16 @@ struct OnboardingView: View {
     }
 
     private func statusBanner(message: String) -> some View {
-        HStack(alignment: .top, spacing: mode == .onboarding ? 8 : 10) {
+        HStack(alignment: .top, spacing: 8) {
             Image(systemName: viewModel.isErrorState ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
-                .font(.system(size: mode == .onboarding ? 14 : 15, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
             Text(message)
-                .font(.system(size: mode == .onboarding ? 12 : 13))
+                .font(.system(size: 12))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(viewModel.isErrorState ? OnboardingModalPalette.errorText : OnboardingModalPalette.successText)
-        .padding(.horizontal, mode == .onboarding ? OnboardingModalMetrics.onboardingStatusHorizontalPadding : 14)
-        .padding(.vertical, mode == .onboarding ? OnboardingModalMetrics.onboardingStatusVerticalPadding : 12)
+        .padding(.horizontal, OnboardingModalMetrics.onboardingStatusHorizontalPadding)
+        .padding(.vertical, OnboardingModalMetrics.onboardingStatusVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -546,7 +546,7 @@ struct OnboardingView: View {
                 await viewModel.validateAndSave()
             }
         } label: {
-            HStack(spacing: isOnboardingMode ? OnboardingModalMetrics.onboardingButtonSpacing : 10) {
+            HStack(spacing: OnboardingModalMetrics.onboardingButtonSpacing) {
                 if viewModel.isWorking {
                     ProgressView()
                         .controlSize(.small)
@@ -556,17 +556,17 @@ struct OnboardingView: View {
                 }
 
                 Text(mode == .settings ? "保存设置" : "验证并继续")
-                    .font(.system(size: isOnboardingMode ? 13 : 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
 
                 if !viewModel.isWorking {
                     Image(systemName: "arrow.right")
-                        .font(.system(size: isOnboardingMode ? 12 : 13, weight: .semibold))
-                        .offset(x: isPrimaryButtonHovered ? (isOnboardingMode ? OnboardingModalMetrics.onboardingButtonHoverOffset : 3) : 0)
+                        .font(.system(size: 12, weight: .semibold))
+                        .offset(x: isPrimaryButtonHovered ? OnboardingModalMetrics.onboardingButtonHoverOffset : 0)
                 }
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: isOnboardingMode ? OnboardingModalMetrics.onboardingButtonHeight : 48)
+            .frame(height: OnboardingModalMetrics.onboardingButtonHeight)
         }
         .buttonStyle(OnboardingPrimaryButtonStyle(isHovered: isPrimaryButtonHovered))
         .onHover { isHovering in
@@ -577,14 +577,14 @@ struct OnboardingView: View {
 
     private var notionMark: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: mode == .onboarding ? 3.5 : 4, style: .continuous)
+            RoundedRectangle(cornerRadius: 3.5, style: .continuous)
                 .fill(Color.white)
-                .frame(width: mode == .onboarding ? 16 : 18, height: mode == .onboarding ? 16 : 18)
-            RoundedRectangle(cornerRadius: mode == .onboarding ? 3.5 : 4, style: .continuous)
+                .frame(width: 16, height: 16)
+            RoundedRectangle(cornerRadius: 3.5, style: .continuous)
                 .stroke(Color.black.opacity(0.18), lineWidth: 0.8)
-                .frame(width: mode == .onboarding ? 16 : 18, height: mode == .onboarding ? 16 : 18)
+                .frame(width: 16, height: 16)
             Text("N")
-                .font(.system(size: mode == .onboarding ? 9 : 10, weight: .black))
+                .font(.system(size: 9, weight: .black))
                 .foregroundStyle(Color.black)
         }
         .accessibilityHidden(true)
@@ -592,7 +592,6 @@ struct OnboardingView: View {
 }
 
 private enum OnboardingModalMetrics {
-    static let horizontalPadding: CGFloat = 24
     static let onboardingHorizontalPadding: CGFloat = 16
     static let onboardingTopPadding: CGFloat = 20
     static let onboardingBottomPadding: CGFloat = 20
@@ -611,7 +610,6 @@ private enum OnboardingModalMetrics {
     static let onboardingButtonHeight: CGFloat = 44
     static let onboardingButtonSpacing: CGFloat = 8
     static let onboardingButtonHoverOffset: CGFloat = 2
-    static let settingsContentSpacing: CGFloat = 18
     static let cardCornerRadius: CGFloat = 18
 }
 
@@ -806,9 +804,11 @@ private enum FloatingWidgetMetrics {
     static let taskRowBottomPadding: CGFloat = 16
     static let todoListContentInsets = EdgeInsets(top: 14, leading: 14, bottom: 36, trailing: 16)
 
-    static let journalHeadingBottomSpacing: CGFloat = 6
-    static let journalDateBottomSpacing: CGFloat = 12
-    static let journalEditorInsets = EdgeInsets(top: 14, leading: 14, bottom: 36, trailing: 16)
+    static let journalHeadingBottomSpacing: CGFloat = 8
+    static let journalDateBottomSpacing: CGFloat = 14
+    static let journalEditorFontSize: CGFloat = 13
+    static let journalEditorLineSpacing: CGFloat = 6
+    static let journalEditorInsets = EdgeInsets(top: 16, leading: 16, bottom: 40, trailing: 18)
     static let journalStatusSpacing: CGFloat = 4
     static let journalStatusTopSpacing: CGFloat = 10
 
@@ -1258,10 +1258,10 @@ struct FloatingWidgetView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 TextEditor(text: $journalViewModel.editorText)
-                    .font(.system(size: 12))
+                    .font(.system(size: FloatingWidgetMetrics.journalEditorFontSize))
+                    .lineSpacing(FloatingWidgetMetrics.journalEditorLineSpacing)
                     .foregroundStyle(FloatingWidgetPalette.editorText)
                     .modifier(JournalEditorModifier())
-                    .modifier(TrackingModifier(value: -0.12))
                     .padding(FloatingWidgetMetrics.journalEditorInsets)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(
@@ -1552,12 +1552,12 @@ struct EditTaskFormCard: View {
 
 #Preview("初始配置") {
     OnboardingView(viewModel: makePreviewOnboardingViewModel(), mode: .onboarding)
-        .frame(width: 340, height: 560)
+        .frame(width: 340, height: 460)
 }
 
 #Preview("设置") {
     OnboardingView(viewModel: makePreviewOnboardingViewModel(), mode: .settings, onBack: {})
-        .frame(width: 340, height: 560)
+        .frame(width: 340, height: 460)
 }
 
 #Preview("悬浮组件") {
@@ -1567,7 +1567,7 @@ struct EditTaskFormCard: View {
         refreshAction: {},
         bannerMessage: "刚刚同步完成"
     )
-    .frame(width: 340, height: 560)
+    .frame(width: 340, height: 460)
 }
 
 private enum PreviewRootState {

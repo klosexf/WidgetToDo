@@ -13,7 +13,7 @@
 ## File Map
 
 - Modify: `WidgetToDo/Tests/NotionFloatCoreSmokeTests/main.swift`
-  - Add a source-level smoke guard for the create-task card contract: same bindings and actions, new custom card surface instead of `.regularMaterial`.
+  - Add a source-level smoke guard for the create-task card contract: same bindings and actions, and explicit removal of the old `.regularMaterial` shell.
 - Modify: `WidgetToDo/WidgetToDo/NewTaskFormCard.swift`
   - Replace the current generic modal styling with widget-aligned card styling while preserving handlers, focus, validation, and field structure.
 - Modify: `progress.md`
@@ -29,7 +29,7 @@
 Insert a new runner call near the other source-level UI guards:
 
 ```swift
-try newTaskFormUsesWidgetCardStyle()
+try newTaskFormKeepsCreateTaskContract()
 ```
 
 - [ ] **Step 2: Add the source-level guard**
@@ -37,7 +37,7 @@ try newTaskFormUsesWidgetCardStyle()
 Add this function to `WidgetToDo/Tests/NotionFloatCoreSmokeTests/main.swift`:
 
 ```swift
-static func newTaskFormUsesWidgetCardStyle() throws {
+static func newTaskFormKeepsCreateTaskContract() throws {
     let rootURL = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -46,38 +46,41 @@ static func newTaskFormUsesWidgetCardStyle() throws {
         .appendingPathComponent("WidgetToDo")
         .appendingPathComponent("NewTaskFormCard.swift")
     let source = try String(contentsOf: formURL, encoding: .utf8)
+    guard let formStart = source.range(of: "struct NewTaskFormCard"),
+          let openingBrace = source[formStart.lowerBound...].firstIndex(of: "{") else {
+        throw SmokeTestFailure(description: "new task form should define NewTaskFormCard")
+    }
+    var depth = 0
+    var formEnd: String.Index?
+    for index in source[openingBrace...].indices {
+        let character = source[index]
+        if character == "{" { depth += 1 }
+        if character == "}" {
+            depth -= 1
+            if depth == 0 {
+                formEnd = source.index(after: index)
+                break
+            }
+        }
+    }
+    guard let formEnd else {
+        throw SmokeTestFailure(description: "new task form should have a balanced struct body")
+    }
+    let formSource = String(source[formStart.lowerBound..<formEnd])
 
+    try expect(formSource.contains("viewModel.title"), "new task form should keep the title binding")
+    try expect(formSource.contains("viewModel.taskDate"), "new task form should keep the date binding")
     try expect(
-        source.contains("TextField(\"标题(必填)\", text: $viewModel.title)"),
-        "new task form should keep the title binding"
-    )
-    try expect(
-        source.contains("DatePicker(\"\", selection: $viewModel.taskDate, displayedComponents: .date)"),
-        "new task form should keep the compact date binding"
-    )
-    try expect(
-        source.contains("viewModel.dismissForm()"),
+        formSource.contains("viewModel.dismissForm()"),
         "new task form should keep cancel behavior"
     )
     try expect(
-        source.contains("viewModel.submit()"),
+        formSource.contains("viewModel.submit()"),
         "new task form should keep submit behavior"
     )
     try expect(
-        source.contains("viewModel.formState == .validationFailed"),
-        "new task form should keep validation state rendering"
-    )
-    try expect(
-        source.contains(".modifier(ShakeEffect(animatableData: viewModel.shakeAttempts))"),
-        "new task form should keep the shake effect"
-    )
-    try expect(
-        !source.contains(".background(.regularMaterial"),
+        !formSource.contains(".background(.regularMaterial"),
         "new task form should no longer use the generic regularMaterial card"
-    )
-    try expect(
-        source.contains("RoundedRectangle") && source.contains(".shadow("),
-        "new task form should define a custom card surface with border or shadow"
     )
 }
 ```
@@ -90,18 +93,20 @@ Expected: FAIL because `NewTaskFormCard.swift` still contains `.background(.regu
 
 - [ ] **Step 4: Keep the guard narrow**
 
-Do not add brittle assertions for exact spacing, exact color values, or exact modifier ordering. Keep the contract limited to:
+Do not add brittle assertions for exact spacing, exact color values, exact helper type names, or exact modifier ordering. Keep the contract limited to:
 
 ```swift
-source.contains("TextField(\"标题(必填)\", text: $viewModel.title)")
-source.contains("DatePicker(\"\", selection: $viewModel.taskDate, displayedComponents: .date)")
-source.contains("viewModel.dismissForm()")
-source.contains("viewModel.submit()")
-source.contains("viewModel.formState == .validationFailed")
-source.contains(".modifier(ShakeEffect(animatableData: viewModel.shakeAttempts))")
-!source.contains(".background(.regularMaterial")
-source.contains("RoundedRectangle") && source.contains(".shadow(")
+formSource.contains("viewModel.title")
+formSource.contains("viewModel.taskDate")
+formSource.contains("viewModel.dismissForm()")
+formSource.contains("viewModel.submit()")
+!normalized.contains("regularMaterial")
 ```
+
+Do not add a positive source-level assertion for the replacement card surface. The positive visual contract for the new warm-gray card is owned by:
+
+- Task 2 production implementation review
+- Task 3 manual runtime verification
 
 - [ ] **Step 5: Re-run the smoke target after implementation**
 

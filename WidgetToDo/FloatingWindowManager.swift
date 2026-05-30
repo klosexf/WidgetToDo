@@ -71,7 +71,7 @@ final class FloatingWindowManager: NSObject {
 
     init(rootView: ContentView) {
         let panel = FloatingPanel(
-            contentRect: NSRect(x: 240, y: 240, width: 340, height: 560),
+            contentRect: NSRect(x: 240, y: 240, width: 340, height: 460),
             styleMask: [.borderless, .resizable],
             backing: .buffered,
             defer: false

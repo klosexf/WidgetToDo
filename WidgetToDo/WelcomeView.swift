@@ -18,7 +18,6 @@ private enum WelcomeMetrics {
     static let buttonHorizontalPadding: CGFloat = 28
     static let buttonVerticalPadding: CGFloat = 10
     static let buttonCornerRadius: CGFloat = 8
-    static let progressTopSpacing: CGFloat = 16
     static let ctaArrowHoverOffset: CGFloat = 3
 }
 
@@ -83,9 +82,6 @@ struct WelcomeView: View {
             .onHover { hovering in
                 isButtonHovered = hovering
             }
-
-            progressDots
-                .padding(.top, WelcomeMetrics.progressTopSpacing)
 
             Spacer(minLength: 0)
         }
@@ -196,20 +192,11 @@ struct WelcomeView: View {
         }
     }
 
-    private var progressDots: some View {
-        HStack(spacing: 7) {
-            ForEach(0..<5, id: \.self) { index in
-                Circle()
-                    .fill(index == 0 ? Color(red: 45 / 255, green: 45 / 255, blue: 45 / 255) : Color.black.opacity(0.14))
-                    .frame(width: index == 0 ? 7 : 6, height: index == 0 ? 7 : 6)
-            }
-        }
-    }
 }
 
 #if canImport(PreviewsMacros)
 #Preview {
     WelcomeView(onStartConfig: {}, onClose: {})
-        .frame(width: 340, height: 560)
+        .frame(width: 340, height: 460)
 }
 #endif
