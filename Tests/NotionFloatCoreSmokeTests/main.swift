@@ -444,7 +444,56 @@ struct NotionFloatCoreSmokeTestsRunner {
         }
 
         let formSource = String(source[formStart.lowerBound...formEnd])
-        let normalized = formSource.replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
+        var sanitized = ""
+        sanitized.reserveCapacity(formSource.count)
+
+        var sanitizedIndex = formSource.startIndex
+        var isInSanitizedString = false
+        var isEscapingSanitizedString = false
+        var isInSanitizedLineComment = false
+        var isInSanitizedBlockComment = false
+
+        while sanitizedIndex < formSource.endIndex {
+            let character = formSource[sanitizedIndex]
+            let nextIndex = formSource.index(after: sanitizedIndex)
+            let nextCharacter = nextIndex < formSource.endIndex ? formSource[nextIndex] : nil
+
+            if isInSanitizedLineComment {
+                if character == "\n" {
+                    isInSanitizedLineComment = false
+                    sanitized.append(character)
+                }
+            } else if isInSanitizedBlockComment {
+                if character == "*" && nextCharacter == "/" {
+                    isInSanitizedBlockComment = false
+                    sanitizedIndex = nextIndex
+                }
+            } else if isInSanitizedString {
+                if isEscapingSanitizedString {
+                    isEscapingSanitizedString = false
+                } else if character == "\\" {
+                    isEscapingSanitizedString = true
+                } else if character == "\"" {
+                    isInSanitizedString = false
+                    sanitized.append(character)
+                }
+            } else if character == "/" && nextCharacter == "/" {
+                isInSanitizedLineComment = true
+                sanitizedIndex = nextIndex
+            } else if character == "/" && nextCharacter == "*" {
+                isInSanitizedBlockComment = true
+                sanitizedIndex = nextIndex
+            } else if character == "\"" {
+                isInSanitizedString = true
+                sanitized.append(character)
+            } else {
+                sanitized.append(character)
+            }
+
+            sanitizedIndex = formSource.index(after: sanitizedIndex)
+        }
+
+        let normalized = sanitized.replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
 
         try expect(
             normalized.contains("viewModel.title"),
