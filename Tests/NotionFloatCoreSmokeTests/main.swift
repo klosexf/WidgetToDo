@@ -381,6 +381,9 @@ struct NotionFloatCoreSmokeTestsRunner {
             .appendingPathComponent("NewTaskFormCard.swift")
         let source = try String(contentsOf: formURL, encoding: .utf8)
         let normalized = source.replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
+        let cardSurfacePattern = #"\.frame\(width:[^)]*\).*?\.frame\(minHeight:[^)]*\).*?\.background\(.*?RoundedRectangle\(.*?\.fill\(.*?\).*?\).*?\.overlay\(.*?RoundedRectangle\(.*?\.stroke\(.*?\).*?\).*?\.shadow\("#
+        let cardSurfaceRange = NSRange(normalized.startIndex..<normalized.endIndex, in: normalized)
+        let cardSurfaceMatcher = try NSRegularExpression(pattern: cardSurfacePattern)
 
         try expect(
             normalized.contains("TextField(\"标题(必填)\"") && normalized.contains("text:$viewModel.title"),
@@ -413,16 +416,8 @@ struct NotionFloatCoreSmokeTestsRunner {
             "new task form should no longer use the generic regularMaterial card"
         )
         try expect(
-            normalized.contains("NewTaskFormMetrics.cardWidth") &&
-                normalized.contains("NewTaskFormMetrics.cardMinHeight") &&
-                normalized.contains("NewTaskFormMetrics.cardCornerRadius") &&
-                normalized.contains("NewTaskFormPalette.cardFill") &&
-                normalized.contains("NewTaskFormPalette.cardBorder") &&
-                normalized.contains("NewTaskFormPalette.cardShadow") &&
-                normalized.contains(".background(") &&
-                normalized.contains(".overlay(") &&
-                normalized.contains(".shadow("),
-            "new task form should define the planned custom card metrics, palette, and outer surface hooks"
+            cardSurfaceMatcher.firstMatch(in: normalized, options: [], range: cardSurfaceRange) != nil,
+            "new task form should define a container card with width, minHeight, filled rounded background, stroked rounded overlay, and shadow"
         )
     }
 
