@@ -390,16 +390,50 @@ struct NotionFloatCoreSmokeTestsRunner {
         var depth = 0
         var closingBrace: String.Index?
         var index = openingBrace
+        var isInString = false
+        var isEscapingString = false
+        var isInLineComment = false
+        var isInBlockComment = false
 
         while index < source.endIndex {
             let character = source[index]
-            if character == "{" {
-                depth += 1
-            } else if character == "}" {
-                depth -= 1
-                if depth == 0 {
-                    closingBrace = index
-                    break
+            let nextIndex = source.index(after: index)
+            let nextCharacter = nextIndex < source.endIndex ? source[nextIndex] : nil
+
+            if isInLineComment {
+                if character == "\n" {
+                    isInLineComment = false
+                }
+            } else if isInBlockComment {
+                if character == "*" && nextCharacter == "/" {
+                    isInBlockComment = false
+                    index = nextIndex
+                }
+            } else if isInString {
+                if isEscapingString {
+                    isEscapingString = false
+                } else if character == "\\" {
+                    isEscapingString = true
+                } else if character == "\"" {
+                    isInString = false
+                }
+            } else {
+                if character == "/" && nextCharacter == "/" {
+                    isInLineComment = true
+                    index = nextIndex
+                } else if character == "/" && nextCharacter == "*" {
+                    isInBlockComment = true
+                    index = nextIndex
+                } else if character == "\"" {
+                    isInString = true
+                } else if character == "{" {
+                    depth += 1
+                } else if character == "}" {
+                    depth -= 1
+                    if depth == 0 {
+                        closingBrace = index
+                        break
+                    }
                 }
             }
             index = source.index(after: index)
@@ -429,8 +463,8 @@ struct NotionFloatCoreSmokeTestsRunner {
             "new task form should keep submit behavior"
         )
         try expect(
-            !normalized.contains(".background(.regularMaterial"),
-            "new task form should no longer use the generic regularMaterial card"
+            !normalized.contains("regularMaterial"),
+            "new task form should no longer use regularMaterial in the bounded form source"
         )
     }
 
