@@ -383,7 +383,33 @@ struct NotionFloatCoreSmokeTestsRunner {
         guard let formStart = source.range(of: "struct NewTaskFormCard") else {
             throw SmokeTestFailure(description: "new task form source should define NewTaskFormCard")
         }
-        let formSource = String(source[formStart.lowerBound...])
+        guard let openingBrace = source[formStart.upperBound...].firstIndex(of: "{") else {
+            throw SmokeTestFailure(description: "new task form source should open a struct body")
+        }
+
+        var depth = 0
+        var closingBrace: String.Index?
+        var index = openingBrace
+
+        while index < source.endIndex {
+            let character = source[index]
+            if character == "{" {
+                depth += 1
+            } else if character == "}" {
+                depth -= 1
+                if depth == 0 {
+                    closingBrace = index
+                    break
+                }
+            }
+            index = source.index(after: index)
+        }
+
+        guard let formEnd = closingBrace else {
+            throw SmokeTestFailure(description: "new task form source should close the struct body")
+        }
+
+        let formSource = String(source[formStart.lowerBound...formEnd])
         let normalized = formSource.replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
 
         try expect(
