@@ -12,6 +12,7 @@ public struct TaskItem: Equatable, Sendable, Identifiable {
     public var title: String
     public var isDone: Bool
     public var priority: String?
+    public var estimatedMinutes: Int?
     public var date: Date
     public var url: URL?
     public var syncStatus: SyncStatus
@@ -21,6 +22,7 @@ public struct TaskItem: Equatable, Sendable, Identifiable {
         title: String,
         isDone: Bool,
         priority: String?,
+        estimatedMinutes: Int? = nil,
         date: Date,
         url: URL?,
         syncStatus: SyncStatus
@@ -29,6 +31,7 @@ public struct TaskItem: Equatable, Sendable, Identifiable {
         self.title = title
         self.isDone = isDone
         self.priority = priority
+        self.estimatedMinutes = estimatedMinutes
         self.date = date
         self.url = url
         self.syncStatus = syncStatus
@@ -40,6 +43,7 @@ public struct PendingTaskItem: Equatable, Sendable, Identifiable {
     public var title: String
     public var date: Date
     public var priority: String?
+    public var estimatedMinutes: Int?
     public var createdAt: Date
     public var isFailed: Bool
 
@@ -48,6 +52,7 @@ public struct PendingTaskItem: Equatable, Sendable, Identifiable {
         title: String,
         date: Date,
         priority: String?,
+        estimatedMinutes: Int? = nil,
         createdAt: Date = Date(),
         isFailed: Bool = false
     ) {
@@ -55,6 +60,7 @@ public struct PendingTaskItem: Equatable, Sendable, Identifiable {
         self.title = title
         self.date = date
         self.priority = priority
+        self.estimatedMinutes = estimatedMinutes
         self.createdAt = createdAt
         self.isFailed = isFailed
     }

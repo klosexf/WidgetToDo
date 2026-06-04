@@ -164,11 +164,19 @@ struct OnboardingView: View {
         case settings
     }
 
+    private enum DatabaseHelpTopic: String, Identifiable {
+        case tasks
+        case journal
+
+        var id: String { rawValue }
+    }
+
     @ObservedObject var viewModel: OnboardingViewModel
     let mode: Mode
     var onBack: (() -> Void)?
     var onResetConfiguration: (() async -> Void)?
     @State private var isShowingTokenHelp = false
+    @State private var activeDatabaseHelpTopic: DatabaseHelpTopic?
     @State private var showingResetConfirmation = false
     @State private var isResetActionPending = false
     @State private var isAppeared = false
@@ -199,13 +207,21 @@ struct OnboardingView: View {
                             title: mode == .settings ? "Tasks Database ID" : "Tasks Database",
                             placeholder: mode == .settings ? "任务数据库 ID" : "粘贴任务数据库链接",
                             text: $viewModel.tasksDatabaseInput,
-                            normalize: viewModel.normalizeTasksDatabaseInput
+                            normalize: viewModel.normalizeTasksDatabaseInput,
+                            helpAccessibilityLabel: "查看 Tasks Database 获取帮助",
+                            helpAction: {
+                                activeDatabaseHelpTopic = .tasks
+                            }
                         )
                         databaseSection(
                             title: mode == .settings ? "Journal Database ID" : "Journal Database",
                             placeholder: mode == .settings ? "日记数据库 ID" : "粘贴日记数据库链接",
                             text: $viewModel.journalDatabaseInput,
-                            normalize: viewModel.normalizeJournalDatabaseInput
+                            normalize: viewModel.normalizeJournalDatabaseInput,
+                            helpAccessibilityLabel: "查看 Journal Database 获取帮助",
+                            helpAction: {
+                                activeDatabaseHelpTopic = .journal
+                            }
                         )
 
                         if let message = viewModel.statusMessage {
@@ -241,6 +257,14 @@ struct OnboardingView: View {
         }
         .sheet(isPresented: $isShowingTokenHelp) {
             NotionTokenHelpView()
+        }
+        .sheet(item: $activeDatabaseHelpTopic) { topic in
+            switch topic {
+            case .tasks:
+                TasksDatabaseHelpView()
+            case .journal:
+                JournalDatabaseHelpView()
+            }
         }
         .confirmationDialog(
             "初始化配置",
@@ -404,7 +428,14 @@ struct OnboardingView: View {
         }
     }
 
-    private func databaseSection(title: String, placeholder: String, text: Binding<String>, normalize: @escaping () -> Void) -> some View {
+    private func databaseSection(
+        title: String,
+        placeholder: String,
+        text: Binding<String>,
+        normalize: @escaping () -> Void,
+        helpAccessibilityLabel: String? = nil,
+        helpAction: (() -> Void)? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: OnboardingModalMetrics.onboardingSectionSpacing) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
@@ -416,14 +447,29 @@ struct OnboardingView: View {
                     .foregroundStyle(OnboardingModalPalette.secondaryText)
             }
 
-            inputShell(icon: "doc.text") {
-                TextField("", text: text, prompt: Text(placeholder).foregroundColor(OnboardingModalPalette.placeholderText))
-                    .textFieldStyle(.plain)
-                    .disabled(viewModel.isWorking)
-                    .accessibilityLabel(title)
-                    .onChange(of: text.wrappedValue) { _ in
-                        normalize()
+            HStack(alignment: .center, spacing: 8) {
+                inputShell(icon: "doc.text") {
+                    TextField("", text: text, prompt: Text(placeholder).foregroundColor(OnboardingModalPalette.placeholderText))
+                        .textFieldStyle(.plain)
+                        .disabled(viewModel.isWorking)
+                        .accessibilityLabel(title)
+                        .onChange(of: text.wrappedValue) { _ in
+                            normalize()
+                        }
+                }
+                .frame(maxWidth: .infinity)
+
+                if let helpAction {
+                    Button(action: helpAction) {
+                        Image(systemName: "questionmark.circle")
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(width: 18, height: 18)
+                            .foregroundStyle(OnboardingModalPalette.secondaryText)
                     }
+                    .buttonStyle(DatabaseHelpButtonStyle())
+                    .disabled(viewModel.isWorking)
+                    .accessibilityLabel(helpAccessibilityLabel ?? "\(title) 如何获取")
+                }
             }
         }
     }
@@ -746,6 +792,93 @@ private struct NotionTokenHelpView: View {
     }
 }
 
+private struct TasksDatabaseHelpView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        HelpSheetLayout(title: "获取 Tasks Database 链接", onClose: { dismiss() }) {
+            Group {
+                Text("1. 在 Notion 中打开你的 Tasks Database，确保进入的是这个任务数据库本身，而不是某个单独页面。")
+                Text("2. 如果当前看到的是嵌入在页面里的数据库视图，先点击数据库标题或“Open as full page”，切到数据库完整页面。")
+                Text("3. 这个任务数据库至少需要这些字段类型：1 个 title、1 个 date、1 个 checkbox。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。")
+                Text("4. 如果你还希望在应用里使用优先级，可以额外准备 select 字段；只有当任务数据库里恰好只有 1 个 select 字段时，应用才会自动把它当作优先级。")
+                Text("5. 在右上角点击“分享”或页面菜单，选择“复制链接”。也可以直接复制浏览器地址栏中的完整链接。")
+                Text("6. 把完整链接粘贴到 Tasks Database ID 输入框，应用会自动提取其中的数据库 ID。")
+            }
+        }
+    }
+}
+
+private struct JournalDatabaseHelpView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        HelpSheetLayout(title: "获取 Journal Database 链接", onClose: { dismiss() }) {
+            Group {
+                Text("1. 在 Notion 中打开你的 Journal Database，确认这是用于保存日记条目的数据库。")
+                Text("2. 如果你现在看到的是某个日记页面里的 linked database，先打开数据库原始页面，避免复制错普通页面链接。")
+                Text("3. 通过右上角“分享”里的“复制链接”，或直接复制地址栏中的完整链接，拿到 Journal Database 的 URL。")
+                Text("4. 把这个完整链接粘贴到 Journal Database ID 输入框，应用会自动解析并填入正确的数据库 ID。")
+            }
+        }
+    }
+}
+
+private struct HelpSheetLayout<Content: View>: View {
+    let title: String
+    let onClose: () -> Void
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text(title)
+                    .font(.title3.weight(.semibold))
+                Spacer()
+                Button("关闭") {
+                    onClose()
+                }
+                .keyboardShortcut(.cancelAction)
+            }
+
+            ScrollView(showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 10) {
+                    content
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Link("打开 Notion", destination: URL(string: "https://www.notion.so")!)
+        }
+        .padding(24)
+        .frame(width: 460)
+        .frame(minHeight: 320, idealHeight: 360)
+    }
+}
+
+private struct DatabaseHelpButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 38, height: 38)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isEnabled ? OnboardingModalPalette.inputBackground : OnboardingModalPalette.inputBackground.opacity(0.72))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(OnboardingModalPalette.inputBorder, lineWidth: 1)
+            )
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 private enum FloatingWidgetPalette {
     static let shellBackground = Color.white
     static let tabPillBg = Color(red: 0.984, green: 0.976, blue: 0.965).opacity(0.94)
@@ -952,7 +1085,9 @@ struct FloatingWidgetView: View {
             }
 
             if newTaskViewModel.showForm {
-                Color.black.opacity(0.3)
+                Rectangle()
+                    .fill(Color.clear)
+                    .contentShape(Rectangle())
                     .onTapGesture {
                         newTaskViewModel.dismissForm()
                     }
@@ -1155,6 +1290,22 @@ struct FloatingWidgetView: View {
                                 Capsule(style: .continuous)
                                     .fill(FloatingWidgetPalette.priorityBg)
                             )
+                    }
+
+                    if let estimatedMinutes = task.estimatedMinutes {
+                        HStack(spacing: 3) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("\(estimatedMinutes)min")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .foregroundStyle(FloatingWidgetPalette.metaText)
+                    }
+
+                    if task.estimatedMinutes != nil {
+                        Text("·")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(FloatingWidgetPalette.metaText)
                     }
 
                     Text(syncText(for: task.syncStatus))
@@ -1649,6 +1800,7 @@ private let previewTasks: [TaskItem] = [
         title: "完成菜单栏悬浮组件预览",
         isDone: false,
         priority: "高",
+        estimatedMinutes: 60,
         date: .now,
         url: URL(string: "https://www.notion.so"),
         syncStatus: .synced
@@ -1658,6 +1810,7 @@ private let previewTasks: [TaskItem] = [
         title: "重试失败的日记同步场景",
         isDone: false,
         priority: "中",
+        estimatedMinutes: 30,
         date: .now.addingTimeInterval(1800),
         url: nil,
         syncStatus: .failed
@@ -1667,6 +1820,7 @@ private let previewTasks: [TaskItem] = [
         title: "归档过期实验项",
         isDone: true,
         priority: "低",
+        estimatedMinutes: 120,
         date: .now.addingTimeInterval(3600),
         url: nil,
         syncStatus: .localPending

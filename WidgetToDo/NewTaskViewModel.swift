@@ -14,6 +14,8 @@ final class NewTaskViewModel: ObservableObject {
     @Published var title: String = ""
     @Published var taskDate: Date = Date()
     @Published var priority: String = "Medium"
+    @Published var estimatedMinutesText: String = ""
+    @Published var estimatedMinutesError: String?
     @Published var formState: NewTaskFormState = .idle
     @Published var showForm: Bool = false
     @Published var shakeAttempts: CGFloat = 0
@@ -38,14 +40,17 @@ final class NewTaskViewModel: ObservableObject {
         if title.isEmpty {
             taskDate = defaultDate
             priority = "Medium"
+            estimatedMinutesText = ""
         }
         formState = .idle
+        estimatedMinutesError = nil
         showForm = true
     }
 
     func dismissForm() {
         showForm = false
         formState = .idle
+        estimatedMinutesError = nil
     }
 
     func submit() {
@@ -57,11 +62,19 @@ final class NewTaskViewModel: ObservableObject {
             }
             return
         }
+        let parsedEstimatedMinutes = parseEstimatedMinutes()
+        if !estimatedMinutesText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, parsedEstimatedMinutes == nil {
+            estimatedMinutesError = "预计时长需填写为大于 0 的分钟数"
+            return
+        }
+        estimatedMinutesError = nil
+        let estimatedMinutes = parsedEstimatedMinutes
 
         let pendingItem = PendingTaskItem(
             title: trimmedTitle,
             date: taskDate,
-            priority: nil
+            priority: nil,
+            estimatedMinutes: estimatedMinutes
         )
         dismissForm()
         onSubmit?(pendingItem)
@@ -72,6 +85,7 @@ final class NewTaskViewModel: ObservableObject {
                     title: trimmedTitle,
                     date: taskDate,
                     priority: nil,
+                    estimatedMinutes: estimatedMinutes,
                     hasPriorityField: false
                 )
                 onCreateSuccess?(task)
@@ -86,7 +100,8 @@ final class NewTaskViewModel: ObservableObject {
         let draft = NewTaskDraft(
             title: title,
             date: taskDate,
-            priority: priority
+            priority: priority,
+            estimatedMinutes: parseEstimatedMinutes()
         )
         lastFailedDraftData = try? JSONEncoder().encode(draft)
     }
@@ -101,6 +116,18 @@ final class NewTaskViewModel: ObservableObject {
         title = draft.title
         taskDate = draft.date
         priority = draft.priority
+        estimatedMinutesText = draft.estimatedMinutes.map(String.init) ?? ""
         lastFailedDraftData = nil
+    }
+
+    private func parseEstimatedMinutes() -> Int? {
+        let trimmed = estimatedMinutesText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        guard let parsed = Int(trimmed), parsed > 0 else {
+            return nil
+        }
+        return parsed
     }
 }

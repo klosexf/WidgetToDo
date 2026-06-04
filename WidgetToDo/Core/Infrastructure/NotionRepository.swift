@@ -43,19 +43,48 @@ public actor NotionRepository {
         let taskSchema = try await notionClient.fetchDatabaseSchema(databaseID: tasksReference.rawValue, token: token)
         let journalSchema = try await notionClient.fetchDatabaseSchema(databaseID: journalReference.rawValue, token: token)
 
-        let taskIssues = FieldValidator.validate(taskSchema, for: .tasks)
-        let journalIssues = FieldValidator.validate(journalSchema, for: .journal)
-        let issues = taskIssues + journalIssues
+        let taskResolution = FieldValidator.resolve(taskSchema, for: .tasks)
+        let journalResolution = FieldValidator.resolve(journalSchema, for: .journal)
+
+        var issues: [ValidationIssue] = []
+        let tasksFieldMapping: TaskDatabaseFieldMapping?
+        switch taskResolution {
+        case let .success(.tasks(mapping)):
+            tasksFieldMapping = mapping
+        case let .failure(validationIssues):
+            tasksFieldMapping = nil
+            issues += validationIssues
+        case .success:
+            tasksFieldMapping = nil
+        }
+
+        let journalFieldMapping: JournalDatabaseFieldMapping?
+        switch journalResolution {
+        case let .success(.journal(mapping)):
+            journalFieldMapping = mapping
+        case let .failure(validationIssues):
+            journalFieldMapping = nil
+            issues += validationIssues
+        case .success:
+            journalFieldMapping = nil
+        }
+
         guard issues.isEmpty else {
             throw NotionRepositoryError.validationFailed(issues)
         }
 
-        let hasPriorityField = taskSchema.contains { $0.name == "Priority" && $0.type == "select" }
+        guard let tasksFieldMapping, let journalFieldMapping else {
+            throw NotionRepositoryError.validationFailed([ValidationIssue(message: "数据库字段映射解析失败。")])
+        }
+
+        let hasPriorityField = tasksFieldMapping.priority != nil
         let settings = AppSettings(
             tasksDatabaseID: tasksReference.rawValue,
             journalDatabaseID: journalReference.rawValue,
             lastValidatedAt: Date(),
-            hasPriorityField: hasPriorityField
+            hasPriorityField: hasPriorityField,
+            tasksFieldMapping: tasksFieldMapping,
+            journalFieldMapping: journalFieldMapping
         )
         try await settingsStore.save(settings)
         return settings
@@ -66,7 +95,12 @@ public actor NotionRepository {
 
         do {
             let tasks = TaskSorting.sort(
-                try await notionClient.queryTasks(on: date, databaseID: context.settings.tasksDatabaseID, token: context.token)
+                try await notionClient.queryTasks(
+                    on: date,
+                    databaseID: context.settings.tasksDatabaseID,
+                    fields: context.settings.tasksFieldMapping,
+                    token: context.token
+                )
             )
             try cache.saveTasks(tasks, for: date)
             return tasks
@@ -110,7 +144,12 @@ public actor NotionRepository {
 
         do {
             let context = try await configurationContext()
-            try await notionClient.updateTaskCheckbox(pageID: id, isDone: isDone, token: context.token)
+            try await notionClient.updateTaskCheckbox(
+                pageID: id,
+                isDone: isDone,
+                fields: context.settings.tasksFieldMapping,
+                token: context.token
+            )
             task.syncStatus = .synced
             try cache.upsert(task)
             try cache.markMutation(id: mutation.id, status: .synced, lastError: nil)
@@ -142,7 +181,12 @@ public actor NotionRepository {
 
         do {
             let context = try await configurationContext()
-            let updated = try await notionClient.updateTaskTitle(pageID: id, title: title, token: context.token)
+            let updated = try await notionClient.updateTaskTitle(
+                pageID: id,
+                title: title,
+                fields: context.settings.tasksFieldMapping,
+                token: context.token
+            )
             try cache.upsert(updated)
             return updated
         } catch {
@@ -162,14 +206,16 @@ public actor NotionRepository {
         try cache.deleteTask(id: id)
     }
 
-    public func createTask(title: String, date: Date, priority: String?, hasPriorityField: Bool) async throws -> TaskItem {
+    public func createTask(title: String, date: Date, priority: String?, estimatedMinutes: Int?, hasPriorityField: Bool) async throws -> TaskItem {
         let context = try await configurationContext()
         let task = try await notionClient.createTask(
             databaseID: context.settings.tasksDatabaseID,
             title: title,
             date: date,
             priority: priority,
+            estimatedMinutes: estimatedMinutes,
             hasPriorityField: hasPriorityField,
+            fields: context.settings.tasksFieldMapping,
             token: context.token
         )
         try cache.upsert(task)
@@ -180,13 +226,23 @@ public actor NotionRepository {
         let context = try await configurationContext()
 
         do {
-            if var journal = try await notionClient.findJournalPage(databaseID: context.settings.journalDatabaseID, token: context.token, date: date) {
+            if var journal = try await notionClient.findJournalPage(
+                databaseID: context.settings.journalDatabaseID,
+                fields: context.settings.journalFieldMapping,
+                token: context.token,
+                date: date
+            ) {
                 journal.syncStatus = .synced
                 try cache.upsert(journal)
                 return journal
             }
 
-            let created = try await notionClient.createJournalPage(databaseID: context.settings.journalDatabaseID, token: context.token, date: date)
+            let created = try await notionClient.createJournalPage(
+                databaseID: context.settings.journalDatabaseID,
+                fields: context.settings.journalFieldMapping,
+                token: context.token,
+                date: date
+            )
             try cache.upsert(created)
             return created
         } catch {

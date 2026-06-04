@@ -2,7 +2,7 @@ import SwiftUI
 
 private enum NewTaskFormMetrics {
     static let cardWidth: CGFloat = 286
-    static let cardMinHeight: CGFloat = 194
+    static let cardMinHeight: CGFloat = 242
     static let cardCornerRadius: CGFloat = 18
     static let verticalSpacing: CGFloat = 14
     static let fieldCornerRadius: CGFloat = 12
@@ -101,6 +101,35 @@ struct NewTaskFormCard: View {
                     .datePickerStyle(.compact)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 6) {
+                TextField("预计时长（分钟，可选）", text: $viewModel.estimatedMinutesText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(NewTaskFormPalette.title)
+                    .padding(.horizontal, 12)
+                    .frame(height: NewTaskFormMetrics.fieldHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
+                            .fill(NewTaskFormPalette.fieldFill)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
+                            .stroke(
+                                viewModel.estimatedMinutesError == nil
+                                    ? NewTaskFormPalette.fieldBorder
+                                    : NewTaskFormPalette.validationBorder,
+                                lineWidth: viewModel.estimatedMinutesError == nil ? 1 : 1.5
+                            )
+                    )
+
+                if let estimatedMinutesError = viewModel.estimatedMinutesError {
+                    Text(estimatedMinutesError)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
 
             HStack {
                 Button("Esc 取消") {

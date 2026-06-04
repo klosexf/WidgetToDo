@@ -49,17 +49,25 @@ struct PendingTodoRowView: View {
                             )
                     }
 
-                    Text(
-                        item.date.formatted(
-                            .dateTime
-                                .year()
-                                .month()
-                                .day()
-                                .locale(Locale(identifier: "zh_CN"))
-                        )
-                    )
-                        .font(.system(size: 10, weight: .semibold))
+                    if let estimatedMinutes = item.estimatedMinutes {
+                        HStack(spacing: 3) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("\(estimatedMinutes)min")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
                         .foregroundStyle(PendingPalette.metaText)
+                    }
+
+                    if item.priority != nil || item.estimatedMinutes != nil {
+                        Text("·")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(PendingPalette.metaText)
+                    }
+
+                    Text(showFailure ? "失败" : "同步中")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(showFailure ? .red : PendingPalette.metaText)
                 }
             }
 

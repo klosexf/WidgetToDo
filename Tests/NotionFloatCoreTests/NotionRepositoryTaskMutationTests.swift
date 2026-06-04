@@ -9,10 +9,10 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
           "id": "\(task.id)",
           "url": "https://www.notion.so/task-1",
           "properties": {
-            "Name": { "title": [{ "plain_text": "修改后的任务标题" }] },
-            "Date": { "date": { "start": "2026-05-21" } },
-            "Done": { "checkbox": false },
-            "Priority": { "select": { "name": "High" } }
+            "任务标题": { "title": [{ "plain_text": "修改后的任务标题" }] },
+            "计划日期": { "date": { "start": "2026-05-21" } },
+            "已完成": { "checkbox": false },
+            "任务优先级": { "select": { "name": "High" } }
           }
         }
         """
@@ -23,6 +23,9 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
 
         XCTAssertEqual(updated.title, "修改后的任务标题")
         XCTAssertEqual(updated.syncStatus, .synced)
+        let requestBody = try XCTUnwrap(MockURLProtocol.lastRequestBody)
+        XCTAssertTrue(requestBody.contains(#""任务标题""#))
+        XCTAssertFalse(requestBody.contains(#""Name""#))
         let cached = try XCTUnwrap(harness.cache.task(id: task.id))
         XCTAssertEqual(cached.title, "修改后的任务标题")
         XCTAssertEqual(cached.syncStatus, .synced)
@@ -55,10 +58,10 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
           "id": "\(task.id)",
           "url": "https://www.notion.so/task-1",
           "properties": {
-            "Name": { "title": [{ "plain_text": "\(task.title)" }] },
-            "Date": { "date": { "start": "2026-05-21" } },
-            "Done": { "checkbox": false },
-            "Priority": { "select": { "name": "High" } }
+            "任务标题": { "title": [{ "plain_text": "\(task.title)" }] },
+            "计划日期": { "date": { "start": "2026-05-21" } },
+            "已完成": { "checkbox": false },
+            "任务优先级": { "select": { "name": "High" } }
           }
         }
         """
@@ -68,6 +71,70 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
         try await harness.repository.deleteTask(id: task.id)
 
         XCTAssertNil(try harness.cache.task(id: task.id))
+    }
+
+    func testCreateTaskUsesResolvedCustomFieldNames() async throws {
+        let createResponseBody = """
+        {
+          "id": "task-created",
+          "url": "https://www.notion.so/task-created",
+          "properties": {
+            "任务标题": { "title": [{ "plain_text": "新任务" }] },
+            "计划日期": { "date": { "start": "2026-05-21" } },
+            "已完成": { "checkbox": false },
+            "任务优先级": { "select": { "name": "High" } },
+            "预计时长": { "number": 60 }
+          }
+        }
+        """
+        let harness = try await makeHarness(responseStatusCode: 200, responseBody: createResponseBody)
+
+        _ = try await harness.repository.createTask(
+            title: "新任务",
+            date: ISO8601DateFormatter().date(from: "2026-05-21T00:00:00Z")!,
+            priority: "High",
+            estimatedMinutes: 60,
+            hasPriorityField: true
+        )
+
+        let requestBody = try XCTUnwrap(MockURLProtocol.lastRequestBody)
+        XCTAssertTrue(requestBody.contains(#""任务标题""#))
+        XCTAssertTrue(requestBody.contains(#""计划日期""#))
+        XCTAssertTrue(requestBody.contains(#""已完成""#))
+        XCTAssertTrue(requestBody.contains(#""任务优先级""#))
+        XCTAssertTrue(requestBody.contains(#""预计时长""#))
+        XCTAssertTrue(requestBody.contains(#""number":60"#))
+        XCTAssertFalse(requestBody.contains(#""Name""#))
+        XCTAssertFalse(requestBody.contains(#""Date""#))
+        XCTAssertFalse(requestBody.contains(#""Done""#))
+        XCTAssertFalse(requestBody.contains(#""Priority""#))
+    }
+
+    func testCreateTaskOmitsEstimatedMinutesWhenDraftLeavesItEmpty() async throws {
+        let createResponseBody = """
+        {
+          "id": "task-created",
+          "url": "https://www.notion.so/task-created",
+          "properties": {
+            "任务标题": { "title": [{ "plain_text": "新任务" }] },
+            "计划日期": { "date": { "start": "2026-05-21" } },
+            "已完成": { "checkbox": false },
+            "任务优先级": { "select": { "name": "High" } }
+          }
+        }
+        """
+        let harness = try await makeHarness(responseStatusCode: 200, responseBody: createResponseBody)
+
+        _ = try await harness.repository.createTask(
+            title: "新任务",
+            date: ISO8601DateFormatter().date(from: "2026-05-21T00:00:00Z")!,
+            priority: "High",
+            estimatedMinutes: nil,
+            hasPriorityField: true
+        )
+
+        let requestBody = try XCTUnwrap(MockURLProtocol.lastRequestBody)
+        XCTAssertFalse(requestBody.contains(#""预计时长""#))
     }
 
     func testDeleteTaskThrowsReadableErrorWhenCacheRecordMissing() async throws {
@@ -93,6 +160,7 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
 
         MockURLProtocol.responseStatusCode = responseStatusCode
         MockURLProtocol.responseBody = Data(responseBody.utf8)
+        MockURLProtocol.lastRequestBody = nil
 
         let settingsStore = try SettingsStore(baseURL: tempDirectoryURL)
         try await settingsStore.save(
@@ -100,7 +168,18 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
                 tasksDatabaseID: "tasks-db",
                 journalDatabaseID: "journal-db",
                 lastValidatedAt: Date(),
-                hasPriorityField: true
+                hasPriorityField: true,
+                tasksFieldMapping: TaskDatabaseFieldMapping(
+                    title: "任务标题",
+                    date: "计划日期",
+                    done: "已完成",
+                    priority: "任务优先级",
+                    estimatedMinutes: "预计时长"
+                ),
+                journalFieldMapping: JournalDatabaseFieldMapping(
+                    title: "日记标题",
+                    date: "记录日期"
+                )
             )
         )
         try tokenStore.save(token: "secret_test_token")
@@ -125,6 +204,7 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
             title: "原始任务标题",
             isDone: false,
             priority: "High",
+            estimatedMinutes: 60,
             date: ISO8601DateFormatter().date(from: "2026-05-21T00:00:00Z")!,
             url: URL(string: "https://www.notion.so/task-1"),
             syncStatus: .synced
@@ -167,6 +247,7 @@ private final class InMemoryTokenStore: TokenStore, @unchecked Sendable {
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var responseStatusCode = 200
     nonisolated(unsafe) static var responseBody = Data()
+    nonisolated(unsafe) static var lastRequestBody: String?
 
     override class func canInit(with request: URLRequest) -> Bool {
         true
@@ -177,6 +258,11 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     override func startLoading() {
+        if let body = request.httpBody {
+            Self.lastRequestBody = String(decoding: body, as: UTF8.self)
+        } else {
+            Self.lastRequestBody = nil
+        }
         let response = HTTPURLResponse(
             url: request.url ?? URL(string: "https://example.com")!,
             statusCode: Self.responseStatusCode,

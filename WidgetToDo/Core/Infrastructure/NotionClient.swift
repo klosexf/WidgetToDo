@@ -17,11 +17,11 @@ public actor NotionClient {
         return response.properties.map { NotionPropertySchema(name: $0.key, type: $0.value.type) }
     }
 
-    public func queryTasks(on date: Date, databaseID: String, token: String) async throws -> [TaskItem] {
+    public func queryTasks(on date: Date, databaseID: String, fields: TaskDatabaseFieldMapping, token: String) async throws -> [TaskItem] {
         let dateString = Self.dayFormatter.string(from: date)
         let body: [String: Any] = [
             "filter": [
-                "property": "Date",
+                "property": fields.date,
                 "date": [
                     "equals": dateString
                 ]
@@ -36,13 +36,13 @@ public actor NotionClient {
             body: body
         )
         let response: QueryResponse = try await perform(request)
-        return try response.results.map(Self.mapTask(page:))
+        return try response.results.map { try Self.mapTask(page: $0, fields: fields) }
     }
 
-    public func updateTaskCheckbox(pageID: String, isDone: Bool, token: String) async throws {
+    public func updateTaskCheckbox(pageID: String, isDone: Bool, fields: TaskDatabaseFieldMapping, token: String) async throws {
         let body: [String: Any] = [
             "properties": [
-                "Done": [
+                fields.done: [
                     "checkbox": isDone
                 ]
             ]
@@ -51,10 +51,10 @@ public actor NotionClient {
         let _: PageResponse = try await perform(request)
     }
 
-    public func updateTaskTitle(pageID: String, title: String, token: String) async throws -> TaskItem {
+    public func updateTaskTitle(pageID: String, title: String, fields: TaskDatabaseFieldMapping, token: String) async throws -> TaskItem {
         let body: [String: Any] = [
             "properties": [
-                "Name": [
+                fields.title: [
                     "title": [
                         [
                             "type": "text",
@@ -68,7 +68,7 @@ public actor NotionClient {
         ]
         let request = try makeRequest(path: "pages/\(pageID)", method: "PATCH", token: token, body: body)
         let page: PageResponse = try await perform(request)
-        return try Self.mapTask(page: page)
+        return try Self.mapTask(page: page, fields: fields)
     }
 
     public func deleteTask(pageID: String, token: String) async throws {
@@ -77,10 +77,19 @@ public actor NotionClient {
         let _: PageResponse = try await perform(request)
     }
 
-    public func createTask(databaseID: String, title: String, date: Date, priority: String?, hasPriorityField: Bool, token: String) async throws -> TaskItem {
+    public func createTask(
+        databaseID: String,
+        title: String,
+        date: Date,
+        priority: String?,
+        estimatedMinutes: Int?,
+        hasPriorityField: Bool,
+        fields: TaskDatabaseFieldMapping,
+        token: String
+    ) async throws -> TaskItem {
         let dateString = Self.dayFormatter.string(from: date)
         var properties: [String: Any] = [
-            "Name": [
+            fields.title: [
                 "title": [
                     [
                         "type": "text",
@@ -90,20 +99,25 @@ public actor NotionClient {
                     ]
                 ]
             ],
-            "Date": [
+            fields.date: [
                 "date": [
                     "start": dateString
                 ]
             ],
-            "Done": [
+            fields.done: [
                 "checkbox": false
             ]
         ]
-        if hasPriorityField, let priority {
-            properties["Priority"] = [
+        if hasPriorityField, let priorityField = fields.priority, let priority {
+            properties[priorityField] = [
                 "select": [
                     "name": priority
                 ]
+            ]
+        }
+        if let estimatedMinutesField = fields.estimatedMinutes, let estimatedMinutes {
+            properties[estimatedMinutesField] = [
+                "number": estimatedMinutes
             ]
         }
         let body: [String: Any] = [
@@ -114,14 +128,14 @@ public actor NotionClient {
         ]
         let request = try makeRequest(path: "pages", method: "POST", token: token, body: body)
         let page: PageResponse = try await perform(request)
-        return try Self.mapTask(page: page)
+        return try Self.mapTask(page: page, fields: fields)
     }
 
-    public func findJournalPage(databaseID: String, token: String, date: Date) async throws -> JournalEntry? {
+    public func findJournalPage(databaseID: String, fields: JournalDatabaseFieldMapping, token: String, date: Date) async throws -> JournalEntry? {
         let dateString = Self.dayFormatter.string(from: date)
         let body: [String: Any] = [
             "filter": [
-                "property": "Date",
+                "property": fields.date,
                 "date": [
                     "equals": dateString
                 ]
@@ -140,12 +154,12 @@ public actor NotionClient {
             return nil
         }
 
-        var entry = try Self.mapJournal(page: first, fallbackDate: date)
+        var entry = try Self.mapJournal(page: first, fields: fields, fallbackDate: date)
         entry.contentText = try await fetchJournalText(pageID: entry.id, token: token)
         return entry
     }
 
-    public func createJournalPage(databaseID: String, token: String, date: Date) async throws -> JournalEntry {
+    public func createJournalPage(databaseID: String, fields: JournalDatabaseFieldMapping, token: String, date: Date) async throws -> JournalEntry {
         let dateString = Self.dayFormatter.string(from: date)
         let journalTitle = "日记 \(Self.journalTitleDateFormatter.string(from: date))"
         let body: [String: Any] = [
@@ -153,7 +167,7 @@ public actor NotionClient {
                 "database_id": databaseID
             ],
             "properties": [
-                "Name": [
+                fields.title: [
                     "title": [
                         [
                             "type": "text",
@@ -163,7 +177,7 @@ public actor NotionClient {
                         ]
                     ]
                 ],
-                "Date": [
+                fields.date: [
                     "date": [
                         "start": dateString
                     ]
@@ -173,7 +187,7 @@ public actor NotionClient {
 
         let request = try makeRequest(path: "pages", method: "POST", token: token, body: body)
         let page: PageResponse = try await perform(request)
-        return try Self.mapJournal(page: page, fallbackDate: date)
+        return try Self.mapJournal(page: page, fields: fields, fallbackDate: date)
     }
 
     public func fetchJournalText(pageID: String, token: String) async throws -> String {
@@ -270,26 +284,28 @@ public actor NotionClient {
         return try jsonDecoder.decode(Response.self, from: data)
     }
 
-    private static func mapTask(page: PageResponse) throws -> TaskItem {
-        let title = page.properties["Name"]?.title?.first?.plainText ?? "未命名"
-        let dateString = page.properties["Date"]?.date?.start ?? dayFormatter.string(from: Date())
+    private static func mapTask(page: PageResponse, fields: TaskDatabaseFieldMapping) throws -> TaskItem {
+        let title = page.properties[fields.title]?.title?.first?.plainText ?? "未命名"
+        let dateString = page.properties[fields.date]?.date?.start ?? dayFormatter.string(from: Date())
         let date = try parseNotionDate(dateString)
-        let priority = page.properties["Priority"]?.select?.name
-        let isDone = page.properties["Done"]?.checkbox ?? false
+        let priority = fields.priority.flatMap { page.properties[$0]?.select?.name }
+        let estimatedMinutes = fields.estimatedMinutes.flatMap { page.properties[$0]?.number }.flatMap { Int($0) }
+        let isDone = page.properties[fields.done]?.checkbox ?? false
         return TaskItem(
             id: page.id,
             title: title,
             isDone: isDone,
             priority: priority,
+            estimatedMinutes: estimatedMinutes,
             date: date,
             url: page.url.flatMap(URL.init(string:)),
             syncStatus: .synced
         )
     }
 
-    private static func mapJournal(page: PageResponse, fallbackDate: Date) throws -> JournalEntry {
-        let title = page.properties["Name"]?.title?.first?.plainText ?? "日记"
-        let dateString = page.properties["Date"]?.date?.start
+    private static func mapJournal(page: PageResponse, fields: JournalDatabaseFieldMapping, fallbackDate: Date) throws -> JournalEntry {
+        let title = page.properties[fields.title]?.title?.first?.plainText ?? "日记"
+        let dateString = page.properties[fields.date]?.date?.start
         let date = try dateString.map(parseNotionDate) ?? fallbackDate
         return JournalEntry(
             id: page.id,
@@ -357,6 +373,11 @@ extension NotionClientError: LocalizedError {
             return rawMessage
         }
 
+        if message.contains("Could not find property with name or id:") ||
+            message.contains("is not a property that exists") {
+            return "数据库字段可能已改名或已删除，请重新进入初始化配置并保存一次数据库设置。"
+        }
+
         return message
     }
 }
@@ -382,6 +403,7 @@ private struct PageResponse: Decodable {
 private struct PageProperty: Decodable {
     let checkbox: Bool?
     let date: NotionDateProperty?
+    let number: Double?
     let select: NotionSelectProperty?
     let title: [NotionRichText]?
 }

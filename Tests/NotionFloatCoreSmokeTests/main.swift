@@ -18,9 +18,12 @@ struct NotionFloatCoreSmokeTestsRunner {
             try databaseReferenceParsesRawUUID()
             try databaseReferenceParsesDatabaseURL()
             try taskFieldValidationReportsMissingRequiredFields()
+            try taskFieldResolutionUsesCustomNames()
+            try taskFieldResolutionReportsAmbiguousDateFields()
             try taskSortingKeepsIncompleteAndHigherPriorityFirst()
             try journalContentBuilderConvertsLinesToParagraphBlocks()
             try notionClientHttpErrorExposesReadableDescription()
+            try notionClientHttpErrorExplainsStaleFieldMapping()
             try notionRepositoryValidationErrorExposesReadableDescription()
             try notionRepositoryBuildsTasksDatabasePageURL()
             try todoListViewModelDoesNotSynchronouslyBridgeNestedObjectWillChange()
@@ -31,6 +34,8 @@ struct NotionFloatCoreSmokeTestsRunner {
             try welcomeViewUsesDedicatedIllustrationAssetAndCallback()
             try configurationFormContainsSettingsHelpAndExtractionCopy()
             try newTaskFormKeepsCreateTaskContract()
+            try todoTaskDurationMatchesHtmlReferenceContract()
+            try newTaskFormDoesNotDimTodoPanel()
             try onboardingVisualAlignmentKeepsExistingBehaviorContract()
             try settingsResetFlowReturnsUserToWelcome()
             try statusBarMenuContainsSettingsEntry()
@@ -63,7 +68,7 @@ struct NotionFloatCoreSmokeTestsRunner {
     }
 
     static func taskFieldValidationReportsMissingRequiredFields() throws {
-        let issues = FieldValidator.validate(
+        let result = FieldValidator.resolve(
             [
                 NotionPropertySchema(name: "Name", type: "title"),
                 NotionPropertySchema(name: "Done", type: "checkbox")
@@ -71,10 +76,59 @@ struct NotionFloatCoreSmokeTestsRunner {
             for: .tasks
         )
 
-        try expect(
-            issues.map(\.message) == ["缺少必填字段：Date(date)"],
-            "task schema validation should report only the missing required field"
+        switch result {
+        case let .failure(issues):
+            try expect(
+                issues.map(\.message) == ["缺少必填字段类型：date"],
+                "task schema validation should report the missing required type"
+            )
+        default:
+            throw SmokeTestFailure(description: "task schema validation should fail when the date type is missing")
+        }
+    }
+
+    static func taskFieldResolutionUsesCustomNames() throws {
+        let result = FieldValidator.resolve(
+            [
+                NotionPropertySchema(name: "任务标题", type: "title"),
+                NotionPropertySchema(name: "计划日期", type: "date"),
+                NotionPropertySchema(name: "已完成", type: "checkbox"),
+                NotionPropertySchema(name: "任务优先级", type: "select")
+            ],
+            for: .tasks
         )
+
+        switch result {
+        case let .success(.tasks(mapping)):
+            try expect(mapping.title == "任务标题", "task title field should resolve from the title type")
+            try expect(mapping.date == "计划日期", "task date field should resolve from the date type")
+            try expect(mapping.done == "已完成", "task done field should resolve from the checkbox type")
+            try expect(mapping.priority == "任务优先级", "task priority field should resolve from the unique select type")
+        default:
+            throw SmokeTestFailure(description: "task field resolution should succeed for unique required types")
+        }
+    }
+
+    static func taskFieldResolutionReportsAmbiguousDateFields() throws {
+        let result = FieldValidator.resolve(
+            [
+                NotionPropertySchema(name: "开始时间", type: "date"),
+                NotionPropertySchema(name: "截止时间", type: "date"),
+                NotionPropertySchema(name: "任务标题", type: "title"),
+                NotionPropertySchema(name: "已完成", type: "checkbox")
+            ],
+            for: .tasks
+        )
+
+        switch result {
+        case let .failure(issues):
+            try expect(
+                issues.map(\.message) == ["存在多个任务日期字段：开始时间、截止时间，请仅保留一个 date 字段用于任务日期。"],
+                "task schema validation should report ambiguous date fields with readable names"
+            )
+        default:
+            throw SmokeTestFailure(description: "task field resolution should fail for ambiguous required date fields")
+        }
     }
 
     static func taskSortingKeepsIncompleteAndHigherPriorityFirst() throws {
@@ -140,16 +194,28 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
     }
 
+    static func notionClientHttpErrorExplainsStaleFieldMapping() throws {
+        let error = NotionClientError.httpError(
+            statusCode: 400,
+            message: #"{"object":"error","status":400,"message":"Could not find property with name or id: Date"}"#
+        )
+
+        try expect(
+            error.localizedDescription == "Notion 请求失败（HTTP 400）：数据库字段可能已改名或已删除，请重新进入初始化配置并保存一次数据库设置。",
+            "field lookup HTTP errors should explain that the saved database mapping is stale"
+        )
+    }
+
     static func notionRepositoryValidationErrorExposesReadableDescription() throws {
         let error = NotionRepositoryError.validationFailed(
             [
                 ValidationIssue(message: "缺少必填字段：Name(title)"),
-                ValidationIssue(message: "缺少必填字段：Date(date)")
+                ValidationIssue(message: "缺少必填字段类型：date")
             ]
         )
 
         try expect(
-            error.localizedDescription == "数据库字段校验失败：缺少必填字段：Name(title)；缺少必填字段：Date(date)",
+            error.localizedDescription == "数据库字段校验失败：缺少必填字段：Name(title)；缺少必填字段类型：date",
             "repository validation errors should join validation issues into one readable message"
         )
     }
@@ -403,6 +469,21 @@ struct NotionFloatCoreSmokeTestsRunner {
             "database sections should explain automatic URL extraction"
         )
         try expect(
+            source.contains("activeDatabaseHelpTopic = .tasks") &&
+                source.contains("activeDatabaseHelpTopic = .journal"),
+            "configuration form should expose dedicated help actions for tasks and journal databases"
+        )
+        try expect(
+            source.contains("TasksDatabaseHelpView()") &&
+                source.contains("JournalDatabaseHelpView()"),
+            "configuration form should present separate help sheets for tasks and journal databases"
+        )
+        try expect(
+            source.contains("HelpSheetLayout(title: \"获取 Tasks Database 链接\"") &&
+                source.contains("HelpSheetLayout(title: \"获取 Journal Database 链接\""),
+            "database help sheets should keep independent guide titles"
+        )
+        try expect(
             source.contains("mode: .onboarding,") && source.contains("rootViewModel.screen = .welcome"),
             "onboarding flow should expose a back action that returns to welcome"
         )
@@ -558,6 +639,73 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
     }
 
+    static func newTaskFormDoesNotDimTodoPanel() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        guard let branchStart = source.range(of: "if newTaskViewModel.showForm {") else {
+            throw SmokeTestFailure(description: "todo panel should keep a dedicated new task form branch")
+        }
+        guard let editBranchStart = source.range(of: "if todoViewModel.editingTask != nil {", range: branchStart.upperBound..<source.endIndex) else {
+            throw SmokeTestFailure(description: "todo panel should keep the edit task form branch after the new task form branch")
+        }
+
+        let branchSource = String(source[branchStart.lowerBound..<editBranchStart.lowerBound])
+        let normalized = branchSource.replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
+
+        try expect(
+            normalized.contains("NewTaskFormCard(viewModel:newTaskViewModel)"),
+            "todo panel should keep presenting the dedicated new task form card"
+        )
+        try expect(
+            !normalized.contains("Color.black.opacity(0.3)"),
+            "new task form should no longer dim the todo panel with a gray backdrop"
+        )
+    }
+
+    static func todoTaskDurationMatchesHtmlReferenceContract() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let newTaskFormURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("NewTaskFormCard.swift")
+        let pendingRowURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("PendingTodoRowView.swift")
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+
+        let newTaskFormSource = try String(contentsOf: newTaskFormURL, encoding: .utf8)
+        let pendingRowSource = try String(contentsOf: pendingRowURL, encoding: .utf8)
+        let contentViewSource = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            newTaskFormSource.contains("estimatedMinutes"),
+            "new task form should expose an estimated-minutes input"
+        )
+        try expect(
+            pendingRowSource.contains("estimatedMinutes") &&
+                pendingRowSource.contains(#"Image(systemName: "clock")"#) &&
+                pendingRowSource.contains("min"),
+            "pending todo rows should render duration with a clock icon and minute suffix"
+        )
+        try expect(
+            contentViewSource.contains("estimatedMinutes") &&
+                contentViewSource.contains(#"Image(systemName: "clock")"#) &&
+                contentViewSource.contains("min"),
+            "synced todo rows should render duration with a clock icon and minute suffix"
+        )
+    }
+
     static func onboardingVisualAlignmentKeepsExistingBehaviorContract() throws {
         let rootURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -595,7 +743,7 @@ struct NotionFloatCoreSmokeTestsRunner {
         }
         guard let databaseSectionScope = functionScope(
             in: source,
-            signature: "private func databaseSection(title: String, placeholder: String, text: Binding<String>, normalize: @escaping () -> Void) -> some View"
+            signature: "private func databaseSection("
         ) else {
             throw SmokeTestFailure(
                 description: "onboarding alignment refresh must keep the shared databaseSection builder"

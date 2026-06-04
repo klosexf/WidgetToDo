@@ -26,6 +26,7 @@ public final class SQLiteCache: @unchecked Sendable {
                 title TEXT NOT NULL,
                 is_done INTEGER NOT NULL,
                 priority TEXT,
+                estimated_minutes INTEGER,
                 notion_date TEXT NOT NULL,
                 url TEXT,
                 sync_status TEXT NOT NULL,
@@ -33,6 +34,7 @@ public final class SQLiteCache: @unchecked Sendable {
             );
             """
         )
+        try ensureTaskEstimatedMinutesColumn()
         try execute(
             """
             CREATE TABLE IF NOT EXISTS journal_entries (
@@ -68,7 +70,7 @@ public final class SQLiteCache: @unchecked Sendable {
     }
 
     public func loadTasks() throws -> [TaskItem] {
-        let sql = "SELECT id, title, is_done, priority, notion_date, url, sync_status FROM tasks;"
+        let sql = "SELECT id, title, is_done, priority, estimated_minutes, notion_date, url, sync_status FROM tasks;"
         return try query(sql) { statement in
             try readTask(from: statement)
         }
@@ -76,7 +78,7 @@ public final class SQLiteCache: @unchecked Sendable {
 
     public func loadTasks(for date: Date) throws -> [TaskItem] {
         let sql = """
-        SELECT id, title, is_done, priority, notion_date, url, sync_status
+        SELECT id, title, is_done, priority, estimated_minutes, notion_date, url, sync_status
         FROM tasks
         WHERE notion_date >= ? AND notion_date < ?;
         """
@@ -87,7 +89,7 @@ public final class SQLiteCache: @unchecked Sendable {
     }
 
     public func task(id: String) throws -> TaskItem? {
-        let sql = "SELECT id, title, is_done, priority, notion_date, url, sync_status FROM tasks WHERE id = ? LIMIT 1;"
+        let sql = "SELECT id, title, is_done, priority, estimated_minutes, notion_date, url, sync_status FROM tasks WHERE id = ? LIMIT 1;"
         let rows = try query(sql, bindings: [id]) { statement in
             try readTask(from: statement)
         }
@@ -120,12 +122,13 @@ public final class SQLiteCache: @unchecked Sendable {
     public func upsert(_ task: TaskItem) throws {
         try execute(
             """
-            INSERT INTO tasks (id, title, is_done, priority, notion_date, url, sync_status, local_updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO tasks (id, title, is_done, priority, estimated_minutes, notion_date, url, sync_status, local_updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 is_done = excluded.is_done,
                 priority = excluded.priority,
+                estimated_minutes = excluded.estimated_minutes,
                 notion_date = excluded.notion_date,
                 url = excluded.url,
                 sync_status = excluded.sync_status,
@@ -136,6 +139,7 @@ public final class SQLiteCache: @unchecked Sendable {
                 task.title,
                 task.isDone ? "1" : "0",
                 task.priority ?? NSNull(),
+                task.estimatedMinutes.map { NSNumber(value: $0) } as Any? ?? NSNull(),
                 iso8601.string(from: task.date),
                 task.url?.absoluteString ?? NSNull(),
                 task.syncStatus.rawValue,
@@ -283,10 +287,11 @@ public final class SQLiteCache: @unchecked Sendable {
         let title = Self.readString(from: statement, at: 1)
         let isDone = sqlite3_column_int(statement, 2) == 1
         let priority = Self.readOptionalString(from: statement, at: 3)
-        let date = try parseDate(Self.readString(from: statement, at: 4))
-        let url = Self.readOptionalString(from: statement, at: 5).flatMap(URL.init(string:))
-        let syncStatus = SyncStatus(rawValue: Self.readString(from: statement, at: 6)) ?? .synced
-        return TaskItem(id: id, title: title, isDone: isDone, priority: priority, date: date, url: url, syncStatus: syncStatus)
+        let estimatedMinutes = Self.readOptionalInt(from: statement, at: 4)
+        let date = try parseDate(Self.readString(from: statement, at: 5))
+        let url = Self.readOptionalString(from: statement, at: 6).flatMap(URL.init(string:))
+        let syncStatus = SyncStatus(rawValue: Self.readString(from: statement, at: 7)) ?? .synced
+        return TaskItem(id: id, title: title, isDone: isDone, priority: priority, estimatedMinutes: estimatedMinutes, date: date, url: url, syncStatus: syncStatus)
     }
 
     private static func readString(from statement: OpaquePointer, at index: Int32) -> String {
@@ -298,6 +303,23 @@ public final class SQLiteCache: @unchecked Sendable {
             return nil
         }
         return String(cString: pointer)
+    }
+
+    private static func readOptionalInt(from statement: OpaquePointer, at index: Int32) -> Int? {
+        guard sqlite3_column_type(statement, index) != SQLITE_NULL else {
+            return nil
+        }
+        return Int(sqlite3_column_int64(statement, index))
+    }
+
+    private func ensureTaskEstimatedMinutesColumn() throws {
+        let columnNames = try query("PRAGMA table_info(tasks);") { statement in
+            Self.readString(from: statement, at: 1)
+        }
+        guard !columnNames.contains("estimated_minutes") else {
+            return
+        }
+        try execute("ALTER TABLE tasks ADD COLUMN estimated_minutes INTEGER;")
     }
 
     private static func resolveDatabaseURL(baseURL: URL?) throws -> URL {
