@@ -29,7 +29,12 @@ struct NotionFloatCoreSmokeTestsRunner {
             try todoListViewModelDoesNotSynchronouslyBridgeNestedObjectWillChange()
             try todoHeaderOpenButtonTargetsTasksDatabasePage()
             try journalHeaderContainsManualSyncButton()
+            try journalOpenInNotionButtonSitsBesideHeaderSyncButton()
+            try journalDateUsesChineseDisplayFormat()
             try journalEditorTypographyUsesRelaxedEditorRhythm()
+            try todoAndJournalPanelsUseHtmlReferenceBorderWidth()
+            try todoDateNavigationKeepsArrowSpacingStable()
+            try journalEditorUsesOverflowAwareEdgeAlignedScroller()
             try topBarDoesNotShowExpandButton()
             try welcomeViewUsesDedicatedIllustrationAssetAndCallback()
             try configurationFormContainsSettingsHelpAndExtractionCopy()
@@ -37,9 +42,9 @@ struct NotionFloatCoreSmokeTestsRunner {
             try todoTaskDurationMatchesHtmlReferenceContract()
             try newTaskFormDoesNotDimTodoPanel()
             try onboardingVisualAlignmentKeepsExistingBehaviorContract()
+            try todoDateTitleUsesChineseDateWithoutTodaySpecialCase()
             try settingsResetFlowReturnsUserToWelcome()
             try statusBarMenuContainsSettingsEntry()
-            try todoDateTitleUsesChineseDateWithoutTodaySpecialCase()
             try floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring()
             try floatingPanelDoesNotSynchronouslyActivateDuringEventDispatch()
             try await notionClientBuildsDatabaseSchemaURLWithoutQuery()
@@ -288,6 +293,45 @@ struct NotionFloatCoreSmokeTestsRunner {
             !source.contains("firstTaskWithUrl"),
             "todo header open button must not reuse the first task page URL"
         )
+        guard let openActionRange = source.range(of: "todoViewModel.openTasksDatabaseInNotion()") else {
+            throw SmokeTestFailure(description: "todo header open button action should be present")
+        }
+        let openButtonStart = source[..<openActionRange.lowerBound].lastIndex(of: "\n") ?? source.startIndex
+        let openButtonEnd = source[openActionRange.upperBound...].range(of: ".buttonStyle(FloatingWidgetIconButtonStyle())")?.upperBound ?? openActionRange.upperBound
+        let openButtonScope = source[openButtonStart..<openButtonEnd]
+        try expect(
+            openButtonScope.contains("headerActionIcon(systemName: \"arrow.up.forward.square\")"),
+            "todo header open icon should render through the shared header action icon helper"
+        )
+        try expect(
+            source.contains("static let headerIconButtonSize: CGFloat = 24")
+                && source.contains("static let headerIconSymbolSize: CGFloat = 16"),
+            "header action buttons should define shared click-area and symbol-size constants"
+        )
+        try expect(
+            source.contains(".font(.system(size: FloatingWidgetMetrics.headerIconSymbolSize, weight: .regular))")
+                && source.contains(".frame(")
+                && source.contains("width: FloatingWidgetMetrics.headerIconSymbolSize")
+                && source.contains("height: FloatingWidgetMetrics.headerIconSymbolSize"),
+            "header action icons should share one font size, weight, and symbol frame"
+        )
+        try expect(
+            source.contains("headerActionIcon(systemName: \"plus\")")
+                && source.contains("headerActionIcon(systemName: \"arrow.triangle.2.circlepath\")")
+                && source.contains("headerActionIcon(systemName: \"arrow.up.forward.square\")"),
+            "todo and journal header action icons should render through the shared icon helper"
+        )
+        try expect(
+            source.contains("Image(systemName: headerActionSystemName(for: systemName))")
+                && source.contains("private func headerActionSystemName(for systemName: String) -> String")
+                && !source.contains("private struct HeaderActionSymbol: Shape"),
+            "header action icons should render through one shared SF Symbol mapping helper"
+        )
+        try expect(
+            source.contains("case \"arrow.triangle.2.circlepath\":")
+                && source.contains("return \"arrow.clockwise\""),
+            "sync header action icon should use the standard clockwise refresh symbol inside the shared icon frame"
+        )
     }
 
     static func journalHeaderContainsManualSyncButton() throws {
@@ -301,11 +345,7 @@ struct NotionFloatCoreSmokeTestsRunner {
         let source = try String(contentsOf: contentViewURL, encoding: .utf8)
 
         try expect(
-            source.contains("private var journalToolbar: some View"),
-            "journal tab should define a dedicated header toolbar"
-        )
-        try expect(
-            source.contains("Image(systemName: \"arrow.triangle.2.circlepath\")"),
+            source.contains("headerActionIcon(systemName: \"arrow.triangle.2.circlepath\")"),
             "journal header should expose the same sync icon used by the todo header"
         )
         try expect(
@@ -328,6 +368,54 @@ struct NotionFloatCoreSmokeTestsRunner {
             journalViewModelSource.contains("await load()"),
             "reloading from Notion should reuse the existing journal load path"
         )
+        try expect(
+            !source.contains("static let journalHeading ="),
+            "journal heading color constant should be removed after dropping the heading element"
+        )
+        try expect(
+            !source.contains("Text(\"日记\")"),
+            "journal panel should no longer render a standalone heading text"
+        )
+        try expect(
+            !source.contains("private var journalToolbar: some View"),
+            "journal toolbar should be inlined into the date row to eliminate top blank gap"
+        )
+        try expect(
+            !source.contains("journalHeadingBottomSpacing"),
+            "journal heading bottom spacing should be removed along with the heading"
+        )
+    }
+
+    static func journalOpenInNotionButtonSitsBesideHeaderSyncButton() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            source.contains("HStack(spacing: FloatingWidgetMetrics.headerIconButtonSpacing)"),
+            "journal header action buttons should use the shared icon-button spacing"
+        )
+        try expect(
+            source.contains("if let url = journalViewModel.entry?.url"),
+            "journal header open button should depend on the journal entry URL being available"
+        )
+        try expect(
+            source.contains("journalViewModel.openInNotion(url)"),
+            "journal header open button should open the current journal page"
+        )
+        try expect(
+            source.contains("headerActionIcon(systemName: \"arrow.up.forward.square\")"),
+            "journal header open icon should render through the shared header action icon helper"
+        )
+        try expect(
+            !source.contains("Text(\"在 Notion 中打开\")"),
+            "journal open-in-Notion button should render as icon-only"
+        )
     }
 
     static func journalEditorTypographyUsesRelaxedEditorRhythm() throws {
@@ -340,10 +428,6 @@ struct NotionFloatCoreSmokeTestsRunner {
             .appendingPathComponent("ContentView.swift")
         let source = try String(contentsOf: contentViewURL, encoding: .utf8)
 
-        try expect(
-            source.contains("static let journalHeadingBottomSpacing: CGFloat = 8"),
-            "journal heading should leave more breathing room before the date"
-        )
         try expect(
             source.contains("static let journalDateBottomSpacing: CGFloat = 14"),
             "journal date should leave more breathing room before the editor"
@@ -361,12 +445,171 @@ struct NotionFloatCoreSmokeTestsRunner {
             "journal editor should use roomier text insets"
         )
         try expect(
-            source.contains(".lineSpacing(FloatingWidgetMetrics.journalEditorLineSpacing)"),
-            "journal editor should explicitly apply the relaxed line spacing"
+            source.contains("lineSpacing: FloatingWidgetMetrics.journalEditorLineSpacing"),
+            "journal editor should pass the relaxed line spacing into the custom AppKit editor"
+        )
+        try expect(
+            source.contains("paragraphStyle.lineSpacing = configuration.lineSpacing"),
+            "journal editor should apply the relaxed line spacing to NSTextView paragraph style"
         )
         try expect(
             !source.contains(".modifier(TrackingModifier(value: -0.12))"),
             "journal editor body should not squeeze glyph spacing with negative tracking"
+        )
+    }
+
+    static func todoAndJournalPanelsUseHtmlReferenceBorderWidth() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            source.contains("static let panelBorderLineWidth: CGFloat = 0.5"),
+            "todo and journal panels should share the HTML reference 0.5pt border width"
+        )
+        try expect(
+            source.components(separatedBy: "lineWidth: FloatingWidgetMetrics.panelBorderLineWidth").count - 1 >= 2,
+            "todo list and journal editor should both use the shared panel border width"
+        )
+        try expect(
+            !source.contains(".stroke(FloatingWidgetPalette.editorBorder, lineWidth: 1.5)"),
+            "todo and journal panels should not keep the previous 1.5pt border width"
+        )
+    }
+
+    static func journalDateUsesChineseDisplayFormat() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            source.contains("TodoDateDisplayFormatter.title(for: date)"),
+            "journal date should reuse the todo date display formatter"
+        )
+        try expect(
+            !source.contains("formatter.dateFormat = \"yyyy年M月d日\""),
+            "journal date should not keep a separate yyyy年M月d日 formatter"
+        )
+        guard let journalDateRange = source.range(of: "Text(journalDateString(from: entry.date))") else {
+            throw SmokeTestFailure(description: "journal date text should be present")
+        }
+        let journalDateScopeEnd = source[journalDateRange.upperBound...].range(of: "Spacer()")?.lowerBound ?? journalDateRange.upperBound
+        let journalDateScope = source[journalDateRange.lowerBound..<journalDateScopeEnd]
+        try expect(
+            journalDateScope.contains(".font(.system(size: 14, weight: .bold))"),
+            "journal date should use the same font style as the todo date title"
+        )
+        try expect(
+            journalDateScope.contains(".foregroundStyle(FloatingWidgetPalette.todoDateTitle)"),
+            "journal date should use the same color as the todo date title"
+        )
+        try expect(
+            journalDateScope.contains(".modifier(TrackingModifier(value: -0.28))"),
+            "journal date should use the same tracking as the todo date title"
+        )
+    }
+
+    static func journalEditorUsesOverflowAwareEdgeAlignedScroller() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            source.contains("JournalTextEditor(")
+                && source.contains("text: $journalViewModel.editorText"),
+            "journal panel should use the custom AppKit editor instead of SwiftUI TextEditor"
+        )
+        try expect(
+            source.contains("final class Coordinator: NSObject, NSTextViewDelegate"),
+            "journal editor should delegate text changes from NSTextView back to SwiftUI"
+        )
+        try expect(
+            source.contains("hasVerticalScroller = contentOverflows"),
+            "journal editor should only show the vertical scroller when content overflows"
+        )
+        try expect(
+            source.contains("scrollView.autohidesScrollers = true"),
+            "journal editor should allow the scrollbar to fully hide when content fits"
+        )
+        try expect(
+            source.contains("textView.textContainerInset = NSSize(width:"),
+            "journal editor should apply text padding inside NSTextView so the NSScrollView scroller remains edge-aligned"
+        )
+    }
+
+    static func todoDateNavigationKeepsArrowSpacingStable() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(
+            source.contains("static let todoDateTitleWidth: CGFloat = 60"),
+            "todo date title should reserve enough fixed width for the 14pt today label"
+        )
+        try expect(
+            source.contains(".frame(width: FloatingWidgetMetrics.todoDateTitleWidth, alignment: .center)"),
+            "todo date title should render inside the fixed-width frame"
+        )
+        try expect(
+            source.contains("static let todoDateNavigationSpacing: CGFloat = 4"),
+            "todo date navigation should define a compact shared spacing constant"
+        )
+        try expect(
+            source.contains("HStack(spacing: FloatingWidgetMetrics.todoDateNavigationSpacing)"),
+            "todo date navigation group should consume the compact spacing constant"
+        )
+        try expect(
+            source.contains("static let todoDateTitleFontSize: CGFloat = 14"),
+            "todo date title should use the non-today date font size as the shared baseline"
+        )
+        try expect(
+            source.contains(".font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .bold))"),
+            "todo date title should use the shared font size for today and non-today dates"
+        )
+        try expect(
+            !source.contains(".minimumScaleFactor("),
+            "todo date title should not scale today's text smaller than non-today dates"
+        )
+        try expect(
+            source.contains(".allowsTightening(true)"),
+            "todo date title should tighten glyph spacing before truncation"
+        )
+        try expect(
+            !source.contains(".frame(height: 28)"),
+            "todo date title should not force a taller vertical slot"
+        )
+        try expect(
+            source.contains("Spacer(minLength: 0)")
+                && source.contains(".frame(width: FloatingWidgetMetrics.jumpToTodayWidth)"),
+            "today-state placeholder should reserve width without using a vertically expanding Color"
+        )
+        try expect(
+            !source.contains("Color.clear\n                    .frame(width: FloatingWidgetMetrics.jumpToTodayWidth)"),
+            "today-state placeholder should not use unconstrained Color.clear because it can expand vertically"
+        )
+        try expect(
+            source.contains("static let jumpToTodayWidth: CGFloat = 56"),
+            "jump-to-today control should reserve a stable slot width"
         )
     }
 
@@ -775,7 +1018,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             "onboarding alignment refresh must keep the journal database normalization hook"
         )
         try expect(
-            databaseSectionScope.contains(".onChange(of: text.wrappedValue)"),
+            databaseSectionScope.contains(".onChange(of: text.wrappedValue) {"),
             "onboarding alignment refresh must keep the generic text-change normalization trigger"
         )
         try expect(
@@ -880,6 +1123,19 @@ struct NotionFloatCoreSmokeTestsRunner {
     }
 
     static func todoDateTitleUsesChineseDateWithoutTodaySpecialCase() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let today = calendar.date(from: DateComponents(year: 2026, month: 6, day: 23))!
+
+        try expect(
+            TodoDateDisplayFormatter.title(for: today, today: today, calendar: calendar) == "6月23日",
+            "today date title should not include the today prefix"
+        )
+        try expect(
+            TodoDateDisplayFormatter.emptyStateTitle(for: today, today: today, calendar: calendar) == "今天没有任务",
+            "today empty state should keep its existing copy"
+        )
+
         let rootURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -897,34 +1153,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             source.contains("TodoDateDisplayFormatter.emptyStateTitle(for: todoViewModel.selectedDate)"),
             "todo empty state should delegate to the shared formatter"
         )
-        try expect(
-            source.contains("private let todoDateTitleWidth: CGFloat = 104"),
-            "todo date title should reserve a fixed width so today and non-today labels align"
-        )
-        try expect(
-            source.contains(".frame(width: todoDateTitleWidth, alignment: .leading)"),
-            "todo date title should render inside the fixed-width frame"
-        )
-        try expect(
-            source.contains(".lineLimit(1)"),
-            "todo date title should be constrained to a single line"
-        )
-        try expect(
-            source.contains(".minimumScaleFactor(0.8)"),
-            "todo date title should scale down before wrapping"
-        )
-        try expect(
-            source.contains(".allowsTightening(true)"),
-            "todo date title should tighten glyph spacing before truncation"
-        )
-        try expect(
-            source.contains(".frame(height: 28)"),
-            "todo date title should keep a stable vertical slot height"
-        )
-        try expect(
-            source.contains("private let jumpToTodayWidth: CGFloat = 56"),
-            "jump-to-today control should reserve a stable slot width"
-        )
+        try todoDateNavigationKeepsArrowSpacingStable()
     }
 
     static func welcomeViewUsesDedicatedIllustrationAssetAndCallback() throws {

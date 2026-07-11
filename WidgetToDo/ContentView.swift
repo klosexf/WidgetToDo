@@ -1,8 +1,9 @@
 import Combine
+import AppKit
 import SwiftUI
 
 private enum AppWindowChrome {
-    static let cornerRadius: CGFloat = 20
+    static let cornerRadius: CGFloat = 12
 }
 
 struct ContentView: View {
@@ -181,7 +182,7 @@ struct OnboardingView: View {
     @State private var isResetActionPending = false
     @State private var isAppeared = false
     @State private var isPrimaryButtonHovered = false
-    
+
     private var isOnboardingMode: Bool {
         mode == .onboarding
     }
@@ -453,7 +454,7 @@ struct OnboardingView: View {
                         .textFieldStyle(.plain)
                         .disabled(viewModel.isWorking)
                         .accessibilityLabel(title)
-                        .onChange(of: text.wrappedValue) { _ in
+                        .onChange(of: text.wrappedValue) {
                             normalize()
                         }
                 }
@@ -892,6 +893,7 @@ private enum FloatingWidgetPalette {
     static let syncBannerBg = Color(red: 0.965, green: 0.953, blue: 0.937).opacity(0.96)
     static let syncBannerText = Color(red: 0.49, green: 0.47, blue: 0.447)
     static let taskTitle = Color(red: 0.137, green: 0.133, blue: 0.129)
+    static let taskTitleCompleted = Color(red: 0.533, green: 0.533, blue: 0.533)
     static let checkboxBorder = Color(red: 0.741, green: 0.714, blue: 0.686)
     static let checkboxCompleteTop = Color(red: 0.49, green: 0.835, blue: 0.427)
     static let checkboxCompleteBottom = Color(red: 0.4, green: 0.78, blue: 0.373)
@@ -902,7 +904,6 @@ private enum FloatingWidgetPalette {
     static let warningText = Color(red: 1.0, green: 0.616, blue: 0.184)
     static let retryText = Color(red: 0.4, green: 0.376, blue: 0.353)
     static let dividerColor = Color(red: 0.914, green: 0.894, blue: 0.875).opacity(0.95)
-    static let journalHeading = Color(red: 0.133, green: 0.129, blue: 0.125)
     static let journalDate = Color(red: 0.604, green: 0.576, blue: 0.553)
     static let editorBg = Color(red: 0.992, green: 0.988, blue: 0.98).opacity(0.96)
     static let editorBorder = Color(red: 0.882, green: 0.863, blue: 0.839).opacity(0.96)
@@ -926,10 +927,16 @@ private enum FloatingWidgetMetrics {
     static let topBarBottomSpacing: CGFloat = 18
 
     static let todoToolbarBottomSpacing: CGFloat = 18
+    static let todoDateTitleFontSize: CGFloat = 14
+    static let todoDateTitleWidth: CGFloat = 60
+    static let todoDateNavigationSpacing: CGFloat = 4
+    static let jumpToTodayWidth: CGFloat = 56
+    static let headerIconButtonSpacing: CGFloat = 12
+    static let headerIconButtonSize: CGFloat = 24
+    static let headerIconSymbolSize: CGFloat = 16
     static let syncBannerBottomSpacing: CGFloat = 14
 
     static let taskRowHorizontalSpacing: CGFloat = 10
-    static let taskRowCheckboxTopPadding: CGFloat = 2
     static let taskRowTextStackSpacing: CGFloat = 6
     static let taskRowMetaSpacing: CGFloat = 6
     static let taskRowActionSpacing: CGFloat = 6
@@ -937,7 +944,6 @@ private enum FloatingWidgetMetrics {
     static let taskRowBottomPadding: CGFloat = 16
     static let todoListContentInsets = EdgeInsets(top: 14, leading: 14, bottom: 36, trailing: 16)
 
-    static let journalHeadingBottomSpacing: CGFloat = 8
     static let journalDateBottomSpacing: CGFloat = 14
     static let journalEditorFontSize: CGFloat = 13
     static let journalEditorLineSpacing: CGFloat = 6
@@ -946,6 +952,7 @@ private enum FloatingWidgetMetrics {
     static let journalStatusTopSpacing: CGFloat = 10
 
     static let panelCornerRadius: CGFloat = 12
+    static let panelBorderLineWidth: CGFloat = 0.5
 }
 
 struct FloatingWidgetView: View {
@@ -1041,21 +1048,22 @@ struct FloatingWidgetView: View {
                 .modifier(TrackingModifier(value: -0.13))
                 .frame(minWidth: 64)
                 .frame(height: 32)
+                .contentShape(Rectangle())
+                .background(
+                    Group {
+                        if isActive {
+                            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                                .fill(LinearGradient(
+                                    colors: [FloatingWidgetPalette.activeTabTop, FloatingWidgetPalette.activeTabBottom],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ))
+                                .shadow(color: FloatingWidgetPalette.activeTabShadow, radius: 4, y: 2)
+                        }
+                    }
+                )
         }
         .buttonStyle(.plain)
-        .background(
-            Group {
-                if isActive {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(LinearGradient(
-                            colors: [FloatingWidgetPalette.activeTabTop, FloatingWidgetPalette.activeTabBottom],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                        .shadow(color: FloatingWidgetPalette.activeTabShadow, radius: 4, y: 2)
-                }
-            }
-        )
     }
 
     private var todoPanel: some View {
@@ -1141,7 +1149,7 @@ struct FloatingWidgetView: View {
 
     private var todoToolbar: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 14) {
+            HStack(spacing: FloatingWidgetMetrics.todoDateNavigationSpacing) {
                 Button {
                     Task { await todoViewModel.showPreviousDay() }
                 } label: {
@@ -1151,10 +1159,12 @@ struct FloatingWidgetView: View {
                 .buttonStyle(FloatingWidgetNavButtonStyle())
 
                 Text(todoTitle)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .bold))
                     .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
                     .modifier(TrackingModifier(value: -0.28))
                     .lineLimit(1)
+                    .allowsTightening(true)
+                    .frame(width: FloatingWidgetMetrics.todoDateTitleWidth, alignment: .center)
 
                 Button {
                     Task { await todoViewModel.showNextDay() }
@@ -1173,24 +1183,26 @@ struct FloatingWidgetView: View {
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(FloatingWidgetPalette.metaText)
                 .padding(.leading, 8)
+                .frame(width: FloatingWidgetMetrics.jumpToTodayWidth, alignment: .trailing)
+            } else {
+                Spacer(minLength: 0)
+                    .frame(width: FloatingWidgetMetrics.jumpToTodayWidth)
             }
 
             Spacer()
 
-            HStack(spacing: 12) {
+            HStack(spacing: FloatingWidgetMetrics.headerIconButtonSpacing) {
                 Button {
                     todoViewModel.openNewTaskForm()
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold))
+                    headerActionIcon(systemName: "plus")
                 }
                 .buttonStyle(FloatingWidgetIconButtonStyle())
 
                 Button {
                     Task { await refreshAction() }
                 } label: {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 14, weight: .semibold))
+                    headerActionIcon(systemName: "arrow.triangle.2.circlepath")
                 }
                 .buttonStyle(FloatingWidgetIconButtonStyle())
 
@@ -1198,8 +1210,7 @@ struct FloatingWidgetView: View {
                     Button {
                         todoViewModel.openTasksDatabaseInNotion()
                     } label: {
-                        Image(systemName: "arrow.up.forward.square")
-                            .font(.system(size: 13, weight: .medium))
+                        headerActionIcon(systemName: "arrow.up.forward.square")
                     }
                     .buttonStyle(FloatingWidgetIconButtonStyle())
                 }
@@ -1257,64 +1268,66 @@ struct FloatingWidgetView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: FloatingWidgetMetrics.panelCornerRadius, style: .continuous)
-                .stroke(FloatingWidgetPalette.editorBorder, lineWidth: 1.5)
+                .stroke(FloatingWidgetPalette.editorBorder, lineWidth: FloatingWidgetMetrics.panelBorderLineWidth)
         )
     }
 
     private func taskRowView(_ task: TaskItem) -> some View {
-        HStack(alignment: .top, spacing: FloatingWidgetMetrics.taskRowHorizontalSpacing) {
-            Button {
-                Task { await todoViewModel.toggleTask(task) }
-            } label: {
+        HStack(alignment: .center, spacing: 0) {
+            HStack(alignment: .center, spacing: FloatingWidgetMetrics.taskRowHorizontalSpacing) {
                 taskCheckbox(isDone: task.isDone)
-            }
-            .buttonStyle(.plain)
-            .padding(.top, FloatingWidgetMetrics.taskRowCheckboxTopPadding)
 
-            VStack(alignment: .leading, spacing: FloatingWidgetMetrics.taskRowTextStackSpacing) {
-                Text(task.title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(FloatingWidgetPalette.taskTitle)
-                    .modifier(TrackingModifier(value: -0.24))
+                VStack(alignment: .leading, spacing: FloatingWidgetMetrics.taskRowTextStackSpacing) {
+                    Text(task.title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(task.isDone ? FloatingWidgetPalette.taskTitleCompleted : FloatingWidgetPalette.taskTitle)
+                        .strikethrough(task.isDone)
+                        .modifier(TrackingModifier(value: -0.24))
 
-                HStack(spacing: FloatingWidgetMetrics.taskRowMetaSpacing) {
-                    if let priority = task.priority {
-                        Text(priority)
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(FloatingWidgetPalette.priorityText)
-                            .modifier(TrackingModifier(value: -0.2))
-                            .frame(minWidth: 24)
-                            .frame(height: 20)
-                            .padding(.horizontal, 7)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(FloatingWidgetPalette.priorityBg)
-                            )
-                    }
-
-                    if let estimatedMinutes = task.estimatedMinutes {
-                        HStack(spacing: 3) {
-                            Image(systemName: "clock")
+                    HStack(spacing: FloatingWidgetMetrics.taskRowMetaSpacing) {
+                        if let priority = task.priority {
+                            Text(priority)
                                 .font(.system(size: 10, weight: .semibold))
-                            Text("\(estimatedMinutes)min")
-                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(FloatingWidgetPalette.priorityText)
+                                .modifier(TrackingModifier(value: -0.2))
+                                .frame(minWidth: 24)
+                                .frame(height: 20)
+                                .padding(.horizontal, 7)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(FloatingWidgetPalette.priorityBg)
+                                )
                         }
-                        .foregroundStyle(FloatingWidgetPalette.metaText)
-                    }
 
-                    if task.estimatedMinutes != nil {
-                        Text("·")
-                            .font(.system(size: 10, weight: .semibold))
+                        if let estimatedMinutes = task.estimatedMinutes {
+                            HStack(spacing: 3) {
+                                Image(systemName: "clock")
+                                    .font(.system(size: 10, weight: .semibold))
+                                Text("\(estimatedMinutes)min")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
                             .foregroundStyle(FloatingWidgetPalette.metaText)
+                        }
+
+                        if task.estimatedMinutes != nil {
+                            Text("·")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(FloatingWidgetPalette.metaText)
+                        }
+
+                        Text(syncText(for: task.syncStatus))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(syncColor(for: task.syncStatus))
                     }
-
-                    Text(syncText(for: task.syncStatus))
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(syncColor(for: task.syncStatus))
                 }
-            }
 
-            Spacer()
+                Spacer()
+            }
+            .padding(.trailing, FloatingWidgetMetrics.taskRowHorizontalSpacing)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                Task { await todoViewModel.toggleTask(task) }
+            }
 
             HStack(spacing: FloatingWidgetMetrics.taskRowActionSpacing) {
                 if todoViewModel.deletingTaskID == task.id {
@@ -1394,26 +1407,48 @@ struct FloatingWidgetView: View {
 
     private var journalPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            journalToolbar
-                .padding(.bottom, FloatingWidgetMetrics.journalHeadingBottomSpacing)
-
             if let entry = journalViewModel.entry {
-                Text(journalDateString(from: entry.date))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(FloatingWidgetPalette.journalDate)
-                    .padding(.bottom, FloatingWidgetMetrics.journalDateBottomSpacing)
+                HStack(spacing: 0) {
+                    Text(journalDateString(from: entry.date))
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
+                        .modifier(TrackingModifier(value: -0.28))
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    HStack(spacing: FloatingWidgetMetrics.headerIconButtonSpacing) {
+                        Button {
+                            Task { await journalViewModel.reloadFromNotion() }
+                        } label: {
+                            headerActionIcon(systemName: "arrow.triangle.2.circlepath")
+                        }
+                        .buttonStyle(FloatingWidgetIconButtonStyle())
+
+                        if let url = journalViewModel.entry?.url {
+                            Button {
+                                journalViewModel.openInNotion(url)
+                            } label: {
+                                headerActionIcon(systemName: "arrow.up.forward.square")
+                            }
+                            .buttonStyle(FloatingWidgetIconButtonStyle())
+                        }
+                    }
+                }
+                .padding(.bottom, FloatingWidgetMetrics.journalDateBottomSpacing)
             }
 
             if journalViewModel.isLoading {
                 ProgressView("正在加载日记...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                TextEditor(text: $journalViewModel.editorText)
-                    .font(.system(size: FloatingWidgetMetrics.journalEditorFontSize))
-                    .lineSpacing(FloatingWidgetMetrics.journalEditorLineSpacing)
-                    .foregroundStyle(FloatingWidgetPalette.editorText)
-                    .modifier(JournalEditorModifier())
-                    .padding(FloatingWidgetMetrics.journalEditorInsets)
+                JournalTextEditor(
+                    text: $journalViewModel.editorText,
+                    fontSize: FloatingWidgetMetrics.journalEditorFontSize,
+                    lineSpacing: FloatingWidgetMetrics.journalEditorLineSpacing,
+                    contentInsets: FloatingWidgetMetrics.journalEditorInsets,
+                    textColor: NSColor(FloatingWidgetPalette.editorText)
+                )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(
                         RoundedRectangle(cornerRadius: FloatingWidgetMetrics.panelCornerRadius, style: .continuous)
@@ -1421,9 +1456,9 @@ struct FloatingWidgetView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: FloatingWidgetMetrics.panelCornerRadius, style: .continuous)
-                            .stroke(FloatingWidgetPalette.editorBorder, lineWidth: 1.5)
+                            .stroke(FloatingWidgetPalette.editorBorder, lineWidth: FloatingWidgetMetrics.panelBorderLineWidth)
                     )
-                    .onChange(of: journalViewModel.editorText) { newValue in
+                    .onChange(of: journalViewModel.editorText) { _, newValue in
                         journalViewModel.scheduleAutosave(text: newValue)
                     }
             }
@@ -1443,21 +1478,6 @@ struct FloatingWidgetView: View {
 
                 Spacer()
 
-                if let url = journalViewModel.entry?.url {
-                    Button {
-                        journalViewModel.openInNotion(url)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.up.forward.square")
-                                .font(.system(size: 12))
-                            Text("在 Notion 中打开")
-                                .font(.system(size: 10, weight: .semibold))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(FloatingWidgetPalette.metaText)
-                }
-
                 if journalViewModel.entry?.syncStatus == .failed {
                     Button("重试") {
                         Task { await journalViewModel.forceSave() }
@@ -1468,25 +1488,6 @@ struct FloatingWidgetView: View {
                 }
             }
             .padding(.top, FloatingWidgetMetrics.journalStatusTopSpacing)
-        }
-    }
-
-    private var journalToolbar: some View {
-        HStack(spacing: 0) {
-            Text("日记")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(FloatingWidgetPalette.journalHeading)
-                .modifier(TrackingModifier(value: -0.63))
-
-            Spacer()
-
-            Button {
-                Task { await journalViewModel.reloadFromNotion() }
-            } label: {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 14, weight: .semibold))
-            }
-            .buttonStyle(FloatingWidgetIconButtonStyle())
         }
     }
 
@@ -1536,10 +1537,27 @@ struct FloatingWidgetView: View {
     }
 
     private func journalDateString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US")
-        formatter.dateFormat = "MMM d, yyyy"
-        return formatter.string(from: date)
+        TodoDateDisplayFormatter.title(for: date)
+    }
+
+    private func headerActionIcon(systemName: String) -> some View {
+        Image(systemName: headerActionSystemName(for: systemName))
+            .font(.system(size: FloatingWidgetMetrics.headerIconSymbolSize, weight: .regular))
+            .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
+            .frame(
+                width: FloatingWidgetMetrics.headerIconSymbolSize,
+                height: FloatingWidgetMetrics.headerIconSymbolSize
+            )
+            .accessibilityHidden(true)
+    }
+
+    private func headerActionSystemName(for systemName: String) -> String {
+        switch systemName {
+        case "arrow.triangle.2.circlepath":
+            return "arrow.clockwise"
+        default:
+            return systemName
+        }
     }
 }
 
@@ -1585,7 +1603,10 @@ private struct FloatingWidgetIconButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
-            .frame(width: 24, height: 24)
+            .frame(
+                width: FloatingWidgetMetrics.headerIconButtonSize,
+                height: FloatingWidgetMetrics.headerIconButtonSize
+            )
             .background(
                 Circle()
                     .fill(configuration.isPressed
@@ -1596,14 +1617,126 @@ private struct FloatingWidgetIconButtonStyle: ButtonStyle {
     }
 }
 
-private struct JournalEditorModifier: ViewModifier {
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if #available(macOS 13.0, *) {
-            content.scrollContentBackground(.hidden)
-        } else {
-            content
+private struct JournalTextEditor: NSViewRepresentable {
+    @Binding var text: String
+    let fontSize: CGFloat
+    let lineSpacing: CGFloat
+    let contentInsets: EdgeInsets
+    let textColor: NSColor
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeNSView(context: Context) -> OverflowAwareTextScrollView {
+        let scrollView = OverflowAwareTextScrollView()
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.hasHorizontalScroller = false
+        scrollView.hasVerticalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.scrollerStyle = .overlay
+        scrollView.verticalScrollElasticity = .allowed
+        scrollView.horizontalScrollElasticity = .none
+
+        let textView = NSTextView()
+        textView.delegate = context.coordinator
+        textView.drawsBackground = false
+        textView.isRichText = false
+        textView.isEditable = true
+        textView.isSelectable = true
+        textView.allowsUndo = true
+        textView.importsGraphics = false
+        textView.textContainerInset = NSSize(width: contentInsets.leading, height: contentInsets.top)
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.heightTracksTextView = false
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.isHorizontallyResizable = false
+        textView.isVerticallyResizable = true
+        textView.autoresizingMask = [.width]
+
+        scrollView.documentView = textView
+        context.coordinator.textView = textView
+        context.coordinator.scrollView = scrollView
+        context.coordinator.apply(configuration: self)
+        scrollView.updateScrollerVisibility()
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: OverflowAwareTextScrollView, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.scrollView = scrollView
+        if let textView = scrollView.documentView as? NSTextView {
+            context.coordinator.textView = textView
+            if textView.string != text {
+                textView.string = text
+            }
         }
+        context.coordinator.apply(configuration: self)
+        scrollView.updateScrollerVisibility()
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: JournalTextEditor
+        weak var textView: NSTextView?
+        weak var scrollView: OverflowAwareTextScrollView?
+
+        init(_ parent: JournalTextEditor) {
+            self.parent = parent
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            parent.text = textView.string
+            scrollView?.updateScrollerVisibility()
+        }
+
+        func apply(configuration: JournalTextEditor) {
+            guard let textView else { return }
+            textView.font = .systemFont(ofSize: configuration.fontSize)
+            textView.textColor = configuration.textColor
+            textView.typingAttributes = attributes(for: configuration)
+            textView.textStorage?.setAttributes(
+                attributes(for: configuration),
+                range: NSRange(location: 0, length: textView.string.utf16.count)
+            )
+            textView.textContainerInset = NSSize(
+                width: configuration.contentInsets.leading,
+                height: configuration.contentInsets.top
+            )
+        }
+
+        private func attributes(for configuration: JournalTextEditor) -> [NSAttributedString.Key: Any] {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.lineSpacing = configuration.lineSpacing
+            return [
+                .font: NSFont.systemFont(ofSize: configuration.fontSize),
+                .foregroundColor: configuration.textColor,
+                .paragraphStyle: paragraphStyle
+            ]
+        }
+    }
+}
+
+private final class OverflowAwareTextScrollView: NSScrollView {
+    override func layout() {
+        super.layout()
+        updateScrollerVisibility()
+    }
+
+    func updateScrollerVisibility() {
+        guard let textView = documentView as? NSTextView else {
+            hasVerticalScroller = false
+            return
+        }
+
+        textView.layoutManager?.ensureLayout(for: textView.textContainer!)
+        let contentHeight = textView.textContainerInset.height * 2
+            + textView.layoutManager!.usedRect(for: textView.textContainer!).height
+        let contentOverflows = contentHeight > contentView.bounds.height + 0.5
+        hasVerticalScroller = contentOverflows
     }
 }
 

@@ -1,4 +1,5 @@
 .build/
+build/
 DerivedData/
 *.xcuserdata
 *.xcworkspace/xcuserdata/

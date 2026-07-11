@@ -6,9 +6,6 @@ public enum TodoDateDisplayFormatter {
         today: Date = Date(),
         calendar: Calendar = Calendar(identifier: .gregorian)
     ) -> String {
-        if calendar.isDate(selectedDate, inSameDayAs: today) {
-            return "今天\(monthDayString(for: selectedDate))"
-        }
         return monthDayString(for: selectedDate)
     }
 

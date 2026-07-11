@@ -16,7 +16,7 @@ struct PendingTodoRowView: View {
     let showFailure: Bool
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             ZStack {
                 Circle()
                     .fill(PendingPalette.checkBg)
@@ -28,7 +28,6 @@ struct PendingTodoRowView: View {
                     .font(.system(size: 7, weight: .bold))
                     .foregroundStyle(PendingPalette.hourglassColor)
             }
-            .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(item.title)
