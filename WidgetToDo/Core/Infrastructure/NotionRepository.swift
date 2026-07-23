@@ -35,6 +35,14 @@ public actor NotionRepository {
         return settings?.miniModeState ?? .default
     }
 
+    public func loadAppLanguage() async throws -> AppLanguage {
+        try await settingsStore.loadAppLanguage()
+    }
+
+    public func saveAppLanguage(_ language: AppLanguage) async throws {
+        try await settingsStore.saveAppLanguage(language)
+    }
+
     public func saveMiniModeState(_ state: MiniModeState) async throws {
         guard let settings = try await settingsStore.load() else {
             return
