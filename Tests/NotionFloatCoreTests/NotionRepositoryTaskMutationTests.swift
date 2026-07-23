@@ -19,7 +19,7 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
         let harness = try await makeHarness(responseStatusCode: 200, responseBody: responseBody)
         try harness.cache.upsert(task)
 
-        let updated = try await harness.repository.updateTaskTitle(id: task.id, title: "修改后的任务标题")
+        let updated = try await harness.repository.updateTaskTitle(id: task.id, title: "修改后的任务标题", estimatedMinutes: nil)
 
         XCTAssertEqual(updated.title, "修改后的任务标题")
         XCTAssertEqual(updated.syncStatus, .synced)
@@ -31,6 +31,66 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
         XCTAssertEqual(cached.syncStatus, .synced)
     }
 
+    func testUpdateTaskTitleUpdatesEstimatedMinutesInPayloadAndCache() async throws {
+        let task = makeTask()
+        let responseBody = """
+        {
+          "id": "\(task.id)",
+          "url": "https://www.notion.so/task-1",
+          "properties": {
+            "任务标题": { "title": [{ "plain_text": "原始任务标题" }] },
+            "计划日期": { "date": { "start": "2026-05-21" } },
+            "已完成": { "checkbox": false },
+            "任务优先级": { "select": { "name": "High" } },
+            "预计时长": { "number": 90 }
+          }
+        }
+        """
+        let harness = try await makeHarness(responseStatusCode: 200, responseBody: responseBody)
+        try harness.cache.upsert(task)
+
+        let updated = try await harness.repository.updateTaskTitle(id: task.id, title: "原始任务标题", estimatedMinutes: 90)
+
+        XCTAssertEqual(updated.estimatedMinutes, 90)
+        XCTAssertEqual(updated.syncStatus, .synced)
+        let requestBody = try XCTUnwrap(MockURLProtocol.lastRequestBody)
+        XCTAssertTrue(requestBody.contains(#""预计时长""#))
+        XCTAssertTrue(requestBody.contains(#""number":90"#))
+        let cached = try XCTUnwrap(harness.cache.task(id: task.id))
+        XCTAssertEqual(cached.estimatedMinutes, 90)
+        XCTAssertEqual(cached.syncStatus, .synced)
+    }
+
+    func testUpdateTaskTitleOmitsEstimatedMinutesWhenMappingIsNil() async throws {
+        let task = makeTask()
+        let responseBody = """
+        {
+          "id": "\(task.id)",
+          "url": "https://www.notion.so/task-1",
+          "properties": {
+            "任务标题": { "title": [{ "plain_text": "原始任务标题" }] },
+            "计划日期": { "date": { "start": "2026-05-21" } },
+            "已完成": { "checkbox": false },
+            "任务优先级": { "select": { "name": "High" } }
+          }
+        }
+        """
+        let harness = try await makeHarness(
+            responseStatusCode: 200,
+            responseBody: responseBody,
+            estimatedMinutesField: nil
+        )
+        try harness.cache.upsert(task)
+
+        let updated = try await harness.repository.updateTaskTitle(id: task.id, title: "原始任务标题", estimatedMinutes: 90)
+
+        XCTAssertEqual(updated.estimatedMinutes, 90)
+        let requestBody = try XCTUnwrap(MockURLProtocol.lastRequestBody)
+        XCTAssertFalse(requestBody.contains(#""预计时长""#))
+        let cached = try XCTUnwrap(harness.cache.task(id: task.id))
+        XCTAssertEqual(cached.estimatedMinutes, 90)
+    }
+
     func testUpdateTaskTitleMarksCacheFailedWhenRemoteWriteFails() async throws {
         let task = makeTask()
         let harness = try await makeHarness(
@@ -40,7 +100,7 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
         try harness.cache.upsert(task)
 
         do {
-            _ = try await harness.repository.updateTaskTitle(id: task.id, title: "失败后的标题")
+            _ = try await harness.repository.updateTaskTitle(id: task.id, title: "失败后的标题", estimatedMinutes: nil)
             XCTFail("Expected updateTaskTitle to throw")
         } catch {
             XCTAssertEqual(error.localizedDescription, "Notion 请求失败（HTTP 400）：title is invalid")
@@ -148,7 +208,45 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
         }
     }
 
-    private func makeHarness(responseStatusCode: Int, responseBody: String) async throws -> RepositoryHarness {
+    func testSaveJournalUsesEntryIDWhenSameDayHasMultipleCachedEntries() async throws {
+        let responseBody = #"{"results":[]}"#
+        let harness = try await makeHarness(responseStatusCode: 200, responseBody: responseBody)
+        let date = ISO8601DateFormatter().date(from: "2026-07-12T00:00:00Z")!
+        let staleEntry = JournalEntry(
+            id: "journal-stale",
+            title: "日记 2026年7月12日",
+            date: date,
+            contentText: "旧内容",
+            url: URL(string: "https://www.notion.so/journal-stale"),
+            syncStatus: .synced
+        )
+        let currentEntry = JournalEntry(
+            id: "journal-current",
+            title: "日记 2026年7月12日",
+            date: date,
+            contentText: "",
+            url: URL(string: "https://www.notion.so/journal-current"),
+            syncStatus: .synced
+        )
+        try harness.cache.upsert(staleEntry)
+        try harness.cache.upsert(currentEntry)
+
+        let saved = try await harness.repository.saveJournal(
+            entryID: currentEntry.id,
+            text: "当天的新内容",
+            date: date
+        )
+
+        XCTAssertEqual(saved.id, currentEntry.id)
+        XCTAssertEqual(saved.contentText, "当天的新内容")
+        XCTAssertEqual(saved.syncStatus, .synced)
+    }
+
+    private func makeHarness(
+        responseStatusCode: Int,
+        responseBody: String,
+        estimatedMinutesField: String? = "预计时长"
+    ) async throws -> RepositoryHarness {
         let tokenStore = InMemoryTokenStore()
 
         let tempDirectoryURL = FileManager.default.temporaryDirectory
@@ -174,7 +272,7 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
                     date: "计划日期",
                     done: "已完成",
                     priority: "任务优先级",
-                    estimatedMinutes: "预计时长"
+                    estimatedMinutes: estimatedMinutesField
                 ),
                 journalFieldMapping: JournalDatabaseFieldMapping(
                     title: "日记标题",
@@ -260,6 +358,18 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         if let body = request.httpBody {
             Self.lastRequestBody = String(decoding: body, as: UTF8.self)
+        } else if let stream = request.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            let data = NSMutableData()
+            let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: 4096)
+            defer { buffer.deallocate() }
+            while stream.hasBytesAvailable {
+                let read = stream.read(buffer, maxLength: 4096)
+                guard read > 0 else { break }
+                data.append(buffer, length: read)
+            }
+            Self.lastRequestBody = String(decoding: data as Data, as: UTF8.self)
         } else {
             Self.lastRequestBody = nil
         }

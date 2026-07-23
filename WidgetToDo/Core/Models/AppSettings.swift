@@ -48,6 +48,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public let hasPriorityField: Bool
     public let tasksFieldMapping: TaskDatabaseFieldMapping
     public let journalFieldMapping: JournalDatabaseFieldMapping
+    public let miniModeState: MiniModeState
 
     enum CodingKeys: String, CodingKey {
         case tasksDatabaseID
@@ -58,6 +59,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         case hasPriorityField
         case tasksFieldMapping
         case journalFieldMapping
+        case miniModeState
     }
 
     public init(
@@ -68,7 +70,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         lastValidatedAt: Date,
         hasPriorityField: Bool = true,
         tasksFieldMapping: TaskDatabaseFieldMapping = .legacyDefault,
-        journalFieldMapping: JournalDatabaseFieldMapping = .legacyDefault
+        journalFieldMapping: JournalDatabaseFieldMapping = .legacyDefault,
+        miniModeState: MiniModeState = .default
     ) {
         self.tasksDatabaseID = tasksDatabaseID
         self.journalDatabaseID = journalDatabaseID
@@ -78,6 +81,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.hasPriorityField = hasPriorityField
         self.tasksFieldMapping = tasksFieldMapping
         self.journalFieldMapping = journalFieldMapping
+        self.miniModeState = miniModeState
     }
 
     public init(from decoder: Decoder) throws {
@@ -90,5 +94,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
         hasPriorityField = try container.decodeIfPresent(Bool.self, forKey: .hasPriorityField) ?? true
         tasksFieldMapping = try container.decodeIfPresent(TaskDatabaseFieldMapping.self, forKey: .tasksFieldMapping) ?? .legacyDefault
         journalFieldMapping = try container.decodeIfPresent(JournalDatabaseFieldMapping.self, forKey: .journalFieldMapping) ?? .legacyDefault
+        miniModeState = try container.decodeIfPresent(MiniModeState.self, forKey: .miniModeState) ?? .default
     }
 }

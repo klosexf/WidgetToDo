@@ -8,7 +8,7 @@ final class TaskDateSelectionTests: XCTestCase {
 
         let title = TodoDateDisplayFormatter.title(for: today, today: today, calendar: calendar)
 
-        XCTAssertEqual(title, "今天5月23日")
+        XCTAssertEqual(title, "5月23日")
     }
 
     func testTodoDateTitleShowsActualValueForYesterdayAndTomorrow() throws {

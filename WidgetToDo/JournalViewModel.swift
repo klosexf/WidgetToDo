@@ -11,7 +11,9 @@ final class JournalViewModel: ObservableObject {
 
     private let repository: NotionRepository
     private let openURL: @MainActor (URL) -> Void
-    private var autosaveTask: Task<Void, Never>?
+    private var debounceTask: Task<Void, Never>?
+    private var saveTask: Task<Void, Never>?
+    private var pendingSaveText: String?
 
     init(repository: NotionRepository, openURL: @escaping @MainActor (URL) -> Void) {
         self.repository = repository
@@ -34,26 +36,50 @@ final class JournalViewModel: ObservableObject {
     }
 
     func scheduleAutosave(text: String) {
-        autosaveTask?.cancel()
+        debounceTask?.cancel()
         statusMessage = "即将保存..."
-        autosaveTask = Task { @MainActor [weak self] in
+        debounceTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             guard !Task.isCancelled else { return }
-            await self?.save(text: text)
+            self?.enqueueSave(text: text)
         }
     }
 
     func forceSave() async {
-        await save(text: editorText)
+        debounceTask?.cancel()
+        enqueueSave(text: editorText)
+        if let saveTask {
+            await saveTask.value
+        }
     }
 
     func reloadFromNotion() async {
-        autosaveTask?.cancel()
+        debounceTask?.cancel()
+        if let saveTask {
+            await saveTask.value
+        }
         await load()
     }
 
     func openInNotion(_ url: URL) {
         openURL(url)
+    }
+
+    private func enqueueSave(text: String) {
+        pendingSaveText = text
+        guard saveTask == nil else { return }
+
+        saveTask = Task { @MainActor [weak self] in
+            await self?.flushPendingSaves()
+        }
+    }
+
+    private func flushPendingSaves() async {
+        while let text = pendingSaveText {
+            pendingSaveText = nil
+            await save(text: text)
+        }
+        saveTask = nil
     }
 
     private func save(text: String) async {
@@ -66,8 +92,8 @@ final class JournalViewModel: ObservableObject {
             errorMessage = nil
         } catch {
             self.entry?.syncStatus = .failed
-            statusMessage = "保存失败"
             errorMessage = "日记保存失败：\(error.localizedDescription)"
+            statusMessage = errorMessage
         }
     }
 }

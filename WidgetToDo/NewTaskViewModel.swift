@@ -24,7 +24,6 @@ final class NewTaskViewModel: ObservableObject {
 
     private let repository: NotionRepository
     @Published var hasPriorityField: Bool
-    @AppStorage("lastFailedDraft") private var lastFailedDraftData: Data?
 
     var onSubmit: ((PendingTaskItem) -> Void)?
     var onCreateSuccess: ((TaskItem) -> Void)?
@@ -36,12 +35,10 @@ final class NewTaskViewModel: ObservableObject {
     }
 
     func openForm(defaultDate: Date) {
-        restoreDraftIfNeeded()
-        if title.isEmpty {
-            taskDate = defaultDate
-            priority = "Medium"
-            estimatedMinutesText = ""
-        }
+        title = ""
+        taskDate = defaultDate
+        priority = "Medium"
+        estimatedMinutesText = ""
         formState = .idle
         estimatedMinutesError = nil
         showForm = true
@@ -90,34 +87,9 @@ final class NewTaskViewModel: ObservableObject {
                 )
                 onCreateSuccess?(task)
             } catch {
-                saveDraft()
                 onCreateFailure?(pendingItem, error.localizedDescription)
             }
         }
-    }
-
-    private func saveDraft() {
-        let draft = NewTaskDraft(
-            title: title,
-            date: taskDate,
-            priority: priority,
-            estimatedMinutes: parseEstimatedMinutes()
-        )
-        lastFailedDraftData = try? JSONEncoder().encode(draft)
-    }
-
-    private func restoreDraftIfNeeded() {
-        guard let data = lastFailedDraftData,
-              let draft = try? JSONDecoder().decode(NewTaskDraft.self, from: data),
-              !draft.isExpired else {
-            lastFailedDraftData = nil
-            return
-        }
-        title = draft.title
-        taskDate = draft.date
-        priority = draft.priority
-        estimatedMinutesText = draft.estimatedMinutes.map(String.init) ?? ""
-        lastFailedDraftData = nil
     }
 
     private func parseEstimatedMinutes() -> Int? {

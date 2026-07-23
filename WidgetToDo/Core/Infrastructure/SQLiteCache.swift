@@ -155,13 +155,15 @@ public final class SQLiteCache: @unchecked Sendable {
     public func journalEntry(for date: Date) throws -> JournalEntry? {
         let sql = "SELECT id, title, notion_date, content_text, url, sync_status FROM journal_entries WHERE notion_date = ? LIMIT 1;"
         let rows = try query(sql, bindings: [iso8601.string(from: date)]) { statement in
-            let id = Self.readString(from: statement, at: 0)
-            let title = Self.readString(from: statement, at: 1)
-            let entryDate = try parseDate(Self.readString(from: statement, at: 2))
-            let content = Self.readString(from: statement, at: 3)
-            let url = Self.readOptionalString(from: statement, at: 4).flatMap(URL.init(string:))
-            let syncStatus = SyncStatus(rawValue: Self.readString(from: statement, at: 5)) ?? .synced
-            return JournalEntry(id: id, title: title, date: entryDate, contentText: content, url: url, syncStatus: syncStatus)
+            try readJournalEntry(from: statement)
+        }
+        return rows.first
+    }
+
+    public func journalEntry(id: String) throws -> JournalEntry? {
+        let sql = "SELECT id, title, notion_date, content_text, url, sync_status FROM journal_entries WHERE id = ? LIMIT 1;"
+        let rows = try query(sql, bindings: [id]) { statement in
+            try readJournalEntry(from: statement)
         }
         return rows.first
     }
@@ -292,6 +294,16 @@ public final class SQLiteCache: @unchecked Sendable {
         let url = Self.readOptionalString(from: statement, at: 6).flatMap(URL.init(string:))
         let syncStatus = SyncStatus(rawValue: Self.readString(from: statement, at: 7)) ?? .synced
         return TaskItem(id: id, title: title, isDone: isDone, priority: priority, estimatedMinutes: estimatedMinutes, date: date, url: url, syncStatus: syncStatus)
+    }
+
+    private func readJournalEntry(from statement: OpaquePointer) throws -> JournalEntry {
+        let id = Self.readString(from: statement, at: 0)
+        let title = Self.readString(from: statement, at: 1)
+        let entryDate = try parseDate(Self.readString(from: statement, at: 2))
+        let content = Self.readString(from: statement, at: 3)
+        let url = Self.readOptionalString(from: statement, at: 4).flatMap(URL.init(string:))
+        let syncStatus = SyncStatus(rawValue: Self.readString(from: statement, at: 5)) ?? .synced
+        return JournalEntry(id: id, title: title, date: entryDate, contentText: content, url: url, syncStatus: syncStatus)
     }
 
     private static func readString(from statement: OpaquePointer, at index: Int32) -> String {

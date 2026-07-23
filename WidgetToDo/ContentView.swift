@@ -4,6 +4,8 @@ import SwiftUI
 
 private enum AppWindowChrome {
     static let cornerRadius: CGFloat = 12
+    static let defaultWidth: CGFloat = 340
+    static let defaultHeight: CGFloat = 460
 }
 
 struct ContentView: View {
@@ -15,6 +17,7 @@ struct ContentView: View {
             case .loading:
                 ProgressView("正在加载 Notion Float...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(width: AppWindowChrome.defaultWidth, height: AppWindowChrome.defaultHeight)
             case .welcome:
                 WelcomeView(
                     onStartConfig: {
@@ -24,6 +27,7 @@ struct ContentView: View {
                         NSApp.keyWindow?.orderOut(nil)
                     }
                 )
+                .frame(width: AppWindowChrome.defaultWidth, height: AppWindowChrome.defaultHeight)
             case .onboarding:
                 OnboardingView(
                     viewModel: rootViewModel.onboardingViewModel,
@@ -32,6 +36,7 @@ struct ContentView: View {
                         rootViewModel.screen = .welcome
                     }
                 )
+                .frame(width: AppWindowChrome.defaultWidth, height: AppWindowChrome.defaultHeight)
             case .settings:
                 OnboardingView(
                     viewModel: rootViewModel.onboardingViewModel,
@@ -41,16 +46,11 @@ struct ContentView: View {
                         await rootViewModel.resetConfigurationFromSettings()
                     }
                 )
+                .frame(width: AppWindowChrome.defaultWidth, height: AppWindowChrome.defaultHeight)
             case .widget:
-                FloatingWidgetView(
-                    todoViewModel: rootViewModel.todoListViewModel,
-                    journalViewModel: rootViewModel.journalViewModel,
-                    refreshAction: rootViewModel.refreshWorkspace,
-                    bannerMessage: rootViewModel.bannerMessage
-                )
+                widgetContent
             }
         }
-        .frame(width: 340, height: 460)
         .background(
             RoundedRectangle(cornerRadius: AppWindowChrome.cornerRadius, style: .continuous)
                 .fill(Color(nsColor: .windowBackgroundColor))
@@ -61,6 +61,65 @@ struct ContentView: View {
                 await rootViewModel.bootstrap()
             }
         }
+    }
+
+    private var widgetContent: some View {
+        GeometryReader { geometry in
+            if rootViewModel.isMiniMode {
+                miniCapsuleView
+                    .frame(width: MiniModeLayoutEngine.defaultMiniSize.width,
+                           height: MiniModeLayoutEngine.defaultMiniSize.height)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .transition(miniModeTransition)
+            } else {
+                FloatingWidgetView(
+                    todoViewModel: rootViewModel.todoListViewModel,
+                    journalViewModel: rootViewModel.journalViewModel,
+                    refreshAction: rootViewModel.refreshWorkspace,
+                    bannerMessage: rootViewModel.bannerMessage,
+                    activeTab: rootViewModel.miniActiveTab,
+                    onActiveTabChange: { tab in
+                        rootViewModel.miniActiveTab = tab
+                        Task { await rootViewModel.persistMiniModeState() }
+                    },
+                    onCollapse: {
+                        rootViewModel.collapse()
+                    }
+                )
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .transition(miniModeTransition)
+            }
+        }
+        .animation(.easeOut(duration: 0.25), value: rootViewModel.isMiniMode)
+    }
+
+    private var miniModeTransition: AnyTransition {
+        .opacity.combined(with: .scale(scale: 0.92, anchor: .topTrailing))
+    }
+
+    private var miniCapsuleView: some View {
+        Group {
+            switch rootViewModel.miniActiveTab {
+            case .todo:
+                TodoMiniCapsuleView(
+                    completedCount: completedTaskCount,
+                    totalCount: rootViewModel.todoListViewModel.tasks.count,
+                    onExpand: { rootViewModel.expand() },
+                    onClose: { NSApp.keyWindow?.orderOut(nil) }
+                )
+            case .journal:
+                JournalMiniCapsuleView(
+                    wordCount: rootViewModel.journalViewModel.editorText.count,
+                    statusMessage: rootViewModel.journalViewModel.statusMessage,
+                    onExpand: { rootViewModel.expand() },
+                    onClose: { NSApp.keyWindow?.orderOut(nil) }
+                )
+            }
+        }
+    }
+
+    private var completedTaskCount: Int {
+        rootViewModel.todoListViewModel.tasks.filter(\.isDone).count
     }
 }
 
@@ -76,13 +135,19 @@ final class RootViewModel: ObservableObject {
 
     @Published var screen: Screen = .loading
     @Published var bannerMessage: String?
+    @Published var isMiniMode: Bool = false
+    @Published var miniActiveTab: MiniActiveTab = .todo
+
     private var screenBeforeSettings: Screen = .widget
+    private let repository: NotionRepository
+    weak var windowManager: FloatingWindowManager?
 
     let onboardingViewModel: OnboardingViewModel
     let todoListViewModel: TodoListViewModel
     let journalViewModel: JournalViewModel
 
     init(repository: NotionRepository, openURL: @escaping @MainActor (URL) -> Void) {
+        self.repository = repository
         todoListViewModel = TodoListViewModel(repository: repository, hasPriorityField: true, openURL: openURL)
         journalViewModel = JournalViewModel(repository: repository, openURL: openURL)
         onboardingViewModel = OnboardingViewModel(repository: repository)
@@ -90,6 +155,47 @@ final class RootViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 await self?.refreshWorkspace()
             }
+        }
+    }
+
+    func applyMiniModeState(_ state: MiniModeState) {
+        isMiniMode = state.isMiniMode
+        miniActiveTab = state.activeTab
+        windowManager?.setInitialState(isMiniMode: state.isMiniMode, normalFrame: state.normalFrame)
+    }
+
+    func collapse() {
+        guard !isMiniMode else { return }
+        // 先启动窗口 frame 动画，再切换内容状态：让面板立即开始移动，降低点击后的感知延迟
+        windowManager?.collapse { [weak self] in
+            Task { await self?.persistMiniModeState() }
+        }
+        isMiniMode = true
+    }
+
+    func expand() {
+        guard isMiniMode else { return }
+        windowManager?.expand { [weak self] in
+            Task { await self?.persistMiniModeState() }
+        }
+        isMiniMode = false
+    }
+
+    func toggleMiniMode() {
+        isMiniMode ? expand() : collapse()
+    }
+
+    func persistMiniModeState() async {
+        do {
+            let normalFrame = windowManager?.currentFrameForPersistence()
+            let state = MiniModeState(
+                isMiniMode: isMiniMode,
+                activeTab: miniActiveTab,
+                normalFrame: normalFrame
+            )
+            try await repository.saveMiniModeState(state)
+        } catch {
+            // 窗口状态持久化失败不影响主流程；下次启动回退到默认形态。
         }
     }
 
@@ -125,6 +231,7 @@ final class RootViewModel: ObservableObject {
     }
 
     func openSettings() {
+        if isMiniMode { expand() }
         if screen != .settings {
             screenBeforeSettings = screen
         }
@@ -930,7 +1037,8 @@ private enum FloatingWidgetMetrics {
     static let todoDateTitleFontSize: CGFloat = 14
     static let todoDateTitleWidth: CGFloat = 60
     static let todoDateNavigationSpacing: CGFloat = 4
-    static let jumpToTodayWidth: CGFloat = 56
+    static let jumpToTodayWidth: CGFloat = 44
+    static let jumpToTodayLeadingPadding: CGFloat = 2
     static let headerIconButtonSpacing: CGFloat = 12
     static let headerIconButtonSize: CGFloat = 24
     static let headerIconSymbolSize: CGFloat = 16
@@ -961,25 +1069,53 @@ struct FloatingWidgetView: View {
         case journal = "日记"
     }
 
-    @State private var selectedTab: WidgetTab = .todo
+    @State private var selectedTab: WidgetTab
     @ObservedObject var todoViewModel: TodoListViewModel
     @ObservedObject var journalViewModel: JournalViewModel
     @ObservedObject private var newTaskViewModel: NewTaskViewModel
     @State private var taskPendingDeletion: TaskItem?
     let refreshAction: @MainActor () async -> Void
     var bannerMessage: String?
+    let initialActiveTab: MiniActiveTab
+    let onActiveTabChange: ((MiniActiveTab) -> Void)?
+    let onCollapse: (() -> Void)?
 
     init(
         todoViewModel: TodoListViewModel,
         journalViewModel: JournalViewModel,
         refreshAction: @escaping @MainActor () async -> Void,
-        bannerMessage: String?
+        bannerMessage: String?,
+        activeTab: MiniActiveTab = .todo,
+        onActiveTabChange: ((MiniActiveTab) -> Void)? = nil,
+        onCollapse: (() -> Void)? = nil
     ) {
         self.todoViewModel = todoViewModel
         self.journalViewModel = journalViewModel
         _newTaskViewModel = ObservedObject(wrappedValue: todoViewModel.newTaskViewModel)
+        self.initialActiveTab = activeTab
+        _selectedTab = State(initialValue: FloatingWidgetView.widgetTab(from: activeTab))
         self.refreshAction = refreshAction
         self.bannerMessage = bannerMessage
+        self.onActiveTabChange = onActiveTabChange
+        self.onCollapse = onCollapse
+    }
+
+    private static func widgetTab(from miniTab: MiniActiveTab) -> WidgetTab {
+        switch miniTab {
+        case .todo:
+            return .todo
+        case .journal:
+            return .journal
+        }
+    }
+
+    private func miniActiveTab(from widgetTab: WidgetTab) -> MiniActiveTab {
+        switch widgetTab {
+        case .todo:
+            return .todo
+        case .journal:
+            return .journal
+        }
     }
 
     var body: some View {
@@ -1018,11 +1154,19 @@ struct FloatingWidgetView: View {
             .shadow(color: FloatingWidgetPalette.tabPillShadow, radius: 6, y: 0)
 
             HStack {
-                Spacer()
-
                 Color.clear
                     .frame(width: 26, height: 26)
                     .accessibilityHidden(true)
+
+                Spacer()
+
+                Button {
+                    onCollapse?()
+                } label: {
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .buttonStyle(FloatingWidgetActionButtonStyle())
 
                 Button {
                     NSApp.keyWindow?.orderOut(nil)
@@ -1040,6 +1184,7 @@ struct FloatingWidgetView: View {
         return Button {
             withAnimation(.easeOut(duration: 0.22)) {
                 selectedTab = tab
+                onActiveTabChange?(miniActiveTab(from: tab))
             }
         } label: {
             Text(tab.rawValue)
@@ -1103,11 +1248,6 @@ struct FloatingWidgetView: View {
             }
 
             if todoViewModel.editingTask != nil {
-                Color.black.opacity(0.3)
-                    .onTapGesture {
-                        guard !todoViewModel.isSavingTaskEdit else { return }
-                        todoViewModel.cancelEditing()
-                    }
                 EditTaskFormCard(viewModel: todoViewModel)
             }
 
@@ -1182,7 +1322,7 @@ struct FloatingWidgetView: View {
                 .buttonStyle(.plain)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(FloatingWidgetPalette.metaText)
-                .padding(.leading, 8)
+                .padding(.leading, FloatingWidgetMetrics.jumpToTodayLeadingPadding)
                 .frame(width: FloatingWidgetMetrics.jumpToTodayWidth, alignment: .trailing)
             } else {
                 Spacer(minLength: 0)
@@ -1756,82 +1896,160 @@ private struct TrackingModifier: ViewModifier {
 struct EditTaskFormCard: View {
     @ObservedObject var viewModel: TodoListViewModel
     @FocusState private var isTitleFocused: Bool
+    @FocusState private var isEstimatedMinutesFocused: Bool
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
             Text("编辑任务")
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(NewTaskFormPalette.title)
+                .frame(maxWidth: .infinity, alignment: .center)
 
-            TextField("标题(必填)", text: $viewModel.editingTitle)
-                .textFieldStyle(.plain)
-                .font(.system(size: 14))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                )
-                .disabled(viewModel.isSavingTaskEdit)
-                .focused($isTitleFocused)
-                .onAppear {
-                    isTitleFocused = true
+            VStack(alignment: .leading, spacing: 6) {
+                Text("任务")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(NewTaskFormPalette.title)
+
+                TextField("填写任务内容", text: $viewModel.editingTitle)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(NewTaskFormPalette.title)
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: NewTaskFormMetrics.fieldHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
+                            .fill(NewTaskFormPalette.fieldFill)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
+                            .stroke(titleBorderColor(), lineWidth: viewModel.errorMessage == "任务标题不能为空。" ? 1.5 : 1)
+                    )
+                    .disabled(viewModel.isSavingTaskEdit)
+                    .focused($isTitleFocused)
+                    .onAppear {
+                        isTitleFocused = true
+                    }
+
+                if viewModel.errorMessage == "任务标题不能为空。" {
+                    Text("任务标题不能为空。")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-
-            if viewModel.errorMessage == "任务标题不能为空。" {
-                Text("任务标题不能为空。")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            HStack {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("预计时长")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(NewTaskFormPalette.title)
+
+                HStack(spacing: 0) {
+                    TextField("填写预计时长", text: $viewModel.editingEstimatedMinutesText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(NewTaskFormPalette.title)
+
+                    Spacer()
+
+                    Text("分钟")
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(NewTaskFormPalette.meta)
+                }
+                .padding(.leading, 12)
+                .padding(.trailing, 12)
+                .frame(maxWidth: .infinity)
+                .frame(height: NewTaskFormMetrics.fieldHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
+                        .fill(NewTaskFormPalette.fieldFill)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
+                        .stroke(estimatedMinutesBorderColor(), lineWidth: viewModel.editingEstimatedMinutesError == nil ? 1 : 1.5)
+                )
+                .disabled(viewModel.isSavingTaskEdit)
+                .focused($isEstimatedMinutesFocused)
+
+                if let estimatedMinutesError = viewModel.editingEstimatedMinutesError {
+                    Text(estimatedMinutesError)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            HStack(spacing: 10) {
+                Spacer()
+
                 Button("取消") {
                     viewModel.cancelEditing()
                 }
-                .buttonStyle(.plain)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .buttonStyle(NewTaskSecondaryButtonStyle())
                 .disabled(viewModel.isSavingTaskEdit)
-
-                Spacer()
-
-                if viewModel.isSavingTaskEdit {
-                    ProgressView()
-                        .controlSize(.small)
-                }
 
                 Button("保存") {
                     Task {
                         await viewModel.saveTaskEdit()
                     }
                 }
-                .buttonStyle(.plain)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.accentColor)
+                .buttonStyle(NewTaskPrimaryButtonStyle())
                 .disabled(viewModel.isSavingTaskEdit)
             }
+            .padding(.top, 4)
         }
-        .padding(16)
-        .frame(width: 280)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+        .padding(NewTaskFormMetrics.contentPadding)
+        .frame(width: NewTaskFormMetrics.cardWidth)
+        .background(
+            RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
+                .fill(NewTaskFormPalette.cardFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
+                .stroke(NewTaskFormPalette.cardBorder, lineWidth: 1)
+        )
+        .shadow(color: NewTaskFormPalette.cardShadow, radius: 18, y: 10)
+    }
+
+    private func titleBorderColor() -> Color {
+        if viewModel.errorMessage == "任务标题不能为空。" {
+            return NewTaskFormPalette.validationBorder
+        }
+        if isTitleFocused {
+            return NewTaskFormPalette.focusBorder
+        }
+        return NewTaskFormPalette.fieldBorder
+    }
+
+    private func estimatedMinutesBorderColor() -> Color {
+        if viewModel.editingEstimatedMinutesError != nil {
+            return NewTaskFormPalette.validationBorder
+        }
+        if isEstimatedMinutesFocused {
+            return NewTaskFormPalette.focusBorder
+        }
+        return NewTaskFormPalette.fieldBorder
     }
 }
 
 #Preview("内容 / 加载中") {
     ContentView(rootViewModel: makePreviewRootViewModel(state: .loading))
+        .frame(width: 340, height: 460)
 }
 
 #Preview("内容 / 欢迎") {
     ContentView(rootViewModel: makePreviewRootViewModel(state: .welcome))
+        .frame(width: 340, height: 460)
 }
 
 #Preview("内容 / 初始配置") {
     ContentView(rootViewModel: makePreviewRootViewModel(state: .onboarding))
+        .frame(width: 340, height: 460)
 }
 
 #Preview("内容 / 主界面") {
     ContentView(rootViewModel: makePreviewRootViewModel(state: .widget))
+        .frame(width: 340, height: 460)
 }
 
 #Preview("初始配置") {

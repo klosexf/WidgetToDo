@@ -29,6 +29,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try todoListViewModelDoesNotSynchronouslyBridgeNestedObjectWillChange()
             try todoHeaderOpenButtonTargetsTasksDatabasePage()
             try journalHeaderContainsManualSyncButton()
+            try journalAutosaveDoesNotCancelAnInFlightWrite()
             try journalOpenInNotionButtonSitsBesideHeaderSyncButton()
             try journalDateUsesChineseDisplayFormat()
             try journalEditorTypographyUsesRelaxedEditorRhythm()
@@ -361,7 +362,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             "journal view model should define an explicit reload entry point"
         )
         try expect(
-            journalViewModelSource.contains("autosaveTask?.cancel()"),
+            journalViewModelSource.contains("debounceTask?.cancel()"),
             "reloading from Notion should cancel any pending autosave before overwriting local text"
         )
         try expect(
@@ -383,6 +384,28 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             !source.contains("journalHeadingBottomSpacing"),
             "journal heading bottom spacing should be removed along with the heading"
+        )
+    }
+
+    static func journalAutosaveDoesNotCancelAnInFlightWrite() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let viewModelURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("JournalViewModel.swift")
+        let source = try String(contentsOf: viewModelURL, encoding: .utf8)
+
+        try expect(
+            source.contains("private var debounceTask: Task<Void, Never>?") &&
+                source.contains("private var saveTask: Task<Void, Never>?"),
+            "journal autosave should keep debounce and network-save tasks separate"
+        )
+        try expect(
+            source.contains("enqueueSave(text: text)") &&
+                source.contains("guard saveTask == nil else { return }"),
+            "journal autosave should queue the latest text instead of cancelling an in-flight write"
         )
     }
 
@@ -608,8 +631,16 @@ struct NotionFloatCoreSmokeTestsRunner {
             "today-state placeholder should not use unconstrained Color.clear because it can expand vertically"
         )
         try expect(
-            source.contains("static let jumpToTodayWidth: CGFloat = 56"),
+            source.contains("static let jumpToTodayWidth: CGFloat = 44"),
             "jump-to-today control should reserve a stable slot width"
+        )
+        try expect(
+            source.contains("static let jumpToTodayLeadingPadding: CGFloat = 2"),
+            "jump-to-today control should define a compact shared leading padding"
+        )
+        try expect(
+            source.contains(".padding(.leading, FloatingWidgetMetrics.jumpToTodayLeadingPadding)"),
+            "jump-to-today control should consume the compact leading padding constant"
         )
     }
 

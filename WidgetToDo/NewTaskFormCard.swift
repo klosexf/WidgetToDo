@@ -1,6 +1,6 @@
 import SwiftUI
 
-private enum NewTaskFormMetrics {
+enum NewTaskFormMetrics {
     static let cardWidth: CGFloat = 286
     static let cardMinHeight: CGFloat = 242
     static let cardCornerRadius: CGFloat = 18
@@ -10,7 +10,7 @@ private enum NewTaskFormMetrics {
     static let contentPadding = EdgeInsets(top: 18, leading: 18, bottom: 16, trailing: 18)
 }
 
-private enum NewTaskFormPalette {
+enum NewTaskFormPalette {
     static let cardFill = Color(red: 0.965, green: 0.957, blue: 0.941)
     static let cardBorder = Color.black.opacity(0.08)
     static let cardShadow = Color.black.opacity(0.14)
@@ -27,20 +27,7 @@ private enum NewTaskFormPalette {
     static let secondaryButtonText = Color(red: 0.22, green: 0.21, blue: 0.19)
 }
 
-private struct NewTaskFormTrackingModifier: ViewModifier {
-    let value: CGFloat
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if #available(macOS 13.0, *) {
-            content.tracking(value)
-        } else {
-            content
-        }
-    }
-}
-
-private struct NewTaskPrimaryButtonStyle: ButtonStyle {
+struct NewTaskPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
@@ -54,7 +41,7 @@ private struct NewTaskPrimaryButtonStyle: ButtonStyle {
     }
 }
 
-private struct NewTaskSecondaryButtonStyle: ButtonStyle {
+struct NewTaskSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
@@ -123,22 +110,10 @@ struct NewTaskFormCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(NewTaskFormPalette.title)
-                    .frame(width: 20, height: 20)
-                    .background(
-                        Circle()
-                            .fill(NewTaskFormPalette.secondaryButtonFill)
-                    )
-
-                Text("新建任务")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(NewTaskFormPalette.title)
-                    .modifier(NewTaskFormTrackingModifier(value: -0.16))
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Text("新建任务")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(NewTaskFormPalette.title)
+                .frame(maxWidth: .infinity, alignment: .center)
 
             VStack(alignment: .leading, spacing: 6) {
                 NewTaskFieldLabel(text: "任务")

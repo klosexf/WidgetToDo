@@ -30,6 +30,29 @@ public actor NotionRepository {
         )
     }
 
+    public func loadMiniModeState() async throws -> MiniModeState {
+        let settings = try await settingsStore.load()
+        return settings?.miniModeState ?? .default
+    }
+
+    public func saveMiniModeState(_ state: MiniModeState) async throws {
+        guard let settings = try await settingsStore.load() else {
+            return
+        }
+        let updated = AppSettings(
+            tasksDatabaseID: settings.tasksDatabaseID,
+            journalDatabaseID: settings.journalDatabaseID,
+            tasksPageURL: settings.tasksPageURL,
+            journalPageURL: settings.journalPageURL,
+            lastValidatedAt: settings.lastValidatedAt,
+            hasPriorityField: settings.hasPriorityField,
+            tasksFieldMapping: settings.tasksFieldMapping,
+            journalFieldMapping: settings.journalFieldMapping,
+            miniModeState: state
+        )
+        try await settingsStore.save(updated)
+    }
+
     @discardableResult
     public func saveConfiguration(token: String, tasksInput: String, journalInput: String) async throws -> AppSettings {
         guard let tasksReference = NotionDatabaseReference.parse(tasksInput) else {
@@ -170,12 +193,13 @@ public actor NotionRepository {
         return try await toggleTask(id: id, isDone: task.isDone)
     }
 
-    public func updateTaskTitle(id: String, title: String) async throws -> TaskItem {
+    public func updateTaskTitle(id: String, title: String, estimatedMinutes: Int?) async throws -> TaskItem {
         guard var task = try cache.task(id: id) else {
             throw NotionRepositoryError.missingCacheRecord("任务缓存记录不存在。")
         }
 
         task.title = title
+        task.estimatedMinutes = estimatedMinutes
         task.syncStatus = .localPending
         try cache.upsert(task)
 
@@ -184,11 +208,16 @@ public actor NotionRepository {
             let updated = try await notionClient.updateTaskTitle(
                 pageID: id,
                 title: title,
+                estimatedMinutes: estimatedMinutes,
                 fields: context.settings.tasksFieldMapping,
                 token: context.token
             )
-            try cache.upsert(updated)
-            return updated
+            var merged = updated
+            if merged.estimatedMinutes == nil, let estimatedMinutes {
+                merged.estimatedMinutes = estimatedMinutes
+            }
+            try cache.upsert(merged)
+            return merged
         } catch {
             task.syncStatus = .failed
             try cache.upsert(task)
@@ -254,7 +283,7 @@ public actor NotionRepository {
     }
 
     public func saveJournal(entryID: String, text: String, date: Date = Date()) async throws -> JournalEntry {
-        guard var entry = try cache.journalEntry(for: date), entry.id == entryID else {
+        guard var entry = try cache.journalEntry(id: entryID) else {
             throw NotionRepositoryError.missingCacheRecord("日记缓存记录不存在。")
         }
 

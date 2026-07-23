@@ -13,6 +13,8 @@ final class TodoListViewModel: ObservableObject {
     @Published private(set) var tasksDatabaseURL: URL?
     @Published var editingTask: TaskItem?
     @Published var editingTitle = ""
+    @Published var editingEstimatedMinutesText = ""
+    @Published var editingEstimatedMinutesError: String?
     @Published var isSavingTaskEdit = false
     @Published var deletingTaskID: String?
 
@@ -124,12 +126,16 @@ final class TodoListViewModel: ObservableObject {
     func beginEditing(_ task: TaskItem) {
         editingTask = task
         editingTitle = task.title
+        editingEstimatedMinutesText = task.estimatedMinutes.map(String.init) ?? ""
+        editingEstimatedMinutesError = nil
         errorMessage = nil
     }
 
     func cancelEditing() {
         editingTask = nil
         editingTitle = ""
+        editingEstimatedMinutesText = ""
+        editingEstimatedMinutesError = nil
         isSavingTaskEdit = false
     }
 
@@ -142,11 +148,23 @@ final class TodoListViewModel: ObservableObject {
             return
         }
 
+        let parsedEstimatedMinutes = parseEditingEstimatedMinutes()
+        if !editingEstimatedMinutesText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           parsedEstimatedMinutes == nil {
+            editingEstimatedMinutesError = "预计时长需填写为大于 0 的分钟数"
+            return
+        }
+        editingEstimatedMinutesError = nil
+
         isSavingTaskEdit = true
         defer { isSavingTaskEdit = false }
 
         do {
-            let updated = try await repository.updateTaskTitle(id: task.id, title: trimmedTitle)
+            let updated = try await repository.updateTaskTitle(
+                id: task.id,
+                title: trimmedTitle,
+                estimatedMinutes: parsedEstimatedMinutes
+            )
             tasks = TaskSorting.sort(tasks.map { $0.id == updated.id ? updated : $0 })
             errorMessage = nil
             cancelEditing()
@@ -154,6 +172,13 @@ final class TodoListViewModel: ObservableObject {
         } catch {
             errorMessage = "任务更新失败：\(error.localizedDescription)"
         }
+    }
+
+    private func parseEditingEstimatedMinutes() -> Int? {
+        let trimmed = editingEstimatedMinutesText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard let parsed = Int(trimmed), parsed > 0 else { return nil }
+        return parsed
     }
 
     func deleteTask(_ task: TaskItem) async {

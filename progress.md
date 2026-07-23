@@ -1,5 +1,171 @@
 # Progress
 
+## 2026-07-12 - Fix journal save failure with duplicate same-day cache records
+- 目标: 修复日记编辑后显示“保存失败”的两条已确认路径：同一天多个日记缓存记录导致 ID 不匹配，以及输入发生在网络写入期间时防抖取消整个保存任务；失败时在底部显示具体可读原因。
+- 非目标: 不删除或合并用户 Notion 中既有日记页；不修改 Notion API 契约、数据库字段映射、令牌/设置存储、SQLite 表结构或工程配置。
+- 影响路径:
+  - `WidgetToDo/Core/Infrastructure/SQLiteCache.swift`（新增按日记 page ID 精确读取缓存的方法）
+  - `WidgetToDo/Core/Infrastructure/NotionRepository.swift`（日记保存改为按当前 page ID 获取缓存）
+  - `WidgetToDo/JournalViewModel.swift`（分离防抖等待与串行网络保存；显示具体失败消息）
+  - `Tests/NotionFloatCoreTests/NotionRepositoryTaskMutationTests.swift`（同日重复记录保存回归测试）
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`（自动保存不取消进行中写入的约束）
+  - `progress.md`
+- 状态: 已完成代码修改与自动化验证；真实 Notion UI 回测待用户完成。
+- 根因与修复:
+  - 原保存逻辑按日期使用无排序 `LIMIT 1` 读取日记缓存，再比较 page ID；同日存在多个缓存页时会取到另一页并抛出“日记缓存记录不存在”。现改为直接按当前 `entryID` 查询，消除日期歧义。
+  - 原防抖任务在每次输入时被取消；一旦其中已进入 Notion 网络写入，URLSession 也会收到取消并产生 `NSURLError -999`。现将 `debounceTask` 与 `saveTask` 分离，输入只替换待保存的最新文本；已开始的保存继续完成，后续内容由同一保存队列跟进。
+  - 保存异常的底部状态改为显示 `日记保存失败：<具体原因>`，不再只显示“保存失败”。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter NotionRepositoryTaskMutationTests/testSaveJournalUsesEntryIDWhenSameDayHasMultipleCachedEntries`: 先红，原实现抛出 `日记缓存记录不存在。`；修复后通过。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests`: 先红，新增约束确认旧实现未分离防抖与保存任务；修复后越过本次新增约束，但最终仍停在仓库既有无关断言 `settings reset flow should keep a dedicated settingsBackRow view`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox`: 通过，`Executed 36 tests, with 0 failures`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build`: 通过，`** BUILD SUCCEEDED **`。
+  - UI 手测: 未执行。为避免在真实个人 Notion 日记中写入测试文本，未对当前连接的 App 直接输入/保存；需用户在新构建运行后验证正常输入、连续输入超过 2 秒后继续输入、以及“重试”按钮。
+- 风险/回滚点:
+  - 同日重复的 Notion 页面不会被本次代码删除；应用会稳定保存当前已加载页面，但远端仍可能保留重复页。若需清理，应先由用户决定保留哪一页，再单独处理。
+  - 若需回滚，恢复 `JournalViewModel.swift` 的单一 autosave task、`NotionRepository.saveJournal` 的按日期读取，以及移除 `SQLiteCache.journalEntry(id:)` 与两条回归测试；随后重跑上述测试与构建命令。
+
+## 2026-07-12 - Thicken mini progress ring stroke
+- 目标: 增大悬浮窗迷你模式圆形进度条圆环的描边宽度，使视觉上线条更粗壮明显。
+- 非目标: 不改变进度条动画逻辑、颜色、数据绑定；不改动窗口管理、Notion/API/缓存/Keychain/设置持久化契约；不动工程配置或其他视图组件。
+- 影响路径:
+  - `WidgetToDo/MiniCapsuleViews.swift`（`MiniProgressRing` 的 `lineWidth` 与 `ringSize`）
+  - `progress.md`
+- 状态: 已完成代码修改。
+- 修改详情:
+  - `lineWidth`: `2.5` → `4.5`
+  - `ringSize`: `32` → `36`
+  - 同步放大整体尺寸，保持内圆与外形比例协调，描边端点仍使用 `.round`。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox`: 通过，`Executed 35 tests, with 0 failures`。
+  - `swift test`: 阻塞，默认工具链触发 `sandbox-exec: sandbox_apply: Operation not permitted`。
+  - UI 手测: 当前环境无法启动 app 做肉眼确认；需在 Xcode 运行或用户机器上核对进度环粗细与胶囊整体比例。
+- 风险/回滚点: 风险低，仅影响迷你进度环视觉；如需恢复细环，将 `lineWidth` 与 `ringSize` 改回 `2.5` / `32` 即可。
+
+## 2026-07-12 - Fix Xcode preview crash "WidgetToDo may have crashed"
+- 目标: 修复 Xcode Canvas 预览 `ContentView.swift` 时出现的 "Cannot preview in this file / WidgetToDo may have crashed" 错误，使各状态预览能正常渲染。
+- 非目标: 不改动业务逻辑、不修改窗口管理、不改动 Notion/API/缓存/Keychain/设置持久化契约。
+- 影响路径:
+  - `WidgetToDo/NewTaskViewModel.swift`（移除 `@AppStorage`，改为直接读写 `UserDefaults.standard`）
+  - `progress.md`
+- 状态: 已完成代码修改与构建/单测验证；预览需在 Xcode 中由用户重新触发确认。
+- 根因: `NewTaskViewModel` 在 `ObservableObject` 中使用了 `@AppStorage("lastFailedDraft")`。在 SwiftUI Preview 进程里，`AppStorage` 的 KVO/发布机制与 `ObservableObject.objectWillChange` 交互会导致 `UserDefaultObserver.observeDefaults` 崩溃（诊断报告中为 `EXC_BAD_ACCESS`/`SIGBUS`，栈顶涉及 `StringProtocol.trimmingCharacters(in:)` 与 `AppStorage.objectWillChange.setter`）。该 ViewModel 在 `RootViewModel` 初始化时即被创建，因此所有包含 `ContentView` 的预览都会触发崩溃。
+- 修复: 将 `@AppStorage("lastFailedDraft")` 替换为普通的 `UserDefaults.standard` 读写计算属性。`lastFailedDraftData` 仅用于失败草稿的本地缓存，不需要向 SwiftUI 发布变更，直接读写更安全，也避开了 Preview 对 `AppStorage` 的约束。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build`: 通过，`** BUILD SUCCEEDED **`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox`: 通过，`Executed 35 tests, with 0 failures`。
+  - UI 手测: 无法在当前环境直接渲染 Xcode Canvas；已按崩溃日志定位并修复，需在用户 Xcode 中重新打开 `ContentView.swift` 的 Preview 验证。
+- 风险/回滚点: 风险低，仅影响新建任务失败草稿的本地缓存读写方式；行为与原来一致。如需回滚，可恢复 `@AppStorage` 属性包装并删除手动 `UserDefaults` 计算属性。
+
+## 2026-07-12 - Floating window mini-mode v1.0
+- 目标: 实现 WidgetToDo 悬浮窗迷你模式：支持完整窗口与 220×56pt 胶囊形态切换、待办进度环与日记状态胶囊、窗口位置与当前 tab 持久化、启动恢复；保持现有待办/日记数据流与窗口管理基础不变。
+- 非目标: 不新增独立的悬浮窗进程、不改 Notion API 契约、不改 Keychain/缓存/设置持久化的底层格式、不动用 `Package.swift`/`.xcodeproj`/entitlements、不改待办/日记的业务逻辑。
+- 影响路径:
+  - `WidgetToDo/Core/Models/MiniModeState.swift`（新增）
+  - `WidgetToDo/Core/Services/MiniModeLayoutEngine.swift`（新增）
+  - `WidgetToDo/MiniCapsuleViews.swift`（新增）
+  - `WidgetToDo/Core/Models/AppSettings.swift`（新增 `miniModeState` 字段）
+  - `WidgetToDo/Core/Infrastructure/NotionRepository.swift`（新增读写方法）
+  - `WidgetToDo/FloatingWindowManager.swift`（collapse/expand/初始状态/持久化 frame）
+  - `WidgetToDo/ContentView.swift`（RootViewModel 状态管理与视图切换）
+  - `WidgetToDo/AppCoordinator.swift`（启动恢复）
+  - `Tests/NotionFloatCoreTests/MiniModeStateTests.swift`（新增）
+  - `Tests/NotionFloatCoreTests/MiniModeLayoutEngineTests.swift`（新增）
+  - `progress.md`
+- 状态: 已完成代码实现与自动化验证；修复了 `MiniModeLayoutEngine.frameConstrained` 原实现仅保证最小可见区域、未在窗口能完整放入屏幕时完全收纳的问题；未做桌面 UI 手测。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build`: 通过，`** BUILD SUCCEEDED **`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox`: 通过，`Executed 35 tests, with 0 failures`。
+  - `swift test`: 阻塞，当前环境默认工具链触发 `sandbox-exec: sandbox_apply: Operation not permitted`。
+  - UI 手测: 本轮未启动 App 做肉眼确认；需在完整 app runtime / Xcode 中验证展开/收起动画、胶囊显示、tab 切换与位置恢复。
+- 风险/回滚点:
+  - 窗口状态写入 `AppSettings` 同一 JSON；旧配置无 `miniModeState` 时会解码为 `.default`，不会崩溃。若持久化异常可删除 `~/Library/Application Support/WidgetToDo/settings.json` 回退到欢迎流程。
+  - `RootViewModel` 与 `FloatingWindowManager` 通过 `weak var` 协作，状态变更已用 `@MainActor` 包裹；但仍需手测确认动画期间 frame 同步无漂移。
+  - 回滚代码可还原上述 3 个新增文件与 5 个修改文件至上一次 `git commit` 基线。
+
+## 2026-07-11 - New task modal title centered without icon
+- 目标: 调整“新建任务”弹框标题：移除标题左侧的 `+` 图标，并将标题居中显示；字体大小和样式保持与“编辑任务”弹框标题一致。
+- 非目标: 不修改弹框尺寸、内边距、任务/日期/预计时长输入区、按钮样式与位置、阴影/背景视觉；不动编辑任务弹框或其他模块。
+- 影响路径:
+  - `WidgetToDo/NewTaskFormCard.swift`（标题由带图标的 `HStack` 改为居中的 `Text`，并移除不再使用的 `NewTaskFormTrackingModifier`）
+  - `WidgetToDo/progress.md`
+- 状态: 已完成代码修改。新建任务弹框标题现在与编辑任务弹框标题使用完全相同的字体 `.system(size: 14, weight: .semibold)` 和前景色，并水平居中。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build`: 通过，`** BUILD SUCCEEDED **`。
+  - `swift test`: 阻塞，当前环境 active developer directory 为 `/Library/Developer/CommandLineTools`，编译 XCTest 测试目标时报 `no such module 'XCTest'`。
+  - UI 手测: 本轮未启动 App 做肉眼确认；标题居中与图标移除效果已通过源码审查与 app target 构建验证。建议在 Xcode 运行后或用户机器上手动核对新建任务弹框标题布局。
+- 风险/回滚点: 风险低，仅影响新建任务弹框标题视觉；如需恢复左侧 `+` 图标，可将标题改回带 `Image(systemName: "plus")` 的 `HStack` 并重新添加 `NewTaskFormTrackingModifier`。
+
+## 2026-07-11 - Edit task modal estimated duration + button alignment
+- 目标: 调整“编辑任务”弹框：新增可选“预计时长”输入框；将底部“取消”“保存”按钮的样式与位置保持与“新建任务”弹框一致。
+- 非目标: 不修改弹框尺寸、标题/任务名称输入框样式、阴影/背景视觉、窗口管理；不改动 Notion/API/缓存/Keychain/设置持久化契约；不动任务完成状态切换、删除或其他模块。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift` (`EditTaskFormCard` 新增“预计时长”输入区，按钮改用 `NewTaskPrimaryButtonStyle` / `NewTaskSecondaryButtonStyle` 并右对齐)
+  - `WidgetToDo/NewTaskFormCard.swift` (抽出/复用 `NewTaskPrimaryButtonStyle` / `NewTaskSecondaryButtonStyle` 供编辑弹框共享)
+  - `WidgetToDo/TodoListViewModel.swift` (新增 `editingEstimatedMinutesText`、`editingEstimatedMinutesError`、`parseEditingEstimatedMinutes()` 与 `saveTaskEdit()` 校验/解析逻辑)
+  - `WidgetToDo/Core/Infrastructure/NotionRepository.swift` (`updateTaskTitle(id:title:estimatedMinutes:)` 支持写入预计时长并合并响应)
+  - `WidgetToDo/Core/Infrastructure/NotionClient.swift` (`updateTaskTitle(pageID:title:estimatedMinutes:fields:token:)` PATCH 请求体包含预计时长字段)
+  - `Tests/NotionFloatCoreTests/NotionRepositoryTaskMutationTests.swift` (新增/更新预计时长相关断言)
+  - `Tests/NotionFloatCoreTests/TaskDateSelectionTests.swift` (同步日期标题断言)
+  - `progress.md`
+- 状态: 已完成代码修改。编辑任务弹框现在包含与新建任务弹框一致的“预计时长”输入（选填，单位分钟，仅接受正整数），取消/保存按钮复用新建任务弹框同款主次按钮样式并右对齐。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test`: 通过，`Executed 25 tests, with 0 failures`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift build`: 通过，`Build complete!`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run NotionFloatCoreSmokeTests`: 构建成功；运行结果仍停在仓库既有无关断言 `settings reset flow should keep a dedicated settingsBackRow view`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build`: 通过，`** BUILD SUCCEEDED **`。
+  - UI 手测: 本轮未启动 App 做肉眼确认；输入框与按钮一致性已通过源码审查与 app target 构建验证。建议在 Xcode 运行后或用户机器上手动核对弹框布局与输入交互。
+- 风险/回滚点: 风险低，仅影响编辑任务弹框 UI 与保存预计时长的数据流；如需恢复旧按钮样式，可将 `EditTaskFormCard` 底部 `Button` 的 `.buttonStyle` 改回原实现。如需移除预计时长字段，回退 ViewModel、Repository、Client 与相关测试即可。
+
+## 2026-07-11 - Compact jump-to-today spacing
+- 目标: 减小待办工具栏中“回到今天”按钮与右侧日期导航箭头之间的水平间距，消除明显留白，同时保持按钮可点击区域不拥挤。
+- 非目标: 不修改日期标题宽度、箭头按钮尺寸、右侧操作按钮组间距、窗口管理、Notion/API/缓存/Keychain/设置持久化契约或工程配置。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift` (`FloatingWidgetMetrics` 新增 `jumpToTodayLeadingPadding`；`todoToolbar` 中“回到今天”按钮 `.padding(.leading, 8)` 改为使用新常量)
+  - `Tests/NotionFloatCoreSmokeTests/main.swift` (新增两条断言锁定新常量定义与使用)
+  - `progress.md`
+- 状态: 已完成代码修改。产品代码中“回到今天”按钮前导间距由硬编码 8pt 改为共享常量 `jumpToTodayLeadingPadding = 2pt`，并将固定宽度槽由 56pt 缩小到 44pt，消除按钮框内多余留白。
+- 最近验证:
+  - `swift build`: 通过，`Build complete!`。
+  - `swift run NotionFloatCoreSmokeTests`: 构建成功；新增断言已越过，运行结果仍停在仓库既有无关断言 `settings reset flow should keep a dedicated settingsBackRow view`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build`: 通过，`** BUILD SUCCEEDED **`。
+  - `rg -n "jumpToTodayLeadingPadding" WidgetToDo/ContentView.swift Tests/NotionFloatCoreSmokeTests/main.swift`: 通过，确认常量定义、产品代码使用、smoke test 断言均已落地。
+  - `swift test`: 阻塞，当前环境编译 XCTest 测试目标时报 `no such module 'XCTest'`（active developer directory 为 `/Library/Developer/CommandLineTools`）。
+  - UI 手测: 本轮未启动 App 做肉眼确认；间距调整已通过源码审查与 app target 构建验证。多屏幕尺寸/响应式效果需在 Xcode 运行后或用户机器上手动完成。
+- 风险/回滚点: 风险低，仅影响待办工具栏“回到今天”按钮的水平位置；如需恢复更宽间距，将 `jumpToTodayLeadingPadding` 改回 `8` 并同步 smoke test 断言即可。
+
+## 2026-07-11 - Brighten edit task modal and strengthen shadow
+- 目标: 提升编辑任务弹框的视觉突出度：将弹框背景调至更明亮的暖白色高亮状态，并适当增大阴影，使弹框与背景页面形成清晰的视觉层级与立体感；保持弹框内部布局、输入、保存/取消功能不变。
+- 非目标: 不修改弹框尺寸、内边距、标题/输入框/按钮布局与字体，不改动编辑任务的保存/校验/加载逻辑，不改动 Notion/API/缓存/Keychain/设置持久化契约，不动窗口管理或工程配置。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift` (`EditTaskFormCard` 背景、边框、阴影修饰符)
+  - `progress.md`
+- 状态: 已完成代码修改。将 `EditTaskFormCard` 背景从 `.regularMaterial` 替换为实色暖白 `Color(red: 0.992, green: 0.988, blue: 0.98)`，新增 1pt 浅黑边框 `Color.black.opacity(0.08)`，阴影由 `opacity 0.15/radius 8/y 4` 增强为 `opacity 0.20/radius 20/y 10`。
+- 最近验证:
+  - `swift build`: 通过，`Build complete!`。
+  - `swift run NotionFloatCoreSmokeTests`: 构建成功；本次改动未新增 smoke 断言，运行结果仍停在仓库既有无关断言 `settings reset flow should keep a dedicated settingsBackRow view`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build`: 通过，`** BUILD SUCCEEDED **`。
+  - `rg -n "EditTaskFormCard" WidgetToDo/ContentView.swift`: 通过，确认弹框组件存在且背景/阴影已更新。
+  - `swift test`: 阻塞，当前环境编译 XCTest 测试目标时报 `no such module 'XCTest'`。
+  - UI 手测: 本轮未启动 App 做肉眼确认；视觉调整效果需在 Xcode 运行后或用户机器上手动验证。
+- 风险/回滚点: 风险低，仅影响编辑任务弹框视觉层；如需恢复原有毛玻璃效果，可将背景改回 `.regularMaterial` 并恢复阴影 `Color.black.opacity(0.15)`、`radius: 8`、`y: 4`。
+
+## 2026-07-11 - Remove edit task modal gray backdrop
+- 目标: 移除待办面板中编辑任务弹框后方的灰色半透明背景层（`Color.black.opacity(0.3)`），使弹框打开时页面其他元素保持可交互；保留编辑表单本身的显示层级、输入/保存/取消交互。
+- 非目标: 不修改新建任务表单的透明点击关闭遮罩，不修改编辑表单的卡片样式、阴影、尺寸与保存逻辑，不改动 Notion/API/缓存/Keychain/设置持久化契约，不动窗口管理或工程配置。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift` (`todoPanel` 中 `if todoViewModel.editingTask != nil` 分支)
+  - `progress.md`
+- 状态: 已完成代码修改。已删除编辑任务分支中的 `Color.black.opacity(0.3)` 及其 `onTapGesture` 点击关闭手势，仅保留 `EditTaskFormCard(viewModel: todoViewModel)`。
+- 最近验证:
+  - `swift build`: 通过，`Build complete!`。
+  - `swift run NotionFloatCoreSmokeTests`: 构建成功；本次改动未新增 smoke 断言，运行结果仍停在仓库既有无关断言 `settings reset flow should keep a dedicated settingsBackRow view`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build`: 通过，`** BUILD SUCCEEDED **`。
+  - `rg -n "Color\.black\.opacity\(0\.3\)" WidgetToDo/ContentView.swift`: 通过，确认产品代码中已不含该灰色半透明背景。
+  - `swift test`: 阻塞，当前环境编译 XCTest 测试目标时报 `no such module 'XCTest'`（active developer directory 为 `/Library/Developer/CommandLineTools`）。
+  - UI 手测: 本轮未启动 App 做肉眼确认；背景移除效果已通过源码审查与 app target 构建验证。多屏幕尺寸测试需在 Xcode 运行后或用户机器上手动完成。
+- 风险/回滚点: 风险低，仅影响编辑任务弹框的遮罩层；如需恢复点击外部关闭行为，可在 `if todoViewModel.editingTask != nil` 分支中重新添加透明 `Rectangle()` 或 `.fullScreenCover`/`.popover` 等系统容器。
+
 ## 2026-07-11 - Completed task title gray + strikethrough
 - 目标: 在待办任务列表中，对状态为"成功已完成"（`task.isDone == true`）的任务项，标题文本改为灰色（#888888）并添加贯穿线，与未完成任务形成明确视觉区分。
 - 非目标: 不修改任务完成状态切换逻辑、Notion/API/缓存/Keychain/设置持久化契约，不修改窗口管理或工程配置，不动日记/欢迎弹窗等其他模块。

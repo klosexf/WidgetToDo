@@ -51,21 +51,31 @@ public actor NotionClient {
         let _: PageResponse = try await perform(request)
     }
 
-    public func updateTaskTitle(pageID: String, title: String, fields: TaskDatabaseFieldMapping, token: String) async throws -> TaskItem {
-        let body: [String: Any] = [
-            "properties": [
-                fields.title: [
-                    "title": [
-                        [
-                            "type": "text",
-                            "text": [
-                                "content": title
-                            ]
+    public func updateTaskTitle(
+        pageID: String,
+        title: String,
+        estimatedMinutes: Int?,
+        fields: TaskDatabaseFieldMapping,
+        token: String
+    ) async throws -> TaskItem {
+        var properties: [String: Any] = [
+            fields.title: [
+                "title": [
+                    [
+                        "type": "text",
+                        "text": [
+                            "content": title
                         ]
                     ]
                 ]
             ]
         ]
+        if let estimatedMinutesField = fields.estimatedMinutes, let estimatedMinutes {
+            properties[estimatedMinutesField] = [
+                "number": estimatedMinutes
+            ]
+        }
+        let body: [String: Any] = ["properties": properties]
         let request = try makeRequest(path: "pages/\(pageID)", method: "PATCH", token: token, body: body)
         let page: PageResponse = try await perform(request)
         return try Self.mapTask(page: page, fields: fields)
