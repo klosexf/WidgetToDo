@@ -5,3 +5,5 @@ DerivedData/
 *.xcworkspace/xcuserdata/
 *.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 .DS_Store
+.worktrees/
+.superpowers/
