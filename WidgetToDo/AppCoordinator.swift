@@ -41,7 +41,8 @@ final class AppCoordinator {
             },
             onQuit: {
                 NSApp.terminate(nil)
-            }
+            },
+            languageStore: rootViewModel.languageStore
         )
     }
 

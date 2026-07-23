@@ -40,11 +40,12 @@ struct ContentView: View {
             case .settings:
                 OnboardingView(
                     viewModel: rootViewModel.onboardingViewModel,
-                    mode: .settings,
-                    onBack: rootViewModel.returnFromSettings,
-                    onResetConfiguration: {
-                        await rootViewModel.resetConfigurationFromSettings()
-                    }
+                mode: .settings,
+                onBack: rootViewModel.returnFromSettings,
+                onResetConfiguration: {
+                    await rootViewModel.resetConfigurationFromSettings()
+                },
+                onLanguageChange: rootViewModel.selectLanguage
                 )
                 .frame(width: AppWindowChrome.defaultWidth, height: AppWindowChrome.defaultHeight)
             case .widget:
@@ -56,6 +57,8 @@ struct ContentView: View {
                 .fill(Color(nsColor: .windowBackgroundColor))
         )
         .clipShape(RoundedRectangle(cornerRadius: AppWindowChrome.cornerRadius, style: .continuous))
+        .environmentObject(rootViewModel.languageStore)
+        .environment(\.locale, rootViewModel.languageStore.language.locale)
         .task {
             if rootViewModel.screen == .loading {
                 await rootViewModel.bootstrap()
@@ -138,7 +141,10 @@ final class RootViewModel: ObservableObject {
     @Published var isMiniMode: Bool = false
     @Published var miniActiveTab: MiniActiveTab = .todo
 
+    let languageStore = LanguageStore()
+
     private var screenBeforeSettings: Screen = .widget
+    private var cancellables = Set<AnyCancellable>()
     private let repository: NotionRepository
     weak var windowManager: FloatingWindowManager?
 
@@ -151,6 +157,9 @@ final class RootViewModel: ObservableObject {
         todoListViewModel = TodoListViewModel(repository: repository, hasPriorityField: true, openURL: openURL)
         journalViewModel = JournalViewModel(repository: repository, openURL: openURL)
         onboardingViewModel = OnboardingViewModel(repository: repository)
+        languageStore.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
         onboardingViewModel.didFinishSetup = { [weak self] in
             Task { @MainActor [weak self] in
                 await self?.refreshWorkspace()
@@ -200,6 +209,9 @@ final class RootViewModel: ObservableObject {
     }
 
     func bootstrap() async {
+        if let language = try? await repository.loadAppLanguage() {
+            languageStore.apply(language)
+        }
         do {
             let snapshot = try await onboardingViewModel.loadSnapshot()
             todoListViewModel.newTaskViewModel.hasPriorityField = snapshot.hasPriorityField
@@ -249,6 +261,22 @@ final class RootViewModel: ObservableObject {
         }
     }
 
+    func selectLanguage(_ language: AppLanguage) {
+        guard languageStore.language != language else { return }
+        let previousLanguage = languageStore.language
+        languageStore.apply(language)
+
+        Task { @MainActor [weak self] in
+            do {
+                try await self?.repository.saveAppLanguage(language)
+            } catch {
+                self?.languageStore.apply(previousLanguage)
+                self?.onboardingViewModel.statusMessage = self?.languageStore.text(.savingLanguageFailed)
+                self?.onboardingViewModel.isErrorState = true
+            }
+        }
+    }
+
     func resetConfigurationFromSettings() async {
         do {
             try await onboardingViewModel.resetConfigurationForRestart()
@@ -283,6 +311,8 @@ struct OnboardingView: View {
     let mode: Mode
     var onBack: (() -> Void)?
     var onResetConfiguration: (() async -> Void)?
+    var onLanguageChange: ((AppLanguage) -> Void)?
+    @EnvironmentObject private var languageStore: LanguageStore
     @State private var isShowingTokenHelp = false
     @State private var activeDatabaseHelpTopic: DatabaseHelpTopic?
     @State private var showingResetConfirmation = false
@@ -306,6 +336,7 @@ struct OnboardingView: View {
                     VStack(alignment: .leading, spacing: OnboardingModalMetrics.onboardingContentSpacing) {
                         if mode == .settings {
                             settingsIntro
+                            languageSection
                         } else {
                             onboardingHero
                         }
@@ -495,6 +526,47 @@ struct OnboardingView: View {
             settingsDecorationCluster
         }
         .padding(.bottom, 4)
+    }
+
+    private var languageSection: some View {
+        HStack {
+            Label("Language", systemImage: "globe")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(OnboardingModalPalette.primaryText)
+
+            Spacer()
+
+            Menu {
+                ForEach(AppLanguage.allCases, id: \.self) { language in
+                    Button {
+                        onLanguageChange?(language)
+                    } label: {
+                        Text(language.displayName)
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(languageStore.language.displayName)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
+                }
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(OnboardingModalPalette.secondaryText)
+            }
+            .menuStyle(.borderlessButton)
+            .disabled(viewModel.isWorking || isResetActionPending)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(OnboardingModalPalette.inputBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(OnboardingModalPalette.inputBorder, lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
     }
 
     private var tokenSection: some View {

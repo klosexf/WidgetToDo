@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 
 @MainActor
 final class StatusBarController: NSObject {
@@ -6,17 +7,21 @@ final class StatusBarController: NSObject {
     private let onToggle: () -> Void
     private let onSettings: () -> Void
     private let onQuit: () -> Void
+    private let languageStore: LanguageStore
     private var menu: NSMenu?
     private var rightClickMonitor: Any?
+    private var cancellable: AnyCancellable?
 
     init(
         onToggle: @escaping () -> Void,
         onSettings: @escaping () -> Void,
-        onQuit: @escaping () -> Void
+        onQuit: @escaping () -> Void,
+        languageStore: LanguageStore
     ) {
         self.onToggle = onToggle
         self.onSettings = onSettings
         self.onQuit = onQuit
+        self.languageStore = languageStore
     }
 
     func install() {
@@ -62,12 +67,18 @@ final class StatusBarController: NSObject {
             )
             button.title = "     "
 
-            button.toolTip = "Notion 浮窗"
+            button.toolTip = languageStore.text(.appTitle)
+            button.target = self
+            button.action = #selector(togglePanel)
+            button.sendAction(on: .leftMouseUp)
         }
 
         let menu = makeMenu()
         self.menu = menu
         item.menu = menu
+        cancellable = languageStore.$language.sink { [weak self] _ in
+            self?.refreshLocalizedMenu()
+        }
 
         rightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseUp) { [weak self] event in
             self?.handleRightMouseUp(event) ?? event
@@ -76,14 +87,21 @@ final class StatusBarController: NSObject {
 
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "显示 / 隐藏 Notion 浮窗", action: #selector(togglePanel), keyEquivalent: "\\"))
-        menu.addItem(NSMenuItem(title: "设置", action: #selector(openSettings), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: languageStore.text(.toggleWidget), action: #selector(togglePanel), keyEquivalent: "\\"))
+        menu.addItem(NSMenuItem(title: languageStore.text(.settingsTitle), action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: languageStore.text(.quit), action: #selector(quit), keyEquivalent: "q"))
         menu.items.forEach {
             $0.target = self
         }
         return menu
+    }
+
+    private func refreshLocalizedMenu() {
+        item.button?.toolTip = languageStore.text(.appTitle)
+        let refreshedMenu = makeMenu()
+        menu = refreshedMenu
+        item.menu = refreshedMenu
     }
 
     private func handleRightMouseUp(_ event: NSEvent) -> NSEvent? {
