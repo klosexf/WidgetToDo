@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-07-24 - Complete localization remediation
+- 目标: 补齐全部应用界面中文、英语与法语文案；固定保留 `Language` 和三种语言选项名称。
+- 状态: 进行中。已补齐设置说明、重置配置和三张帮助弹窗的英语/法语资源，并新增延迟本地化消息基础；待迁移待办、日记、表单与动态状态文案。
+- 验证: `xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` 通过；`swift test --disable-sandbox --filter 'AppLanguageTests|AppMessageLocalizationTests'` 通过（3 tests）。
+- 风险/回滚点: 当前批次只改变本地化资源与消息目录，不接触 Notion、Keychain 或缓存；可回退本批提交。
+
 ## 2026-07-24 - Database help copy
 - 目标: 更新 Tasks 与 Journal Database 配置说明，明确必填字段、日记正文存储方式与推荐画廊视图；同步 smoke 覆盖。
 - 状态: 已完成代码修改与自动化验证。
