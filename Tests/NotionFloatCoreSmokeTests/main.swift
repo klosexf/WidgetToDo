@@ -781,6 +781,15 @@ struct NotionFloatCoreSmokeTestsRunner {
             "database help sheets should keep independent guide titles"
         )
         try expect(
+            source.contains("这个日记数据库至少需要这些字段类型：1 个 title、1 个 date。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。") &&
+                source.contains("日记正文会自动保存到对应日记页面中，不需要额外创建文本字段。"),
+            "journal database help should explain the required fields and page-body storage"
+        )
+        try expect(
+            source.contains("日记推荐使用画廊视图展示，便于浏览和回顾。"),
+            "journal database help should recommend the gallery view"
+        )
+        try expect(
             source.contains("mode: .onboarding,") && source.contains("rootViewModel.screen = .welcome"),
             "onboarding flow should expose a back action that returns to welcome"
         )

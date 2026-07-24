@@ -981,7 +981,7 @@ private struct TasksDatabaseHelpView: View {
                 Text("1. 在 Notion 中打开你的 Tasks Database，确保进入的是这个任务数据库本身，而不是某个单独页面。")
                 Text("2. 如果当前看到的是嵌入在页面里的数据库视图，先点击数据库标题或“Open as full page”，切到数据库完整页面。")
                 Text("3. 这个任务数据库至少需要这些字段类型：1 个 title、1 个 date、1 个 checkbox。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。")
-                Text("4. 如果你还希望在应用里使用优先级，可以额外准备 select 字段；只有当任务数据库里恰好只有 1 个 select 字段时，应用才会自动把它当作优先级。")
+                Text("4. 如果你还希望在应用里使用预计时长，可以额外准备 number 字段；只有当任务数据库里恰好只有 1 个 number 字段时，应用才会自动把它当作预计时长。")
                 Text("5. 在右上角点击“分享”或页面菜单，选择“复制链接”。也可以直接复制浏览器地址栏中的完整链接。")
                 Text("6. 把完整链接粘贴到 Tasks Database ID 输入框，应用会自动提取其中的数据库 ID。")
             }
@@ -997,8 +997,11 @@ private struct JournalDatabaseHelpView: View {
             Group {
                 Text("1. 在 Notion 中打开你的 Journal Database，确认这是用于保存日记条目的数据库。")
                 Text("2. 如果你现在看到的是某个日记页面里的 linked database，先打开数据库原始页面，避免复制错普通页面链接。")
-                Text("3. 通过右上角“分享”里的“复制链接”，或直接复制地址栏中的完整链接，拿到 Journal Database 的 URL。")
-                Text("4. 把这个完整链接粘贴到 Journal Database ID 输入框，应用会自动解析并填入正确的数据库 ID。")
+                Text("3. 这个日记数据库至少需要这些字段类型：1 个 title、1 个 date。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。")
+                Text("4. 日记正文会自动保存到对应日记页面中，不需要额外创建文本字段。")
+                Text("5. 日记推荐使用画廊视图展示，便于浏览和回顾。")
+                Text("6. 通过右上角“分享”里的“复制链接”，或直接复制地址栏中的完整链接，拿到 Journal Database 的 URL。")
+                Text("7. 把这个完整链接粘贴到 Journal Database ID 输入框，应用会自动解析并填入正确的数据库 ID。")
             }
         }
     }

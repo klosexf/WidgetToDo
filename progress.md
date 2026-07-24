@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-07-24 - Database help copy
+- 目标: 更新 Tasks 与 Journal Database 配置说明，明确必填字段、日记正文存储方式与推荐画廊视图；同步 smoke 覆盖。
+- 状态: 已完成代码修改与自动化验证。
+- 验证: `swift test --disable-sandbox` 通过（41 tests）。
+- 风险/回滚点: 仅影响配置帮助文案与对应 smoke 断言；回退 `ContentView.swift` 和 smoke 测试即可。
+
 ## 2026-07-24 - Language setting
 - 目标: Settings 顶部新增固定标题 `Language`，支持 `简体中文`、`English`、`Français`；默认简体中文，选择后立即刷新并独立持久化。
 - 状态: 已完成代码与自动化验证；桌面 UI 手测待完成。
