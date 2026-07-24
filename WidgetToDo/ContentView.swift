@@ -943,29 +943,30 @@ private struct SettingsCurveShape: Shape {
 
 private struct NotionTokenHelpView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var languageStore: LanguageStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("获取 Notion Token")
+                Text(languageStore.text(.notionTokenHelpTitle))
                     .font(.title3.weight(.semibold))
                 Spacer()
-                Button("关闭") {
+                Button(languageStore.text(.close)) {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("1. 打开 Notion 的 My integrations，创建一个 Internal Integration。")
-                Text("2. 在该 integration 的 Configuration 页面复制 Installation access token。")
-                Text("3. 打开 Tasks 和 Journal 数据库右上角菜单，把这个 integration 添加到 Connections。")
-                Text("4. 回到这里粘贴 token，并把两个数据库的完整 URL 粘贴到对应输入框。")
+                Text(languageStore.text(.tokenHelpStep1))
+                Text(languageStore.text(.tokenHelpStep2))
+                Text(languageStore.text(.tokenHelpStep3))
+                Text(languageStore.text(.tokenHelpStep4))
             }
             .font(.callout)
             .foregroundStyle(.secondary)
 
-            Link("打开 Notion integrations", destination: URL(string: "https://www.notion.so/my-integrations")!)
+            Link(languageStore.text(.openNotionIntegrations), destination: URL(string: "https://www.notion.so/my-integrations")!)
 
             Spacer()
         }
@@ -976,16 +977,17 @@ private struct NotionTokenHelpView: View {
 
 private struct TasksDatabaseHelpView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var languageStore: LanguageStore
 
     var body: some View {
-        HelpSheetLayout(title: "获取 Tasks Database 链接", onClose: { dismiss() }) {
+        HelpSheetLayout(titleKey: .tasksDatabaseHelpTitle, onClose: { dismiss() }) {
             Group {
-                Text("1. 在 Notion 中打开你的 Tasks Database，确保进入的是这个任务数据库本身，而不是某个单独页面。")
-                Text("2. 如果当前看到的是嵌入在页面里的数据库视图，先点击数据库标题或“Open as full page”，切到数据库完整页面。")
-                Text("3. 这个任务数据库至少需要这些字段类型：1 个 title、1 个 date、1 个 checkbox。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。")
-                Text("4. 如果你还希望在应用里使用预计时长，可以额外准备 number 字段；只有当任务数据库里恰好只有 1 个 number 字段时，应用才会自动把它当作预计时长。")
-                Text("5. 在右上角点击“分享”或页面菜单，选择“复制链接”。也可以直接复制浏览器地址栏中的完整链接。")
-                Text("6. 把完整链接粘贴到 Tasks Database ID 输入框，应用会自动提取其中的数据库 ID。")
+                Text(languageStore.text(.tasksHelpStep1))
+                Text(languageStore.text(.tasksHelpStep2))
+                Text(languageStore.text(.tasksHelpStep3))
+                Text(languageStore.text(.tasksHelpStep4))
+                Text(languageStore.text(.tasksHelpStep5))
+                Text(languageStore.text(.tasksHelpStep6))
             }
         }
     }
@@ -993,34 +995,36 @@ private struct TasksDatabaseHelpView: View {
 
 private struct JournalDatabaseHelpView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var languageStore: LanguageStore
 
     var body: some View {
-        HelpSheetLayout(title: "获取 Journal Database 链接", onClose: { dismiss() }) {
+        HelpSheetLayout(titleKey: .journalDatabaseHelpTitle, onClose: { dismiss() }) {
             Group {
-                Text("1. 在 Notion 中打开你的 Journal Database，确认这是用于保存日记条目的数据库。")
-                Text("2. 如果你现在看到的是某个日记页面里的 linked database，先打开数据库原始页面，避免复制错普通页面链接。")
-                Text("3. 这个日记数据库至少需要这些字段类型：1 个 title、1 个 date。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。")
-                Text("4. 日记正文会自动保存到对应日记页面中，不需要额外创建文本字段。")
-                Text("5. 日记推荐使用画廊视图展示，便于浏览和回顾。")
-                Text("6. 通过右上角“分享”里的“复制链接”，或直接复制地址栏中的完整链接，拿到 Journal Database 的 URL。")
-                Text("7. 把这个完整链接粘贴到 Journal Database ID 输入框，应用会自动解析并填入正确的数据库 ID。")
+                Text(languageStore.text(.journalHelpStep1))
+                Text(languageStore.text(.journalHelpStep2))
+                Text(languageStore.text(.journalHelpStep3))
+                Text(languageStore.text(.journalHelpStep4))
+                Text(languageStore.text(.journalHelpStep5))
+                Text(languageStore.text(.journalHelpStep6))
+                Text(languageStore.text(.journalHelpStep7))
             }
         }
     }
 }
 
 private struct HelpSheetLayout<Content: View>: View {
-    let title: String
+    @EnvironmentObject private var languageStore: LanguageStore
+    let titleKey: AppText.Key
     let onClose: () -> Void
     @ViewBuilder let content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text(title)
+                Text(languageStore.text(titleKey))
                     .font(.title3.weight(.semibold))
                 Spacer()
-                Button("关闭") {
+                Button(languageStore.text(.close)) {
                     onClose()
                 }
                 .keyboardShortcut(.cancelAction)
@@ -1036,7 +1040,7 @@ private struct HelpSheetLayout<Content: View>: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
 
-            Link("打开 Notion", destination: URL(string: "https://www.notion.so")!)
+            Link(languageStore.text(.openNotion), destination: URL(string: "https://www.notion.so")!)
         }
         .padding(24)
         .frame(width: 460)
@@ -1141,11 +1145,21 @@ private enum FloatingWidgetMetrics {
 }
 
 struct FloatingWidgetView: View {
-    private enum WidgetTab: String, CaseIterable {
-        case todo = "待办"
-        case journal = "日记"
+    private enum WidgetTab: CaseIterable {
+        case todo
+        case journal
+
+        var textKey: AppText.Key {
+            switch self {
+            case .todo:
+                return .todoTab
+            case .journal:
+                return .journalTab
+            }
+        }
     }
 
+    @EnvironmentObject private var languageStore: LanguageStore
     @State private var selectedTab: WidgetTab
     @ObservedObject var todoViewModel: TodoListViewModel
     @ObservedObject var journalViewModel: JournalViewModel
@@ -1264,7 +1278,7 @@ struct FloatingWidgetView: View {
                 onActiveTabChange?(miniActiveTab(from: tab))
             }
         } label: {
-            Text(tab.rawValue)
+            Text(languageStore.text(tab.textKey))
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(FloatingWidgetPalette.tabText)
                 .modifier(TrackingModifier(value: -0.13))

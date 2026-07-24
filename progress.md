@@ -18,8 +18,8 @@
 
 ## 2026-07-24 - Complete localization remediation
 - 目标: 补齐全部应用界面中文、英语与法语文案；固定保留 `Language` 和三种语言选项名称。
-- 状态: 进行中。已补齐设置说明、重置配置和三张帮助弹窗的英语/法语资源，并新增延迟本地化消息基础；待迁移待办、日记、表单与动态状态文案。
-- 验证: `xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` 通过；`swift test --disable-sandbox --filter 'AppLanguageTests|AppMessageLocalizationTests'` 通过（3 tests）。
+- 状态: 进行中。已补齐设置说明、重置配置和三张帮助弹窗的英语/法语资源，并新增延迟本地化消息基础；帮助弹窗与待办/日记 tab 已改为从当前语言状态读取文案。待迁移待办、日记、表单与动态状态文案。
+- 验证: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` 通过（43 tests）；`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` 通过；已实际运行 Debug App，英文状态显示 `Tasks / Journal` 两个 tab。
 - 风险/回滚点: 当前批次只改变本地化资源与消息目录，不接触 Notion、Keychain 或缓存；可回退本批提交。
 
 ## 2026-07-24 - Database help copy
