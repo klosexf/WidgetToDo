@@ -776,9 +776,10 @@ struct NotionFloatCoreSmokeTestsRunner {
             "configuration form should present separate help sheets for tasks and journal databases"
         )
         try expect(
-            source.contains("HelpSheetLayout(title: \"获取 Tasks Database 链接\"") &&
-                source.contains("HelpSheetLayout(title: \"获取 Journal Database 链接\""),
-            "database help sheets should keep independent guide titles"
+            source.contains("HelpSheetLayout(titleKey: .tasksDatabaseHelpTitle") &&
+                source.contains("HelpSheetLayout(titleKey: .journalDatabaseHelpTitle") &&
+                source.contains("Text(languageStore.text(tab.textKey))"),
+            "database help sheets and widget tabs should use language-aware text keys"
         )
         try expect(
             source.contains("这个日记数据库至少需要这些字段类型：1 个 title、1 个 date。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。") &&
