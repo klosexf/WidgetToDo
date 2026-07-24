@@ -45,6 +45,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try onboardingVisualAlignmentKeepsExistingBehaviorContract()
             try todoDateTitleUsesChineseDateWithoutTodaySpecialCase()
             try settingsResetFlowReturnsUserToWelcome()
+            try settingsContainsPersistentLanguageControl()
             try statusBarMenuContainsSettingsEntry()
             try floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring()
             try floatingPanelDoesNotSynchronouslyActivateDuringEventDispatch()
@@ -660,6 +661,28 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
     }
 
+    static func settingsContainsPersistentLanguageControl() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        guard let languageRange = source.range(of: "languageSection"),
+              let tokenRange = source.range(of: "tokenSection")
+        else {
+            throw SmokeTestFailure(description: "settings should define language and token sections")
+        }
+
+        try expect(source.contains("Label(\"Language\""), "settings must keep the Language title fixed")
+        try expect(source.contains("AppLanguage.allCases"), "settings must offer all supported languages")
+        try expect(languageRange.lowerBound < tokenRange.lowerBound, "language must appear before Notion Token")
+        try expect(source.contains("selectLanguage"), "language selection must persist through RootViewModel")
+    }
+
     static func statusBarMenuContainsSettingsEntry() throws {
         let rootURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -675,12 +698,12 @@ struct NotionFloatCoreSmokeTestsRunner {
             "status bar controller should expose a settings callback"
         )
         try expect(
-            source.contains("NSMenuItem(title: \"设置\""),
-            "status bar menu should include a settings item"
+            source.contains("languageStore.text(.settingsTitle)"),
+            "status bar menu should localize its settings item"
         )
         try expect(
-            source.contains("effectiveAppearance"),
-            "status bar icon color should adapt to menu bar appearance (light/dark)"
+            source.contains("NSColor.white.cgColor") && !source.contains("effectiveAppearance"),
+            "status bar icon should keep the verified fixed-white rendering without appearance guessing"
         )
         try expect(
             source.contains("button.layer?.addSublayer"),
@@ -699,8 +722,8 @@ struct NotionFloatCoreSmokeTestsRunner {
             "status bar item should pop the menu using NSMenu.popUpContextMenu with the triggering event"
         )
         try expect(
-            source.contains("item.length = NSStatusItem.variableLength"),
-            "status bar item should reserve enough width for the visible title and icon"
+            source.contains("item.length = NSStatusItem.squareLength"),
+            "status bar item should keep the compact icon-only width"
         )
         try expect(
             !source.contains("button.title = \" Notion\""),
@@ -1115,17 +1138,17 @@ struct NotionFloatCoreSmokeTestsRunner {
             contentSource.contains("await rootViewModel.resetConfigurationFromSettings()"),
             "settings reset flow should invoke the root view model reset action"
         )
-        guard let settingsBackRowScope = functionScope(
+        guard let modalHeaderScope = functionScope(
             in: contentSource,
-            signature: "private var settingsBackRow: some View"
+            signature: "private var modalHeader: some View"
         ) else {
             throw SmokeTestFailure(
-                description: "settings reset flow should keep a dedicated settingsBackRow view"
+                description: "settings reset flow should keep the modal header that owns the back button"
             )
         }
         try expect(
-            settingsBackRowScope.contains(".disabled(viewModel.isWorking || isResetActionPending)"),
-            "settingsBackRow should be disabled while reset is running or locally pending"
+            modalHeaderScope.contains(".disabled(mode == .settings && (viewModel.isWorking || isResetActionPending))"),
+            "settings modal header should disable back navigation while reset is running or locally pending"
         )
         guard let rootResetScope = functionScope(
             in: contentSource,

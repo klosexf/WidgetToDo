@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-07-24 - Language setting
+- 目标: Settings 顶部新增固定标题 `Language`，支持 `简体中文`、`English`、`Français`；默认简体中文，选择后立即刷新并独立持久化。
+- 状态: 已完成代码与自动化验证；桌面 UI 手测待完成。
+- 验证: `swift run NotionFloatCoreSmokeTests --disable-sandbox` 通过；`swift test --disable-sandbox` 通过（41 tests）；`xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` 通过。
+- 风险/回滚点: 需在真实 app 中确认三语资源的静态文案渲染、菜单栏刷新和重启恢复；回退语言模型、偏好文件、`LanguageStore`、资源与设置行不会触及 Token、数据库或 SQLite 缓存。
+
 ## 2026-07-12 - Fix journal save failure with duplicate same-day cache records
 - 目标: 修复日记编辑后显示“保存失败”的两条已确认路径：同一天多个日记缓存记录导致 ID 不匹配，以及输入发生在网络写入期间时防抖取消整个保存任务；失败时在底部显示具体可读原因。
 - 非目标: 不删除或合并用户 Notion 中既有日记页；不修改 Notion API 契约、数据库字段映射、令牌/设置存储、SQLite 表结构或工程配置。
