@@ -70,3 +70,9 @@
 "5. 日记推荐使用画廊视图展示，便于浏览和回顾。" = "5. Une vue galerie est recommandée pour faciliter la consultation.";
 "6. 通过右上角“分享”里的“复制链接”，或直接复制地址栏中的完整链接，拿到 Journal Database 的 URL。" = "6. Utilisez Copier le lien dans Share, ou copiez l’URL complète du navigateur, pour obtenir l’URL de la base Journal.";
 "7. 把这个完整链接粘贴到 Journal Database ID 输入框，应用会自动解析并填入正确的数据库 ID。" = "7. Collez le lien complet dans Journal Database ID ; l’app extrait et renseigne l’identifiant correct.";
+"使用菜单栏图标来显示或隐藏悬浮面板。" = "Utilisez l’icône de la barre des menus pour afficher ou masquer le panneau flottant.";
+"正在加载 Notion Float..." = "Chargement du widget Notion…";
+"正在加载任务..." = "Chargement des tâches…";
+"正在加载日记..." = "Chargement du journal…";
+"删除后会在 Notion 中归档该任务，无法在这里直接恢复。" = "La tâche sera archivée dans Notion et ne pourra pas être restaurée ici.";
+"任务标题不能为空。" = "Le titre de la tâche est requis.";
