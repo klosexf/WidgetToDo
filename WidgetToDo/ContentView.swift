@@ -34,7 +34,8 @@ struct ContentView: View {
                     mode: .onboarding,
                     onBack: {
                         rootViewModel.screen = .welcome
-                    }
+                    },
+                    onLanguageChange: rootViewModel.selectLanguage
                 )
                 .frame(width: AppWindowChrome.defaultWidth, height: AppWindowChrome.defaultHeight)
             case .settings:
@@ -338,6 +339,7 @@ struct OnboardingView: View {
                             settingsIntro
                             languageSection
                         } else {
+                            languageSection
                             onboardingHero
                         }
 

@@ -46,6 +46,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try todoDateTitleUsesChineseDateWithoutTodaySpecialCase()
             try settingsResetFlowReturnsUserToWelcome()
             try settingsContainsPersistentLanguageControl()
+            try onboardingContainsPersistentLanguageControl()
             try statusBarMenuContainsSettingsEntry()
             try floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring()
             try floatingPanelDoesNotSynchronouslyActivateDuringEventDispatch()
@@ -681,6 +682,35 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(source.contains("AppLanguage.allCases"), "settings must offer all supported languages")
         try expect(languageRange.lowerBound < tokenRange.lowerBound, "language must appear before Notion Token")
         try expect(source.contains("selectLanguage"), "language selection must persist through RootViewModel")
+    }
+
+    static func onboardingContainsPersistentLanguageControl() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        guard let onboardingRange = source.range(of: "case .onboarding:"),
+              let settingsRange = source.range(of: "case .settings:"),
+              let formLayoutRange = source.range(of: "if mode == .settings {")
+        else {
+            throw SmokeTestFailure(description: "onboarding language control should have a discoverable view structure")
+        }
+
+        let onboardingConstruction = String(source[onboardingRange.lowerBound..<settingsRange.lowerBound])
+        let formLayout = String(source[formLayoutRange.lowerBound...])
+        try expect(
+            onboardingConstruction.contains("onLanguageChange: rootViewModel.selectLanguage"),
+            "onboarding should persist language selection through RootViewModel"
+        )
+        try expect(
+            formLayout.contains("} else {\n                            languageSection\n                            onboardingHero"),
+            "onboarding should place the shared language control before the Notion hero"
+        )
     }
 
     static func statusBarMenuContainsSettingsEntry() throws {
