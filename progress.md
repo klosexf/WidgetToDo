@@ -1,20 +1,22 @@
 # Progress
 
 ## 2026-07-24 - Onboarding language selector
-- 目标: 在首次初始化页复用 Settings 已有的 `Language` 选择行，支持 `简体中文`、`English`、`Français`，选择后立即刷新并保持原有独立持久化行为。
+- 目标: 在首次初始化页复用 Settings 已有的 `Language` 选择行，支持 `简体中文`、`English`、`Français`，选择后立即刷新并保持原有独立持久化行为；语言行位于“连接 Notion”说明之后、`Notion 令牌` 之前。
 - 非目标: 不新增语言选项或持久化结构；不修改 Notion 配置校验、Token/Keychain、缓存、API、`Package.swift`、Xcode 工程或 entitlements。
 - 影响路径:
-  - `WidgetToDo/ContentView.swift`：初始化页传入既有 `RootViewModel.selectLanguage` 回调，并在 Notion 连接说明前显示共享 `languageSection`。
+  - `WidgetToDo/ContentView.swift`：初始化页传入既有 `RootViewModel.selectLanguage` 回调，并在 Notion 连接说明之后、`Notion 令牌` 之前显示共享 `languageSection`。
   - `Tests/NotionFloatCoreSmokeTests/main.swift`：新增初始化页的回调接线与布局顺序 smoke 回归检查。
   - `progress.md`：记录本次验证。
 - 状态: 已完成代码与自动化验证；桌面 UI 手测受安全限制阻塞。
 - 验证:
   - RED: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — 如预期失败：`onboarding should persist language selection through RootViewModel`。
   - GREEN: 同一 smoke 命令在接线后通过，输出 `All smoke tests passed.`。
-  - 全量测试: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 通过，`Executed 42 tests, with 0 failures`。
-  - Debug 构建: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` — 通过，`** BUILD SUCCEEDED **`。
+  - 布局 RED/GREEN（2026-07-25）: 精确源码检查先确认语言行不在 `Notion 令牌` 正上方；调整后确认 `onboardingHero → languageSection → tokenSection` 顺序成立。
+  - 全量测试（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 通过，`Executed 43 tests, with 0 failures`。
+  - Debug 构建（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` — 通过，`** BUILD SUCCEEDED **`。
+  - Smoke 运行现状（2026-07-25）: `swift run NotionFloatCoreSmokeTests --disable-sandbox` 在本次布局断言前停止于既有 `journal database help should explain the required fields and page-body storage`；该断言仍匹配本地化前的中文原文，和本次布局修改无关，未在本次任务内改动。
   - UI 手测: 未执行。当前安装实例可能使用真实 Notion Token 与配置；进入首次初始化状态需要清除 Keychain/设置，属于未获授权的破坏性操作。需在用户的安全测试配置或 Xcode 临时环境中验证三种语言切换与重启恢复。
-- 风险/回滚点: 仅增加一个可滚动的共享语言行，可能压缩首次配置页的首屏空间；滚回 `ContentView.swift` 的回调与布局插入，以及 smoke 断言即可恢复原行为，不影响已保存语言或 Notion 数据。
+- 风险/回滚点: 仅调整共享语言行在首次配置页的垂直顺序，可能压缩令牌区的首屏空间；滚回 `ContentView.swift` 的布局顺序，以及 smoke 断言即可恢复原行为，不影响已保存语言或 Notion 数据。
 
 ## 2026-07-24 - Complete localization remediation
 - 目标: 补齐全部应用界面中文、英语与法语文案；固定保留 `Language` 和三种语言选项名称。

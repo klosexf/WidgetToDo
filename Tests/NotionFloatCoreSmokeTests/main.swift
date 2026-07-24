@@ -708,8 +708,8 @@ struct NotionFloatCoreSmokeTestsRunner {
             "onboarding should persist language selection through RootViewModel"
         )
         try expect(
-            formLayout.contains("} else {\n                            languageSection\n                            onboardingHero"),
-            "onboarding should place the shared language control before the Notion hero"
+            formLayout.contains("} else {\n                            onboardingHero\n                            languageSection\n                        }\n\n                        tokenSection"),
+            "onboarding should place the shared language control directly before Notion Token"
         )
     }
 

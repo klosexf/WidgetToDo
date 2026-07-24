@@ -339,8 +339,8 @@ struct OnboardingView: View {
                             settingsIntro
                             languageSection
                         } else {
-                            languageSection
                             onboardingHero
+                            languageSection
                         }
 
                         tokenSection
