@@ -549,8 +549,6 @@ struct OnboardingView: View {
             } label: {
                 HStack(spacing: 4) {
                     Text(languageStore.language.displayName)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 9, weight: .semibold))
                 }
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(OnboardingModalPalette.secondaryText)
