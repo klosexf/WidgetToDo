@@ -19,6 +19,7 @@ final class OnboardingViewModel: ObservableObject {
     @Published var tasksDatabaseInput = ""
     @Published var journalDatabaseInput = ""
     @Published var statusMessage: String?
+    @Published var statusMessageKey: AppText.Key?
     @Published var isWorking = false
     @Published var isErrorState = false
 
@@ -36,7 +37,8 @@ final class OnboardingViewModel: ObservableObject {
         tasksDatabaseInput = snapshot.tasksDatabaseID ?? ""
         journalDatabaseInput = snapshot.journalDatabaseID ?? ""
         if snapshot.hasToken {
-            statusMessage = "已检测到保存在钥匙串中的令牌。"
+            statusMessage = nil
+            statusMessageKey = .keychainTokenFound
             isErrorState = false
         }
         return snapshot
@@ -49,6 +51,7 @@ final class OnboardingViewModel: ObservableObject {
             journalInput: journalDatabaseInput
         )
         guard issues.isEmpty else {
+            statusMessageKey = nil
             statusMessage = issues.map(\.message).joined(separator: "\n")
             isErrorState = true
             return
@@ -63,16 +66,20 @@ final class OnboardingViewModel: ObservableObject {
                 tasksInput: tasksDatabaseInput,
                 journalInput: journalDatabaseInput
             )
+            statusMessageKey = nil
             statusMessage = "配置已保存。"
             isErrorState = false
             didFinishSetup?()
         } catch let NotionRepositoryError.validationFailed(issues) {
+            statusMessageKey = nil
             statusMessage = issues.map(\.message).joined(separator: "\n")
             isErrorState = true
         } catch let NotionRepositoryError.invalidDatabaseInput(message) {
+            statusMessageKey = nil
             statusMessage = message
             isErrorState = true
         } catch {
+            statusMessageKey = nil
             statusMessage = error.localizedDescription
             isErrorState = true
         }
@@ -98,6 +105,7 @@ final class OnboardingViewModel: ObservableObject {
 
     func resetConfigurationForRestart() async throws {
         isWorking = true
+        statusMessageKey = nil
         statusMessage = "正在重置配置..."
         isErrorState = false
         defer { isWorking = false }
@@ -108,9 +116,11 @@ final class OnboardingViewModel: ObservableObject {
             tasksDatabaseInput = ""
             journalDatabaseInput = ""
             statusMessage = nil
+            statusMessageKey = nil
             isErrorState = false
         } catch {
             statusMessage = nil
+            statusMessageKey = nil
             isErrorState = false
             throw OnboardingUserFacingError.resetConfigurationFailed()
         }

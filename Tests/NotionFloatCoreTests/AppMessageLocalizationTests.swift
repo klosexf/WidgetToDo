@@ -19,4 +19,13 @@ final class AppMessageLocalizationTests: XCTestCase {
         XCTAssertEqual(AppText.string(.todoTab, language: .english), "Tasks")
         XCTAssertEqual(AppText.string(.todoTab, language: .french), "Tâches")
     }
+
+    func testConfigurationAndJournalPromptsRenderInTheSelectedLanguage() {
+        XCTAssertEqual(AppText.string(.keychainTokenFound, language: .english), "A token saved in Keychain was found.")
+        XCTAssertEqual(AppText.string(.keychainTokenFound, language: .french), "Un jeton enregistré dans le trousseau a été détecté.")
+        XCTAssertEqual(AppText.string(.journalReadyToWrite, language: .english), "Start writing")
+        XCTAssertEqual(AppText.string(.journalReadyToWrite, language: .french), "Vous pouvez commencer à écrire")
+        XCTAssertEqual(AppText.string(.workspaceSynced, language: .english), "Just synced")
+        XCTAssertEqual(AppText.string(.workspaceSynced, language: .french), "Synchronisé à l’instant")
+    }
 }

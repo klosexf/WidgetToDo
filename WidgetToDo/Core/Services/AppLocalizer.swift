@@ -35,6 +35,15 @@ public enum AppText {
         case journalHelpStep7
         case todoTab
         case journalTab
+        case keychainTokenFound
+        case journalReadyToWrite
+        case journalSynced
+        case journalSavingSoon
+        case journalSavedToNotion
+        case journalAutosaveHint
+        case noTasksToday
+        case noTasksOnDate
+        case workspaceSynced
     }
 
     private static let translations: [AppLanguage: [Key: String]] = [
@@ -71,7 +80,16 @@ public enum AppText {
             .journalHelpStep6: "6. 通过右上角“分享”里的“复制链接”，或直接复制地址栏中的完整链接，拿到 Journal Database 的 URL。",
             .journalHelpStep7: "7. 把这个完整链接粘贴到 Journal Database ID 输入框，应用会自动解析并填入正确的数据库 ID。",
             .todoTab: "待办",
-            .journalTab: "日记"
+            .journalTab: "日记",
+            .keychainTokenFound: "已检测到保存在钥匙串中的令牌。",
+            .journalReadyToWrite: "可以开始记录了",
+            .journalSynced: "日记已同步",
+            .journalSavingSoon: "即将保存...",
+            .journalSavedToNotion: "已保存到 Notion",
+            .journalAutosaveHint: "2 秒后自动保存",
+            .noTasksToday: "今天没有任务",
+            .noTasksOnDate: "%@ 没有任务",
+            .workspaceSynced: "刚刚同步完成"
         ],
         .english: [
             .languageSettingTitle: "Language",
@@ -106,7 +124,16 @@ public enum AppText {
             .journalHelpStep6: "6. Use Copy link in Share, or copy the full browser URL, to get the Journal Database URL.",
             .journalHelpStep7: "7. Paste the full link into Journal Database ID; the app extracts and fills the correct database ID.",
             .todoTab: "Tasks",
-            .journalTab: "Journal"
+            .journalTab: "Journal",
+            .keychainTokenFound: "A token saved in Keychain was found.",
+            .journalReadyToWrite: "Start writing",
+            .journalSynced: "Journal synced",
+            .journalSavingSoon: "Saving soon...",
+            .journalSavedToNotion: "Saved to Notion",
+            .journalAutosaveHint: "Auto-saves in 2 seconds",
+            .noTasksToday: "No tasks today",
+            .noTasksOnDate: "No tasks on %@",
+            .workspaceSynced: "Just synced"
         ],
         .french: [
             .languageSettingTitle: "Language",
@@ -141,7 +168,16 @@ public enum AppText {
             .journalHelpStep6: "6. Utilisez Copier le lien dans Share, ou copiez l’URL complète du navigateur, pour obtenir l’URL de la base Journal.",
             .journalHelpStep7: "7. Collez le lien complet dans Journal Database ID ; l’app extrait et renseigne l’identifiant correct.",
             .todoTab: "Tâches",
-            .journalTab: "Journal"
+            .journalTab: "Journal",
+            .keychainTokenFound: "Un jeton enregistré dans le trousseau a été détecté.",
+            .journalReadyToWrite: "Vous pouvez commencer à écrire",
+            .journalSynced: "Journal synchronisé",
+            .journalSavingSoon: "Enregistrement imminent…",
+            .journalSavedToNotion: "Enregistré dans Notion",
+            .journalAutosaveHint: "Enregistrement automatique dans 2 secondes",
+            .noTasksToday: "Aucune tâche aujourd’hui",
+            .noTasksOnDate: "Aucune tâche le %@",
+            .workspaceSynced: "Synchronisé à l’instant"
         ]
     ]
 

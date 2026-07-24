@@ -5,7 +5,7 @@ import Foundation
 final class JournalViewModel: ObservableObject {
     @Published var entry: JournalEntry?
     @Published var editorText = ""
-    @Published var statusMessage: String?
+    @Published var statusMessage: AppText.Key?
     @Published var errorMessage: String?
     @Published var isLoading = false
 
@@ -28,16 +28,17 @@ final class JournalViewModel: ObservableObject {
             let entry = try await repository.loadOrCreateJournal()
             self.entry = entry
             editorText = entry.contentText
-            statusMessage = entry.contentText.isEmpty ? "可以开始记录了" : "日记已同步"
+            statusMessage = entry.contentText.isEmpty ? .journalReadyToWrite : .journalSynced
             errorMessage = nil
         } catch {
+            statusMessage = nil
             errorMessage = "日记同步失败：\(error.localizedDescription)"
         }
     }
 
     func scheduleAutosave(text: String) {
         debounceTask?.cancel()
-        statusMessage = "即将保存..."
+        statusMessage = .journalSavingSoon
         debounceTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             guard !Task.isCancelled else { return }
@@ -88,12 +89,12 @@ final class JournalViewModel: ObservableObject {
         do {
             let saved = try await repository.saveJournal(entryID: entry.id, text: text, date: entry.date)
             self.entry = saved
-            statusMessage = "已保存到 Notion"
+            statusMessage = .journalSavedToNotion
             errorMessage = nil
         } catch {
             self.entry?.syncStatus = .failed
             errorMessage = "日记保存失败：\(error.localizedDescription)"
-            statusMessage = errorMessage
+            statusMessage = nil
         }
     }
 }

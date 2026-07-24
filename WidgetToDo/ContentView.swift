@@ -81,6 +81,7 @@ struct ContentView: View {
                     journalViewModel: rootViewModel.journalViewModel,
                     refreshAction: rootViewModel.refreshWorkspace,
                     bannerMessage: rootViewModel.bannerMessage,
+                    bannerMessageKey: rootViewModel.bannerMessageKey,
                     activeTab: rootViewModel.miniActiveTab,
                     onActiveTabChange: { tab in
                         rootViewModel.miniActiveTab = tab
@@ -114,7 +115,9 @@ struct ContentView: View {
             case .journal:
                 JournalMiniCapsuleView(
                     wordCount: rootViewModel.journalViewModel.editorText.count,
-                    statusMessage: rootViewModel.journalViewModel.statusMessage,
+                    statusMessage: rootViewModel.journalViewModel.statusMessage.map {
+                        rootViewModel.languageStore.text($0)
+                    },
                     onExpand: { rootViewModel.expand() },
                     onClose: { NSApp.keyWindow?.orderOut(nil) }
                 )
@@ -139,6 +142,7 @@ final class RootViewModel: ObservableObject {
 
     @Published var screen: Screen = .loading
     @Published var bannerMessage: String?
+    @Published var bannerMessageKey: AppText.Key?
     @Published var isMiniMode: Bool = false
     @Published var miniActiveTab: MiniActiveTab = .todo
 
@@ -224,6 +228,7 @@ final class RootViewModel: ObservableObject {
             }
         } catch {
             screen = .welcome
+            bannerMessageKey = nil
             bannerMessage = "启动失败：\(error.localizedDescription)"
         }
     }
@@ -233,12 +238,15 @@ final class RootViewModel: ObservableObject {
         await todoListViewModel.load()
         await journalViewModel.load()
         if todoListViewModel.errorMessage == nil, journalViewModel.errorMessage == nil {
-            bannerMessage = "刚刚同步完成"
+            bannerMessage = nil
+            bannerMessageKey = .workspaceSynced
             Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
+                self?.bannerMessageKey = nil
                 self?.bannerMessage = nil
             }
         } else if let message = todoListViewModel.errorMessage ?? journalViewModel.errorMessage {
+            bannerMessageKey = nil
             bannerMessage = message
         }
     }
@@ -256,6 +264,7 @@ final class RootViewModel: ObservableObject {
                     self?.todoListViewModel.newTaskViewModel.hasPriorityField = snapshot.hasPriorityField
                 }
             } catch {
+                self?.onboardingViewModel.statusMessageKey = nil
                 self?.onboardingViewModel.statusMessage = "读取设置失败：\(error.localizedDescription)"
                 self?.onboardingViewModel.isErrorState = true
             }
@@ -272,6 +281,7 @@ final class RootViewModel: ObservableObject {
                 try await self?.repository.saveAppLanguage(language)
             } catch {
                 self?.languageStore.apply(previousLanguage)
+                self?.onboardingViewModel.statusMessageKey = nil
                 self?.onboardingViewModel.statusMessage = self?.languageStore.text(.savingLanguageFailed)
                 self?.onboardingViewModel.isErrorState = true
             }
@@ -283,8 +293,10 @@ final class RootViewModel: ObservableObject {
             try await onboardingViewModel.resetConfigurationForRestart()
             screenBeforeSettings = .welcome
             bannerMessage = nil
+            bannerMessageKey = nil
             screen = .welcome
         } catch {
+            onboardingViewModel.statusMessageKey = nil
             onboardingViewModel.statusMessage = error.localizedDescription
             onboardingViewModel.isErrorState = true
         }
@@ -365,7 +377,9 @@ struct OnboardingView: View {
                             }
                         )
 
-                        if let message = viewModel.statusMessage {
+                        if let messageKey = viewModel.statusMessageKey {
+                            statusBanner(message: languageStore.text(messageKey))
+                        } else if let message = viewModel.statusMessage {
                             statusBanner(message: message)
                         }
 
@@ -1165,6 +1179,7 @@ struct FloatingWidgetView: View {
     @State private var taskPendingDeletion: TaskItem?
     let refreshAction: @MainActor () async -> Void
     var bannerMessage: String?
+    var bannerMessageKey: AppText.Key?
     let initialActiveTab: MiniActiveTab
     let onActiveTabChange: ((MiniActiveTab) -> Void)?
     let onCollapse: (() -> Void)?
@@ -1174,6 +1189,7 @@ struct FloatingWidgetView: View {
         journalViewModel: JournalViewModel,
         refreshAction: @escaping @MainActor () async -> Void,
         bannerMessage: String?,
+        bannerMessageKey: AppText.Key?,
         activeTab: MiniActiveTab = .todo,
         onActiveTabChange: ((MiniActiveTab) -> Void)? = nil,
         onCollapse: (() -> Void)? = nil
@@ -1185,6 +1201,7 @@ struct FloatingWidgetView: View {
         _selectedTab = State(initialValue: FloatingWidgetView.widgetTab(from: activeTab))
         self.refreshAction = refreshAction
         self.bannerMessage = bannerMessage
+        self.bannerMessageKey = bannerMessageKey
         self.onActiveTabChange = onActiveTabChange
         self.onCollapse = onCollapse
     }
@@ -1449,7 +1466,7 @@ struct FloatingWidgetView: View {
 
     private var syncBanner: some View {
         Group {
-            if let banner = bannerMessage {
+            if let banner = localizedBannerMessage {
                 HStack(spacing: 6) {
                     Image(systemName: "clock.arrow.2.circlepath")
                         .font(.system(size: 12, weight: .medium))
@@ -1696,7 +1713,7 @@ struct FloatingWidgetView: View {
                 Image(systemName: "clock.arrow.2.circlepath")
                     .font(.system(size: 12, weight: .medium))
                     .opacity(0.7)
-                Text(journalViewModel.statusMessage ?? "2 秒后自动保存")
+                Text(journalStatusText)
                     .font(.system(size: 11, weight: .semibold))
                     .modifier(TrackingModifier(value: -0.11))
                     .foregroundStyle(
@@ -1734,11 +1751,31 @@ struct FloatingWidgetView: View {
     }
 
     private var todoTitle: String {
-        TodoDateDisplayFormatter.title(for: todoViewModel.selectedDate)
+        TodoDateDisplayFormatter.title(
+            for: todoViewModel.selectedDate,
+            language: languageStore.language
+        )
+    }
+
+    private var localizedBannerMessage: String? {
+        if let bannerMessageKey {
+            return languageStore.text(bannerMessageKey)
+        }
+        return bannerMessage
     }
 
     private var emptyTasksTitle: String {
-        TodoDateDisplayFormatter.emptyStateTitle(for: todoViewModel.selectedDate)
+        TodoDateDisplayFormatter.emptyStateTitle(
+            for: todoViewModel.selectedDate,
+            language: languageStore.language
+        )
+    }
+
+    private var journalStatusText: String {
+        if let errorMessage = journalViewModel.errorMessage {
+            return errorMessage
+        }
+        return languageStore.text(journalViewModel.statusMessage ?? .journalAutosaveHint)
     }
 
     private func syncText(for status: SyncStatus) -> String {
@@ -2156,7 +2193,8 @@ struct EditTaskFormCard: View {
         todoViewModel: makePreviewTodoListViewModel(),
         journalViewModel: makePreviewJournalViewModel(),
         refreshAction: {},
-        bannerMessage: "刚刚同步完成"
+        bannerMessage: nil,
+        bannerMessageKey: .workspaceSynced
     )
     .frame(width: 340, height: 460)
 }
@@ -2182,14 +2220,14 @@ private func makePreviewRootViewModel(state: PreviewRootState) -> RootViewModel 
         rootViewModel.onboardingViewModel.token = "secret_preview_token"
         rootViewModel.onboardingViewModel.tasksDatabaseInput = "任务数据库 ID"
         rootViewModel.onboardingViewModel.journalDatabaseInput = "日记数据库 ID"
-        rootViewModel.onboardingViewModel.statusMessage = "已检测到保存在钥匙串中的令牌。"
+        rootViewModel.onboardingViewModel.statusMessageKey = .keychainTokenFound
     case .widget:
         rootViewModel.screen = .widget
-        rootViewModel.bannerMessage = "刚刚同步完成"
+        rootViewModel.bannerMessageKey = .workspaceSynced
         rootViewModel.todoListViewModel.tasks = previewTasks
         rootViewModel.journalViewModel.entry = previewJournalEntry
         rootViewModel.journalViewModel.editorText = previewJournalEntry.contentText
-        rootViewModel.journalViewModel.statusMessage = "1 分钟前已自动保存"
+        rootViewModel.journalViewModel.statusMessage = .journalSavedToNotion
     }
 
     return rootViewModel
@@ -2217,7 +2255,7 @@ private func makePreviewJournalViewModel() -> JournalViewModel {
     let viewModel = JournalViewModel(repository: makePreviewRepository(), openURL: { _ in })
     viewModel.entry = previewJournalEntry
     viewModel.editorText = previewJournalEntry.contentText
-    viewModel.statusMessage = "2 秒后自动保存"
+    viewModel.statusMessage = .journalAutosaveHint
     return viewModel
 }
 

@@ -40,6 +40,16 @@ final class TaskDateSelectionTests: XCTestCase {
         XCTAssertEqual(TodoDateDisplayFormatter.emptyStateTitle(for: yesterday, today: today, calendar: calendar), "5月22日 没有任务")
     }
 
+    func testTodoDateAndEmptyStateUseTheSelectedLanguage() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 5, day: 23, hour: 9)))
+        let yesterday = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: today))
+
+        XCTAssertEqual(TodoDateDisplayFormatter.title(for: today, today: today, calendar: calendar, language: .english), "May 23")
+        XCTAssertEqual(TodoDateDisplayFormatter.emptyStateTitle(for: today, today: today, calendar: calendar, language: .english), "No tasks today")
+        XCTAssertEqual(TodoDateDisplayFormatter.emptyStateTitle(for: yesterday, today: today, calendar: calendar, language: .french), "Aucune tâche le 22 mai")
+    }
+
     func testCacheLoadTasksForDateReturnsOnlyMatchingNaturalDay() throws {
         let tempDirectoryURL = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: tempDirectoryURL) }
