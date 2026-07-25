@@ -14,6 +14,7 @@ private enum PendingPalette {
 struct PendingTodoRowView: View {
     let item: PendingTaskItem
     let showFailure: Bool
+    @EnvironmentObject private var languageStore: LanguageStore
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -52,7 +53,7 @@ struct PendingTodoRowView: View {
                         HStack(spacing: 3) {
                             Image(systemName: "clock")
                                 .font(.system(size: 10, weight: .semibold))
-                            Text("\(estimatedMinutes)min")
+                            Text(languageStore.text(.minutesValue, estimatedMinutes))
                                 .font(.system(size: 10, weight: .semibold))
                         }
                         .foregroundStyle(PendingPalette.metaText)
@@ -64,7 +65,7 @@ struct PendingTodoRowView: View {
                             .foregroundStyle(PendingPalette.metaText)
                     }
 
-                    Text(showFailure ? "失败" : "同步中")
+                    Text(languageStore.text(showFailure ? .syncFailed : .syncSyncing))
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(showFailure ? .red : PendingPalette.metaText)
                 }

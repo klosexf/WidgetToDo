@@ -3,6 +3,8 @@ import Foundation
 
 @MainActor
 final class LanguageStore: ObservableObject {
+    static let shared = LanguageStore()
+
     @Published private(set) var language: AppLanguage = .default
 
     func apply(_ language: AppLanguage) {

@@ -48,6 +48,7 @@ private struct WelcomeCTAButtonStyle: ButtonStyle {
 struct WelcomeView: View {
     let onStartConfig: () -> Void
     let onClose: () -> Void
+    @EnvironmentObject private var languageStore: LanguageStore
 
     @State private var isAppeared = false
     @State private var isButtonHovered = false
@@ -116,7 +117,7 @@ struct WelcomeView: View {
                 .onHover { hovering in
                     isCloseButtonHovered = hovering
                 }
-                .accessibilityLabel("关闭")
+                .accessibilityLabel(languageStore.text(.close))
             }
             .frame(maxWidth: .infinity)
     }
@@ -137,7 +138,7 @@ struct WelcomeView: View {
     }
 
     private var titleView: some View {
-        Text("欢迎使用 WidgetToDo")
+        Text(languageStore.text(.welcomeTitle))
             .font(.system(size: 24, weight: .bold))
             .tracking(-0.25)
             .foregroundStyle(Color(red: 26 / 255, green: 26 / 255, blue: 26 / 255))
@@ -146,10 +147,10 @@ struct WelcomeView: View {
 
     private var subtitleView: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text("一个常驻桌面的")
+            Text(languageStore.text(.welcomePrefix))
                 .foregroundStyle(Color(red: 107 / 255, green: 107 / 255, blue: 107 / 255))
 
-            Text("Notion")
+            Text(languageStore.text(.welcomeNotion))
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Color(red: 26 / 255, green: 26 / 255, blue: 26 / 255))
                 .padding(.horizontal, 8)
@@ -159,7 +160,7 @@ struct WelcomeView: View {
                         .fill(Color(red: 245 / 255, green: 245 / 255, blue: 245 / 255))
                 )
 
-            Text("小窗口")
+            Text(languageStore.text(.welcomeSuffix))
                 .foregroundStyle(Color(red: 107 / 255, green: 107 / 255, blue: 107 / 255))
         }
         .font(.system(size: 14))
@@ -167,7 +168,7 @@ struct WelcomeView: View {
     }
 
     private var featuresView: some View {
-        Text("待办 · 日记 · 一目了然")
+        Text(languageStore.text(.welcomeTagline))
             .font(.system(size: 14, weight: .medium))
             .tracking(0.5)
             .foregroundStyle(Color(red: 107 / 255, green: 107 / 255, blue: 107 / 255))
@@ -180,7 +181,7 @@ struct WelcomeView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
 
-            Text("开始配置")
+            Text(languageStore.text(.startConfiguration))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
 
@@ -197,6 +198,7 @@ struct WelcomeView: View {
 #if canImport(PreviewsMacros)
 #Preview {
     WelcomeView(onStartConfig: {}, onClose: {})
+        .environmentObject(LanguageStore.shared)
         .frame(width: 340, height: 460)
 }
 #endif

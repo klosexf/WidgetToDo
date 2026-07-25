@@ -3,13 +3,14 @@ import SwiftUI
 @main
 struct WidgetToDoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @ObservedObject private var languageStore = LanguageStore.shared
 
     var body: some Scene {
         Settings {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Notion 浮窗")
+                Text(languageStore.text(.appTitle))
                     .font(.title3.weight(.semibold))
-                Text("使用菜单栏图标来显示或隐藏悬浮面板。")
+                Text(languageStore.text(.settingsSceneHint))
                     .foregroundStyle(.secondary)
             }
             .padding(24)

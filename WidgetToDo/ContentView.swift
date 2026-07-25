@@ -15,7 +15,7 @@ struct ContentView: View {
         Group {
             switch rootViewModel.screen {
             case .loading:
-                ProgressView("正在加载 Notion Float...")
+                ProgressView(rootViewModel.languageStore.text(.appLoading))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .frame(width: AppWindowChrome.defaultWidth, height: AppWindowChrome.defaultHeight)
             case .welcome:
@@ -146,7 +146,7 @@ final class RootViewModel: ObservableObject {
     @Published var isMiniMode: Bool = false
     @Published var miniActiveTab: MiniActiveTab = .todo
 
-    let languageStore = LanguageStore()
+    let languageStore = LanguageStore.shared
 
     private var screenBeforeSettings: Screen = .widget
     private var cancellables = Set<AnyCancellable>()
@@ -356,21 +356,21 @@ struct OnboardingView: View {
 
                         tokenSection
                         databaseSection(
-                            title: mode == .settings ? "Tasks Database ID" : "Tasks Database",
-                            placeholder: mode == .settings ? "任务数据库 ID" : "粘贴任务数据库链接",
+                            title: languageStore.text(mode == .settings ? .tasksDatabaseID : .tasksDatabase),
+                            placeholder: languageStore.text(mode == .settings ? .tasksDatabasePrompt : .pasteFullURL),
                             text: $viewModel.tasksDatabaseInput,
                             normalize: viewModel.normalizeTasksDatabaseInput,
-                            helpAccessibilityLabel: "查看 Tasks Database 获取帮助",
+                            helpAccessibilityLabel: languageStore.text(.howToGet),
                             helpAction: {
                                 activeDatabaseHelpTopic = .tasks
                             }
                         )
                         databaseSection(
-                            title: mode == .settings ? "Journal Database ID" : "Journal Database",
-                            placeholder: mode == .settings ? "日记数据库 ID" : "粘贴日记数据库链接",
+                            title: languageStore.text(mode == .settings ? .journalDatabaseID : .journalDatabase),
+                            placeholder: languageStore.text(mode == .settings ? .journalDatabasePrompt : .pasteFullURL),
                             text: $viewModel.journalDatabaseInput,
                             normalize: viewModel.normalizeJournalDatabaseInput,
-                            helpAccessibilityLabel: "查看 Journal Database 获取帮助",
+                            helpAccessibilityLabel: languageStore.text(.howToGet),
                             helpAction: {
                                 activeDatabaseHelpTopic = .journal
                             }
@@ -421,11 +421,11 @@ struct OnboardingView: View {
             }
         }
         .confirmationDialog(
-            "初始化配置",
+            languageStore.text(.resetConfiguration),
             isPresented: $showingResetConfirmation,
             titleVisibility: .visible
         ) {
-            Button("初始化配置", role: .destructive) {
+            Button(languageStore.text(.resetConfiguration), role: .destructive) {
                 guard !(viewModel.isWorking || isResetActionPending) else { return }
                 isResetActionPending = true
                 Task {
@@ -435,9 +435,9 @@ struct OnboardingView: View {
                     }
                 }
             }
-            Button("取消", role: .cancel) {}
+            Button(languageStore.text(.cancel), role: .cancel) {}
         } message: {
-            Text("这会清空当前配置，不会清除本地缓存的任务和日记内容，完成后返回欢迎页。")
+            Text(languageStore.text(.resetConfigurationConfirmation))
         }
         .onAppear {
             guard !isAppeared else { return }
@@ -448,7 +448,7 @@ struct OnboardingView: View {
     private var modalHeader: some View {
         ZStack {
             if mode == .settings {
-                Text("设置")
+                Text(languageStore.text(.settingsTitle))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(OnboardingModalPalette.primaryText)
             }
@@ -470,7 +470,7 @@ struct OnboardingView: View {
 
                 Spacer()
                 if mode == .onboarding {
-                    Text("初始配置")
+                    Text(languageStore.text(.initialConfiguration))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(OnboardingModalPalette.primaryText)
                         .frame(maxWidth: .infinity)
@@ -516,10 +516,10 @@ struct OnboardingView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: OnboardingModalMetrics.onboardingHeroTextSpacing) {
-                Text("连接 Notion")
+                Text(languageStore.text(.connectNotion))
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(OnboardingModalPalette.primaryText)
-                Text("使用你的 Notion 工作区\n同步任务与日记内容")
+                Text(languageStore.text(.connectNotionSubtitle))
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(OnboardingModalPalette.secondaryText)
                     .lineSpacing(3)
@@ -531,7 +531,7 @@ struct OnboardingView: View {
     private var settingsIntro: some View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("这个版本需要一个 Notion 集成令牌，以及一个任务数据库和一个日记数据库。")
+                Text(languageStore.text(.onboardingDescription))
                     .font(.system(size: 14))
                     .foregroundStyle(OnboardingModalPalette.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -585,7 +585,7 @@ struct OnboardingView: View {
     private var tokenSection: some View {
         VStack(alignment: .leading, spacing: OnboardingModalMetrics.onboardingSectionSpacing) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Notion Token")
+                Text(languageStore.text(.notionToken))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OnboardingModalPalette.primaryText)
                 Spacer()
@@ -593,7 +593,7 @@ struct OnboardingView: View {
                     isShowingTokenHelp = true
                 } label: {
                     HStack(spacing: 4) {
-                        Text("如何获取？")
+                        Text(languageStore.text(.howToGet))
                         Image(systemName: "chevron.right")
                             .font(.system(size: 9, weight: .semibold))
                     }
@@ -601,20 +601,20 @@ struct OnboardingView: View {
                     .foregroundStyle(OnboardingModalPalette.secondaryText)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("如何获取？")
+                .accessibilityLabel(languageStore.text(.howToGet))
             }
 
             inputShell(icon: "lock") {
-                SecureField("", text: $viewModel.token, prompt: Text("输入你的 Notion Token").foregroundColor(OnboardingModalPalette.placeholderText))
+                SecureField("", text: $viewModel.token, prompt: Text(languageStore.text(.tokenPrompt)).foregroundColor(OnboardingModalPalette.placeholderText))
                     .textFieldStyle(.plain)
                     .disabled(viewModel.isWorking)
-                    .accessibilityLabel("Notion Token")
+                    .accessibilityLabel(languageStore.text(.notionToken))
             }
 
             HStack(alignment: .center, spacing: 6) {
                 Image(systemName: "lock")
                     .font(.system(size: 10, weight: .medium))
-                Text(mode == .settings ? "令牌只保存在本机钥匙串。" : "令牌只保存在本机钥匙串中，安全加密存储。")
+                Text(languageStore.text(mode == .settings ? .tokenStoredSettings : .tokenStoredOnboarding))
                     .font(.system(size: 12))
             }
             .foregroundStyle(OnboardingModalPalette.secondaryText)
@@ -635,7 +635,7 @@ struct OnboardingView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OnboardingModalPalette.primaryText)
                 Spacer()
-                Text("粘贴整个URL自动提取")
+                Text(languageStore.text(.pasteFullURL))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(OnboardingModalPalette.secondaryText)
             }
@@ -661,7 +661,7 @@ struct OnboardingView: View {
                     }
                     .buttonStyle(DatabaseHelpButtonStyle())
                     .disabled(viewModel.isWorking)
-                    .accessibilityLabel(helpAccessibilityLabel ?? "\(title) 如何获取")
+                    .accessibilityLabel(helpAccessibilityLabel ?? languageStore.text(.howToGet))
                 }
             }
         }
@@ -743,11 +743,11 @@ struct OnboardingView: View {
 
     private var resetSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("初始化配置")
+            Text(languageStore.text(.resetConfiguration))
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(OnboardingModalPalette.errorText)
 
-            Text("清空当前保存的 Notion Token 与数据库配置，完成后返回欢迎页。不会清除本地缓存的任务和日记内容。")
+            Text(languageStore.text(.resetConfigurationDescription))
                 .font(.system(size: 12))
                 .foregroundStyle(OnboardingModalPalette.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
@@ -758,7 +758,7 @@ struct OnboardingView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.system(size: 12, weight: .semibold))
-                    Text("初始化配置")
+                    Text(languageStore.text(.resetConfiguration))
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity)
@@ -794,7 +794,7 @@ struct OnboardingView: View {
                     notionMark
                 }
 
-                Text(mode == .settings ? "保存设置" : "验证并继续")
+                Text(languageStore.text(mode == .settings ? .saveSettings : .verifyAndContinue))
                     .font(.system(size: 13, weight: .semibold))
 
                 if !viewModel.isWorking {

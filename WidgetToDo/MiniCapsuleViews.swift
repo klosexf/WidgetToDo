@@ -66,6 +66,7 @@ struct TodoMiniCapsuleView: View {
     let totalCount: Int
     let onExpand: () -> Void
     let onClose: () -> Void
+    @EnvironmentObject private var languageStore: LanguageStore
 
     private var progress: Double {
         guard totalCount > 0 else { return 0 }
@@ -74,8 +75,8 @@ struct TodoMiniCapsuleView: View {
 
     var body: some View {
         MiniCapsuleContainer(
-            title: "今日待办",
-            subtitle: "\(completedCount)/\(totalCount) 已完成",
+            title: languageStore.text(.todayTasks),
+            subtitle: languageStore.text(.completedTasksCount, completedCount, totalCount),
             onExpand: onExpand,
             onClose: onClose
         ) {
@@ -89,9 +90,10 @@ struct JournalMiniCapsuleView: View {
     let statusMessage: String?
     let onExpand: () -> Void
     let onClose: () -> Void
+    @EnvironmentObject private var languageStore: LanguageStore
 
     private var subtitle: String {
-        let countText = "\(wordCount) 字"
+        let countText = languageStore.text(.wordCount, wordCount)
         if let statusMessage, !statusMessage.isEmpty {
             return "\(countText) · \(statusMessage)"
         }
@@ -100,7 +102,7 @@ struct JournalMiniCapsuleView: View {
 
     var body: some View {
         MiniCapsuleContainer(
-            title: "今日日记",
+            title: languageStore.text(.todayJournal),
             subtitle: subtitle,
             onExpand: onExpand,
             onClose: onClose
