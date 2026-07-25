@@ -105,20 +105,21 @@ private struct PlainDatePicker: NSViewRepresentable {
 
 struct NewTaskFormCard: View {
     @ObservedObject var viewModel: NewTaskViewModel
+    @EnvironmentObject private var languageStore: LanguageStore
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isEstimatedMinutesFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
-            Text("新建任务")
+            Text(languageStore.text(.newTask))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(NewTaskFormPalette.title)
                 .frame(maxWidth: .infinity, alignment: .center)
 
             VStack(alignment: .leading, spacing: 6) {
-                NewTaskFieldLabel(text: "任务")
+                NewTaskFieldLabel(text: languageStore.text(.taskLabel))
 
-                TextField("填写任务内容", text: $viewModel.title)
+                TextField(languageStore.text(.taskLabel), text: $viewModel.title)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14, weight: .regular))
                     .foregroundStyle(NewTaskFormPalette.title)
@@ -143,7 +144,7 @@ struct NewTaskFormCard: View {
                     }
 
                 if viewModel.formState == .validationFailed {
-                    Text("标题不能为空")
+                    Text(languageStore.text(.taskTitleRequired))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -151,7 +152,7 @@ struct NewTaskFormCard: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                NewTaskFieldLabel(text: "日期")
+                NewTaskFieldLabel(text: languageStore.text(.dateLabel))
 
                 HStack(spacing: 8) {
                     Image(systemName: "calendar")
@@ -175,17 +176,17 @@ struct NewTaskFormCard: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                NewTaskFieldLabel(text: "预计时长")
+                NewTaskFieldLabel(text: languageStore.text(.estimatedMinutesLabel))
 
                 HStack(spacing: 0) {
-                    TextField("填写预计时长", text: $viewModel.estimatedMinutesText)
+                    TextField(languageStore.text(.estimatedMinutesLabel), text: $viewModel.estimatedMinutesText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(NewTaskFormPalette.title)
 
                     Spacer()
 
-                    Text("分钟")
+                    Text(languageStore.text(.minutesLabel))
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(NewTaskFormPalette.meta)
                 }
@@ -207,7 +208,7 @@ struct NewTaskFormCard: View {
                 .focused($isEstimatedMinutesFocused)
 
                 if let estimatedMinutesError = viewModel.estimatedMinutesError {
-                    Text(estimatedMinutesError)
+                    Text(languageStore.text(estimatedMinutesError))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -217,12 +218,12 @@ struct NewTaskFormCard: View {
             HStack(spacing: 10) {
                 Spacer()
 
-                Button("取消") {
+                Button(languageStore.text(.cancel)) {
                     viewModel.dismissForm()
                 }
                 .buttonStyle(NewTaskSecondaryButtonStyle())
 
-                Button("创建") {
+                Button(languageStore.text(.create)) {
                     viewModel.submit()
                 }
                 .buttonStyle(NewTaskPrimaryButtonStyle())

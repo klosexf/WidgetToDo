@@ -15,7 +15,7 @@ final class NewTaskViewModel: ObservableObject {
     @Published var taskDate: Date = Date()
     @Published var priority: String = "Medium"
     @Published var estimatedMinutesText: String = ""
-    @Published var estimatedMinutesError: String?
+    @Published var estimatedMinutesError: AppMessage?
     @Published var formState: NewTaskFormState = .idle
     @Published var showForm: Bool = false
     @Published var shakeAttempts: CGFloat = 0
@@ -61,7 +61,7 @@ final class NewTaskViewModel: ObservableObject {
         }
         let parsedEstimatedMinutes = parseEstimatedMinutes()
         if !estimatedMinutesText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, parsedEstimatedMinutes == nil {
-            estimatedMinutesError = "预计时长需填写为大于 0 的分钟数"
+            estimatedMinutesError = AppMessage(.estimatedMinutesInvalid)
             return
         }
         estimatedMinutesError = nil

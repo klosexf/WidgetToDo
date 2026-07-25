@@ -12,4 +12,8 @@ final class LanguageStore: ObservableObject {
     func text(_ key: AppText.Key, _ arguments: CVarArg...) -> String {
         AppText.string(key, language: language, arguments)
     }
+
+    func text(_ message: AppMessage) -> String {
+        message.string(in: language)
+    }
 }

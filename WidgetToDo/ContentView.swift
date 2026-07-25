@@ -141,7 +141,7 @@ final class RootViewModel: ObservableObject {
     }
 
     @Published var screen: Screen = .loading
-    @Published var bannerMessage: String?
+    @Published var bannerMessage: AppMessage?
     @Published var bannerMessageKey: AppText.Key?
     @Published var isMiniMode: Bool = false
     @Published var miniActiveTab: MiniActiveTab = .todo
@@ -229,7 +229,7 @@ final class RootViewModel: ObservableObject {
         } catch {
             screen = .welcome
             bannerMessageKey = nil
-            bannerMessage = "启动失败：\(error.localizedDescription)"
+            bannerMessage = AppMessage(.startupFailed, arguments: [error.localizedDescription])
         }
     }
 
@@ -238,11 +238,10 @@ final class RootViewModel: ObservableObject {
         await todoListViewModel.load()
         await journalViewModel.load()
         if todoListViewModel.errorMessage == nil, journalViewModel.errorMessage == nil {
-            bannerMessage = nil
-            bannerMessageKey = .workspaceSynced
+            bannerMessage = AppMessage(.workspaceSynced)
+            bannerMessageKey = nil
             Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
-                self?.bannerMessageKey = nil
                 self?.bannerMessage = nil
             }
         } else if let message = todoListViewModel.errorMessage ?? journalViewModel.errorMessage {
@@ -1178,7 +1177,7 @@ struct FloatingWidgetView: View {
     @ObservedObject private var newTaskViewModel: NewTaskViewModel
     @State private var taskPendingDeletion: TaskItem?
     let refreshAction: @MainActor () async -> Void
-    var bannerMessage: String?
+    var bannerMessage: AppMessage?
     var bannerMessageKey: AppText.Key?
     let initialActiveTab: MiniActiveTab
     let onActiveTabChange: ((MiniActiveTab) -> Void)?
@@ -1188,7 +1187,7 @@ struct FloatingWidgetView: View {
         todoViewModel: TodoListViewModel,
         journalViewModel: JournalViewModel,
         refreshAction: @escaping @MainActor () async -> Void,
-        bannerMessage: String?,
+        bannerMessage: AppMessage?,
         bannerMessageKey: AppText.Key?,
         activeTab: MiniActiveTab = .todo,
         onActiveTabChange: ((MiniActiveTab) -> Void)? = nil,
@@ -1327,7 +1326,7 @@ struct FloatingWidgetView: View {
                     .padding(.bottom, FloatingWidgetMetrics.syncBannerBottomSpacing)
 
                 if todoViewModel.isLoading {
-                    ProgressView("正在加载任务...")
+                    ProgressView(languageStore.text(.loadingTasks))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if todoViewModel.tasks.isEmpty && todoViewModel.pendingTask == nil {
                     emptyTasksView
@@ -1336,7 +1335,7 @@ struct FloatingWidgetView: View {
                 }
 
                 if let message = todoViewModel.errorMessage {
-                    Text(message)
+                    Text(languageStore.text(message))
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(FloatingWidgetPalette.dangerText)
                         .padding(.top, 8)
@@ -1368,7 +1367,7 @@ struct FloatingWidgetView: View {
             }
         }
         .confirmationDialog(
-            "删除这个任务？",
+            languageStore.text(.deleteTaskConfirmation),
             isPresented: Binding(
                 get: { taskPendingDeletion != nil },
                 set: { isPresented in
@@ -1380,7 +1379,7 @@ struct FloatingWidgetView: View {
             titleVisibility: .visible
         ) {
             if let taskPendingDeletion {
-                Button("删除任务", role: .destructive) {
+                Button(languageStore.text(.deleteTask), role: .destructive) {
                     let taskToDelete = taskPendingDeletion
                     self.taskPendingDeletion = nil
                     Task {
@@ -1389,7 +1388,7 @@ struct FloatingWidgetView: View {
                 }
             }
         } message: {
-            Text("删除后会在 Notion 中归档该任务，无法在这里直接恢复。")
+            Text(languageStore.text(.deleteTaskArchiveMessage))
         }
     }
 
@@ -1422,7 +1421,7 @@ struct FloatingWidgetView: View {
             }
 
             if !todoViewModel.isShowingToday {
-                Button("回到今天") {
+                Button(languageStore.text(.backToToday)) {
                     Task { await todoViewModel.jumpToToday() }
                 }
                 .buttonStyle(.plain)
@@ -1549,7 +1548,7 @@ struct FloatingWidgetView: View {
                             HStack(spacing: 3) {
                                 Image(systemName: "clock")
                                     .font(.system(size: 10, weight: .semibold))
-                                Text("\(estimatedMinutes)min")
+                                Text(languageStore.text(.minutesValue, estimatedMinutes))
                                     .font(.system(size: 10, weight: .semibold))
                             }
                             .foregroundStyle(FloatingWidgetPalette.metaText)
@@ -1582,7 +1581,7 @@ struct FloatingWidgetView: View {
                 }
 
                 if task.syncStatus == .failed {
-                    Button("重试") {
+                    Button(languageStore.text(.retry)) {
                         Task { await todoViewModel.retry(task) }
                     }
                     .font(.system(size: 10, weight: .semibold))
@@ -1642,11 +1641,11 @@ struct FloatingWidgetView: View {
 
     @ViewBuilder
     private func taskActionMenu(for task: TaskItem) -> some View {
-        Button("编辑任务") {
+        Button(languageStore.text(.editTask)) {
             todoViewModel.beginEditing(task)
         }
 
-        Button("删除任务", role: .destructive) {
+        Button(languageStore.text(.deleteTask), role: .destructive) {
             taskPendingDeletion = task
         }
     }
@@ -1685,7 +1684,7 @@ struct FloatingWidgetView: View {
             }
 
             if journalViewModel.isLoading {
-                ProgressView("正在加载日记...")
+                ProgressView(languageStore.text(.loadingJournal))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 JournalTextEditor(
@@ -1725,7 +1724,7 @@ struct FloatingWidgetView: View {
                 Spacer()
 
                 if journalViewModel.entry?.syncStatus == .failed {
-                    Button("重试") {
+                    Button(languageStore.text(.retry)) {
                         Task { await journalViewModel.forceSave() }
                     }
                     .font(.system(size: 10, weight: .semibold))
@@ -1761,7 +1760,7 @@ struct FloatingWidgetView: View {
         if let bannerMessageKey {
             return languageStore.text(bannerMessageKey)
         }
-        return bannerMessage
+        return bannerMessage.map { languageStore.text($0) }
     }
 
     private var emptyTasksTitle: String {
@@ -1773,7 +1772,7 @@ struct FloatingWidgetView: View {
 
     private var journalStatusText: String {
         if let errorMessage = journalViewModel.errorMessage {
-            return errorMessage
+            return languageStore.text(errorMessage)
         }
         return languageStore.text(journalViewModel.statusMessage ?? .journalAutosaveHint)
     }
@@ -1781,13 +1780,13 @@ struct FloatingWidgetView: View {
     private func syncText(for status: SyncStatus) -> String {
         switch status {
         case .synced:
-            "已同步"
+            languageStore.text(.syncSynced)
         case .syncing:
-            "同步中"
+            languageStore.text(.syncSyncing)
         case .failed:
-            "失败"
+            languageStore.text(.syncFailed)
         case .localPending:
-            "待同步"
+            languageStore.text(.syncPending)
         }
     }
 
@@ -2021,22 +2020,23 @@ private struct TrackingModifier: ViewModifier {
 
 struct EditTaskFormCard: View {
     @ObservedObject var viewModel: TodoListViewModel
+    @EnvironmentObject private var languageStore: LanguageStore
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isEstimatedMinutesFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
-            Text("编辑任务")
+            Text(languageStore.text(.editTask))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(NewTaskFormPalette.title)
                 .frame(maxWidth: .infinity, alignment: .center)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("任务")
+                Text(languageStore.text(.taskLabel))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(NewTaskFormPalette.title)
 
-                TextField("填写任务内容", text: $viewModel.editingTitle)
+                TextField(languageStore.text(.taskLabel), text: $viewModel.editingTitle)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14, weight: .regular))
                     .foregroundStyle(NewTaskFormPalette.title)
@@ -2049,7 +2049,7 @@ struct EditTaskFormCard: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
-                            .stroke(titleBorderColor(), lineWidth: viewModel.errorMessage == "任务标题不能为空。" ? 1.5 : 1)
+                            .stroke(titleBorderColor(), lineWidth: viewModel.errorMessage == AppMessage(.taskTitleRequired) ? 1.5 : 1)
                     )
                     .disabled(viewModel.isSavingTaskEdit)
                     .focused($isTitleFocused)
@@ -2057,8 +2057,8 @@ struct EditTaskFormCard: View {
                         isTitleFocused = true
                     }
 
-                if viewModel.errorMessage == "任务标题不能为空。" {
-                    Text("任务标题不能为空。")
+                if viewModel.errorMessage == AppMessage(.taskTitleRequired) {
+                    Text(languageStore.text(.taskTitleRequired))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2066,19 +2066,19 @@ struct EditTaskFormCard: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("预计时长")
+                Text(languageStore.text(.estimatedMinutesLabel))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(NewTaskFormPalette.title)
 
                 HStack(spacing: 0) {
-                    TextField("填写预计时长", text: $viewModel.editingEstimatedMinutesText)
+                    TextField(languageStore.text(.estimatedMinutesLabel), text: $viewModel.editingEstimatedMinutesText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(NewTaskFormPalette.title)
 
                     Spacer()
 
-                    Text("分钟")
+                    Text(languageStore.text(.minutesLabel))
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(NewTaskFormPalette.meta)
                 }
@@ -2098,7 +2098,7 @@ struct EditTaskFormCard: View {
                 .focused($isEstimatedMinutesFocused)
 
                 if let estimatedMinutesError = viewModel.editingEstimatedMinutesError {
-                    Text(estimatedMinutesError)
+                    Text(languageStore.text(estimatedMinutesError))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2108,13 +2108,13 @@ struct EditTaskFormCard: View {
             HStack(spacing: 10) {
                 Spacer()
 
-                Button("取消") {
+                Button(languageStore.text(.cancel)) {
                     viewModel.cancelEditing()
                 }
                 .buttonStyle(NewTaskSecondaryButtonStyle())
                 .disabled(viewModel.isSavingTaskEdit)
 
-                Button("保存") {
+                Button(languageStore.text(.save)) {
                     Task {
                         await viewModel.saveTaskEdit()
                     }
@@ -2138,7 +2138,7 @@ struct EditTaskFormCard: View {
     }
 
     private func titleBorderColor() -> Color {
-        if viewModel.errorMessage == "任务标题不能为空。" {
+        if viewModel.errorMessage == AppMessage(.taskTitleRequired) {
             return NewTaskFormPalette.validationBorder
         }
         if isTitleFocused {

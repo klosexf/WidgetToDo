@@ -6,7 +6,7 @@ final class JournalViewModel: ObservableObject {
     @Published var entry: JournalEntry?
     @Published var editorText = ""
     @Published var statusMessage: AppText.Key?
-    @Published var errorMessage: String?
+    @Published var errorMessage: AppMessage?
     @Published var isLoading = false
 
     private let repository: NotionRepository
@@ -32,7 +32,7 @@ final class JournalViewModel: ObservableObject {
             errorMessage = nil
         } catch {
             statusMessage = nil
-            errorMessage = "日记同步失败：\(error.localizedDescription)"
+            errorMessage = AppMessage(.journalSyncFailed, arguments: [error.localizedDescription])
         }
     }
 
@@ -93,7 +93,7 @@ final class JournalViewModel: ObservableObject {
             errorMessage = nil
         } catch {
             self.entry?.syncStatus = .failed
-            errorMessage = "日记保存失败：\(error.localizedDescription)"
+            errorMessage = AppMessage(.journalSaveFailed, arguments: [error.localizedDescription])
             statusMessage = nil
         }
     }

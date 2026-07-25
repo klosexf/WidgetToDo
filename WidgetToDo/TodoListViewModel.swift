@@ -6,7 +6,7 @@ final class TodoListViewModel: ObservableObject {
     @Published var tasks: [TaskItem] = []
     @Published private(set) var selectedDate: Date
     @Published var isLoading = false
-    @Published var errorMessage: String?
+    @Published var errorMessage: AppMessage?
     @Published var pendingTask: PendingTaskItem?
     @Published var showFailureHighlight = false
     @Published var toast: ToastItem?
@@ -14,7 +14,7 @@ final class TodoListViewModel: ObservableObject {
     @Published var editingTask: TaskItem?
     @Published var editingTitle = ""
     @Published var editingEstimatedMinutesText = ""
-    @Published var editingEstimatedMinutesError: String?
+    @Published var editingEstimatedMinutesError: AppMessage?
     @Published var isSavingTaskEdit = false
     @Published var deletingTaskID: String?
 
@@ -38,7 +38,7 @@ final class TodoListViewModel: ObservableObject {
             var tasks = self?.tasks ?? []
             tasks.insert(task, at: 0)
             self?.tasks = TaskSorting.sort(tasks)
-            self?.showToast(.success, message: "已同步到 Notion")
+            self?.showToast(.success, message: AppMessage(.taskCreated))
         }
 
         newTaskViewModel.onCreateFailure = { [weak self] pendingItem, errorMessage in
@@ -61,7 +61,7 @@ final class TodoListViewModel: ObservableObject {
             errorMessage = nil
         } catch {
             tasksDatabaseURL = nil
-            errorMessage = "任务同步失败：\(error.localizedDescription)"
+            errorMessage = AppMessage(.taskSyncFailed, arguments: [error.localizedDescription])
         }
     }
 
@@ -78,7 +78,7 @@ final class TodoListViewModel: ObservableObject {
                 failed.syncStatus = .failed
                 return failed
             })
-            errorMessage = "任务更新失败：\(error.localizedDescription)"
+            errorMessage = AppMessage(.taskUpdateFailed, arguments: [error.localizedDescription])
         }
     }
 
@@ -88,7 +88,7 @@ final class TodoListViewModel: ObservableObject {
             tasks = TaskSorting.sort(tasks.map { $0.id == updated.id ? updated : $0 })
             errorMessage = nil
         } catch {
-            errorMessage = "重试失败：\(error.localizedDescription)"
+            errorMessage = AppMessage(.taskRetryFailed, arguments: [error.localizedDescription])
         }
     }
 
@@ -144,14 +144,14 @@ final class TodoListViewModel: ObservableObject {
 
         let trimmedTitle = editingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else {
-            errorMessage = "任务标题不能为空。"
+            errorMessage = AppMessage(.taskTitleRequired)
             return
         }
 
         let parsedEstimatedMinutes = parseEditingEstimatedMinutes()
         if !editingEstimatedMinutesText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            parsedEstimatedMinutes == nil {
-            editingEstimatedMinutesError = "预计时长需填写为大于 0 的分钟数"
+            editingEstimatedMinutesError = AppMessage(.estimatedMinutesInvalid)
             return
         }
         editingEstimatedMinutesError = nil
@@ -168,9 +168,9 @@ final class TodoListViewModel: ObservableObject {
             tasks = TaskSorting.sort(tasks.map { $0.id == updated.id ? updated : $0 })
             errorMessage = nil
             cancelEditing()
-            showToast(.success, message: "任务已更新")
+            showToast(.success, message: AppMessage(.taskUpdated))
         } catch {
-            errorMessage = "任务更新失败：\(error.localizedDescription)"
+            errorMessage = AppMessage(.taskUpdateFailed, arguments: [error.localizedDescription])
         }
     }
 
@@ -192,15 +192,15 @@ final class TodoListViewModel: ObservableObject {
             if editingTask?.id == task.id {
                 cancelEditing()
             }
-            showToast(.success, message: "任务已删除")
+            showToast(.success, message: AppMessage(.taskDeleted))
         } catch {
-            errorMessage = "任务删除失败：\(error.localizedDescription)"
+            errorMessage = AppMessage(.taskDeleteFailed, arguments: [error.localizedDescription])
         }
     }
 
     private func handleCreationFailure(_ pendingItem: PendingTaskItem, errorMessage: String) {
         showFailureHighlight = true
-        showToast(.taskCreateFailed, message: "⚠️ 创建失败：\(errorMessage)")
+        showToast(.taskCreateFailed, message: AppMessage(.taskCreateFailed, arguments: [errorMessage]))
 
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 1_000_000_000)
@@ -209,7 +209,7 @@ final class TodoListViewModel: ObservableObject {
         }
     }
 
-    private func showToast(_ kind: ToastKind, message: String) {
+    private func showToast(_ kind: ToastKind, message: AppMessage) {
         toast = ToastItem(kind: kind, message: message)
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 3_000_000_000)

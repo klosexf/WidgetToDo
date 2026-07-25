@@ -45,6 +45,74 @@ public enum AppText {
         case noTasksToday
         case noTasksOnDate
         case workspaceSynced
+        case appLoading
+        case startupFailed
+        case settingsLoadFailed
+        case welcomeTitle
+        case welcomePrefix
+        case welcomeNotion
+        case welcomeSuffix
+        case welcomeTagline
+        case startConfiguration
+        case initialConfiguration
+        case connectNotion
+        case connectNotionSubtitle
+        case onboardingDescription
+        case notionToken
+        case howToGet
+        case tokenPrompt
+        case tokenStoredSettings
+        case tokenStoredOnboarding
+        case pasteFullURL
+        case tasksDatabaseID
+        case tasksDatabase
+        case journalDatabaseID
+        case journalDatabase
+        case tasksDatabasePrompt
+        case journalDatabasePrompt
+        case resetConfiguration
+        case resetConfigurationDescription
+        case resetConfigurationConfirmation
+        case configurationSaved
+        case resettingConfiguration
+        case resetConfigurationFailed
+        case verifyAndContinue
+        case cancel
+        case deleteTask
+        case deleteTaskConfirmation
+        case deleteTaskArchiveMessage
+        case backToToday
+        case loadingTasks
+        case loadingJournal
+        case retry
+        case editTask
+        case newTask
+        case taskLabel
+        case taskTitleRequired
+        case dateLabel
+        case estimatedMinutesLabel
+        case minutesLabel
+        case estimatedMinutesInvalid
+        case create
+        case save
+        case taskUpdated
+        case taskDeleted
+        case taskCreated
+        case taskCreateFailed
+        case taskDeleteFailed
+        case taskRetryFailed
+        case journalSyncFailed
+        case journalSaveFailed
+        case syncSynced
+        case syncSyncing
+        case syncFailed
+        case syncPending
+        case todayTasks
+        case completedTasksCount
+        case todayJournal
+        case wordCount
+        case minutesValue
+        case settingsSceneHint
     }
 
     private static let translations: [AppLanguage: [Key: String]] = [
@@ -91,7 +159,75 @@ public enum AppText {
             .journalAutosaveHint: "2 秒后自动保存",
             .noTasksToday: "今天没有任务",
             .noTasksOnDate: "%@ 没有任务",
-            .workspaceSynced: "刚刚同步完成"
+            .workspaceSynced: "刚刚同步完成",
+            .appLoading: "正在加载 Notion Float...",
+            .startupFailed: "启动 Notion Float 失败：%@",
+            .settingsLoadFailed: "读取设置失败：%@",
+            .welcomeTitle: "欢迎使用 WidgetToDo",
+            .welcomePrefix: "一个常驻桌面的",
+            .welcomeNotion: "Notion",
+            .welcomeSuffix: "小窗口",
+            .welcomeTagline: "待办 · 日记 · 一目了然",
+            .startConfiguration: "开始配置",
+            .initialConfiguration: "初始配置",
+            .connectNotion: "连接 Notion",
+            .connectNotionSubtitle: "使用你的 Notion 工作区\n同步任务与日记内容",
+            .onboardingDescription: "这个版本需要一个 Notion 集成令牌，以及一个任务数据库和一个日记数据库。",
+            .notionToken: "Notion Token",
+            .howToGet: "如何获取？",
+            .tokenPrompt: "输入你的 Notion Token",
+            .tokenStoredSettings: "令牌只保存在本机钥匙串。",
+            .tokenStoredOnboarding: "令牌只保存在本机钥匙串中，安全加密存储。",
+            .pasteFullURL: "粘贴整个 URL 自动提取",
+            .tasksDatabaseID: "Tasks Database ID",
+            .tasksDatabase: "Tasks Database",
+            .journalDatabaseID: "Journal Database ID",
+            .journalDatabase: "Journal Database",
+            .tasksDatabasePrompt: "任务数据库 ID",
+            .journalDatabasePrompt: "日记数据库 ID",
+            .resetConfiguration: "初始化配置",
+            .resetConfigurationDescription: "清空当前保存的 Notion Token 与数据库配置，完成后返回欢迎页。不会清除本地缓存的任务和日记内容。",
+            .resetConfigurationConfirmation: "这会清空当前配置，不会清除本地缓存的任务和日记内容，完成后返回欢迎页。",
+            .configurationSaved: "配置已保存。",
+            .resettingConfiguration: "正在重置配置...",
+            .resetConfigurationFailed: "重置配置失败，请稍后重试。",
+            .verifyAndContinue: "验证并继续",
+            .cancel: "取消",
+            .deleteTask: "删除任务",
+            .deleteTaskConfirmation: "删除这个任务？",
+            .deleteTaskArchiveMessage: "删除后会在 Notion 中归档该任务，无法在这里直接恢复。",
+            .backToToday: "回到今天",
+            .loadingTasks: "正在加载任务...",
+            .loadingJournal: "正在加载日记...",
+            .retry: "重试",
+            .editTask: "编辑任务",
+            .newTask: "新建任务",
+            .taskLabel: "任务",
+            .taskTitleRequired: "任务标题不能为空。",
+            .dateLabel: "日期",
+            .estimatedMinutesLabel: "预计时长",
+            .minutesLabel: "分钟",
+            .estimatedMinutesInvalid: "预计时长需填写为大于 0 的分钟数",
+            .create: "创建",
+            .save: "保存",
+            .taskUpdated: "任务已更新",
+            .taskDeleted: "任务已删除",
+            .taskCreated: "已同步到 Notion",
+            .taskCreateFailed: "创建失败：%@",
+            .taskDeleteFailed: "任务删除失败：%@",
+            .taskRetryFailed: "重试失败：%@",
+            .journalSyncFailed: "日记同步失败：%@",
+            .journalSaveFailed: "日记保存失败：%@",
+            .syncSynced: "已同步",
+            .syncSyncing: "同步中",
+            .syncFailed: "失败",
+            .syncPending: "待同步",
+            .todayTasks: "今日待办",
+            .completedTasksCount: "%@/%@ 已完成",
+            .todayJournal: "今日日记",
+            .wordCount: "%@ 字",
+            .minutesValue: "%@ 分钟",
+            .settingsSceneHint: "使用菜单栏图标来显示或隐藏悬浮面板。"
         ],
         .english: [
             .languageSettingTitle: "Language",
@@ -136,7 +272,75 @@ public enum AppText {
             .journalAutosaveHint: "Auto-saves in 2 seconds",
             .noTasksToday: "No tasks today",
             .noTasksOnDate: "No tasks on %@",
-            .workspaceSynced: "Just synced"
+            .workspaceSynced: "Just synced",
+            .appLoading: "Loading Notion Float...",
+            .startupFailed: "Could not start Notion Float: %@",
+            .settingsLoadFailed: "Could not load settings: %@",
+            .welcomeTitle: "Welcome to WidgetToDo",
+            .welcomePrefix: "A desktop",
+            .welcomeNotion: "Notion",
+            .welcomeSuffix: "widget",
+            .welcomeTagline: "Tasks · Journal · At a glance",
+            .startConfiguration: "Get started",
+            .initialConfiguration: "Initial Setup",
+            .connectNotion: "Connect Notion",
+            .connectNotionSubtitle: "Use your Notion workspace\nto sync tasks and journal entries",
+            .onboardingDescription: "This version needs a Notion integration token, a tasks database, and a journal database.",
+            .notionToken: "Notion Token",
+            .howToGet: "How to get it?",
+            .tokenPrompt: "Enter your Notion Token",
+            .tokenStoredSettings: "Your token is stored only in the local Keychain.",
+            .tokenStoredOnboarding: "Your token is stored only in the local Keychain with secure encryption.",
+            .pasteFullURL: "Paste a full URL to extract it",
+            .tasksDatabaseID: "Tasks Database ID",
+            .tasksDatabase: "Tasks Database",
+            .journalDatabaseID: "Journal Database ID",
+            .journalDatabase: "Journal Database",
+            .tasksDatabasePrompt: "Tasks Database ID",
+            .journalDatabasePrompt: "Journal Database ID",
+            .resetConfiguration: "Reset Configuration",
+            .resetConfigurationDescription: "Clear the saved Notion Token and database configuration, then return to the welcome page. Local task and journal caches are not deleted.",
+            .resetConfigurationConfirmation: "This clears the current configuration and returns to the welcome page. Local task and journal caches are not deleted.",
+            .configurationSaved: "Configuration saved.",
+            .resettingConfiguration: "Resetting configuration...",
+            .resetConfigurationFailed: "Could not reset configuration. Please try again.",
+            .verifyAndContinue: "Verify and continue",
+            .cancel: "Cancel",
+            .deleteTask: "Delete Task",
+            .deleteTaskConfirmation: "Delete this task?",
+            .deleteTaskArchiveMessage: "This archives the task in Notion and it cannot be restored here.",
+            .backToToday: "Today",
+            .loadingTasks: "Loading tasks...",
+            .loadingJournal: "Loading journal...",
+            .retry: "Retry",
+            .editTask: "Edit Task",
+            .newTask: "New Task",
+            .taskLabel: "Task",
+            .taskTitleRequired: "Task title is required.",
+            .dateLabel: "Date",
+            .estimatedMinutesLabel: "Estimated time",
+            .minutesLabel: "minutes",
+            .estimatedMinutesInvalid: "Estimated time must be a positive number of minutes",
+            .create: "Create",
+            .save: "Save",
+            .taskUpdated: "Task updated",
+            .taskDeleted: "Task deleted",
+            .taskCreated: "Synced to Notion",
+            .taskCreateFailed: "Could not create task: %@",
+            .taskDeleteFailed: "Could not delete task: %@",
+            .taskRetryFailed: "Retry failed: %@",
+            .journalSyncFailed: "Journal sync failed: %@",
+            .journalSaveFailed: "Could not save journal: %@",
+            .syncSynced: "Synced",
+            .syncSyncing: "Syncing",
+            .syncFailed: "Failed",
+            .syncPending: "Waiting to sync",
+            .todayTasks: "Today's tasks",
+            .completedTasksCount: "%@/%@ completed",
+            .todayJournal: "Today's journal",
+            .wordCount: "%@ words",
+            .minutesValue: "%@ min",
+            .settingsSceneHint: "Use the menu bar icon to show or hide the floating panel."
         ],
         .french: [
             .languageSettingTitle: "Language",
@@ -181,7 +385,75 @@ public enum AppText {
             .journalAutosaveHint: "Enregistrement automatique dans 2 secondes",
             .noTasksToday: "Aucune tâche aujourd’hui",
             .noTasksOnDate: "Aucune tâche le %@",
-            .workspaceSynced: "Synchronisé à l’instant"
+            .workspaceSynced: "Synchronisé à l’instant",
+            .appLoading: "Chargement de Notion Float…",
+            .startupFailed: "Impossible de démarrer Notion Float : %@",
+            .settingsLoadFailed: "Impossible de charger les paramètres : %@",
+            .welcomeTitle: "Bienvenue dans WidgetToDo",
+            .welcomePrefix: "Un widget",
+            .welcomeNotion: "Notion",
+            .welcomeSuffix: "pour le bureau",
+            .welcomeTagline: "Tâches · Journal · En un coup d’œil",
+            .startConfiguration: "Commencer la configuration",
+            .initialConfiguration: "Configuration initiale",
+            .connectNotion: "Connecter Notion",
+            .connectNotionSubtitle: "Utilisez votre espace Notion\npour synchroniser tâches et journal",
+            .onboardingDescription: "Cette version nécessite un jeton d’intégration Notion, une base de tâches et une base de journal.",
+            .notionToken: "Jeton Notion",
+            .howToGet: "Comment l’obtenir ?",
+            .tokenPrompt: "Saisissez votre jeton Notion",
+            .tokenStoredSettings: "Votre jeton est stocké uniquement dans le trousseau local.",
+            .tokenStoredOnboarding: "Votre jeton est stocké uniquement dans le trousseau local, de façon chiffrée.",
+            .pasteFullURL: "Collez une URL complète pour l’extraire",
+            .tasksDatabaseID: "ID de la base Tasks",
+            .tasksDatabase: "Base Tasks",
+            .journalDatabaseID: "ID de la base Journal",
+            .journalDatabase: "Base Journal",
+            .tasksDatabasePrompt: "ID de la base Tasks",
+            .journalDatabasePrompt: "ID de la base Journal",
+            .resetConfiguration: "Réinitialiser la configuration",
+            .resetConfigurationDescription: "Efface le jeton Notion et la configuration des bases, puis revient à l’accueil. Les caches locaux des tâches et du journal ne sont pas supprimés.",
+            .resetConfigurationConfirmation: "Cette action efface la configuration actuelle puis revient à l’accueil. Les caches locaux des tâches et du journal ne sont pas supprimés.",
+            .configurationSaved: "Configuration enregistrée.",
+            .resettingConfiguration: "Réinitialisation de la configuration…",
+            .resetConfigurationFailed: "Impossible de réinitialiser la configuration. Réessayez.",
+            .verifyAndContinue: "Vérifier et continuer",
+            .cancel: "Annuler",
+            .deleteTask: "Supprimer la tâche",
+            .deleteTaskConfirmation: "Supprimer cette tâche ?",
+            .deleteTaskArchiveMessage: "La tâche sera archivée dans Notion et ne pourra pas être restaurée ici.",
+            .backToToday: "Aujourd’hui",
+            .loadingTasks: "Chargement des tâches…",
+            .loadingJournal: "Chargement du journal…",
+            .retry: "Réessayer",
+            .editTask: "Modifier la tâche",
+            .newTask: "Nouvelle tâche",
+            .taskLabel: "Tâche",
+            .taskTitleRequired: "Le titre de la tâche est obligatoire.",
+            .dateLabel: "Date",
+            .estimatedMinutesLabel: "Durée estimée",
+            .minutesLabel: "minutes",
+            .estimatedMinutesInvalid: "La durée estimée doit être un nombre positif de minutes",
+            .create: "Créer",
+            .save: "Enregistrer",
+            .taskUpdated: "Tâche mise à jour",
+            .taskDeleted: "Tâche supprimée",
+            .taskCreated: "Synchronisé avec Notion",
+            .taskCreateFailed: "Impossible de créer la tâche : %@",
+            .taskDeleteFailed: "Impossible de supprimer la tâche : %@",
+            .taskRetryFailed: "Échec de la nouvelle tentative : %@",
+            .journalSyncFailed: "Échec de la synchronisation du journal : %@",
+            .journalSaveFailed: "Impossible d’enregistrer le journal : %@",
+            .syncSynced: "Synchronisé",
+            .syncSyncing: "Synchronisation",
+            .syncFailed: "Échec",
+            .syncPending: "En attente de synchronisation",
+            .todayTasks: "Tâches du jour",
+            .completedTasksCount: "%@/%@ terminées",
+            .todayJournal: "Journal du jour",
+            .wordCount: "%@ mots",
+            .minutesValue: "%@ min",
+            .settingsSceneHint: "Utilisez l’icône de la barre des menus pour afficher ou masquer le panneau flottant."
         ]
     ]
 

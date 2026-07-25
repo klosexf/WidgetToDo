@@ -8,16 +8,17 @@ enum ToastKind: Equatable {
 struct ToastItem: Equatable, Identifiable {
     let id = UUID()
     let kind: ToastKind
-    let message: String
+    let message: AppMessage
 }
 
 struct ToastHostView: View {
     let toast: ToastItem?
+    @EnvironmentObject private var languageStore: LanguageStore
 
     var body: some View {
         Group {
             if let toast {
-                Text(toast.message)
+                Text(languageStore.text(toast.message))
                     .font(.system(size: 13))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16)
