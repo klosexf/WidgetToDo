@@ -2,7 +2,7 @@
 
 ## 2026-07-25 - Full application localization audit
 - 目标: 将所有应用自有的可见文字、操作、状态、校验提示与 Toast 切换为简体中文、英语、法语；固定保留 `Language` 与三种语言原生名称，不翻译用户/Notion 原始内容。
-- 状态: 进行中。已建立完整实施计划并完成第一批迁移：扩充三语目录；任务/日记的运行时错误、状态横幅与 Toast 改为延迟 `AppMessage` 渲染；待办/日记操作、加载与同步状态、表单、新手引导、欢迎页、迷你胶囊、原生 Settings 场景和 AppKit 启动提示已从 `LanguageStore` 读取。Core 配置与字段校验已改为返回语言无关的消息键；待处理 Notion 客户端的应用包装错误，以及最终全仓硬编码审计和三语言 UI 回测。
+- 状态: 进行中。已建立完整实施计划并完成第一批迁移：扩充三语目录；任务/日记的运行时错误、状态横幅与 Toast 改为延迟 `AppMessage` 渲染；待办/日记操作、加载与同步状态、表单、新手引导、欢迎页、迷你胶囊、原生 Settings 场景和 AppKit 启动提示已从 `LanguageStore` 读取。日记标题日期现明确将当前 `languageStore.language` 传给共享日期格式化器，避免英语/法语回退为默认中文。Core 配置与字段校验已改为返回语言无关的消息键；待处理 Notion 客户端的应用包装错误，以及最终全仓硬编码审计和三语言 UI 回测。
 - 最近验证:
   - RED（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter AppMessageLocalizationTests` — 如预期失败，缺少 `.taskUpdateFailed` 键。
   - GREEN（2026-07-25）: 同一命令通过，`Executed 4 tests, with 0 failures`；验证应用生成的错误包装随语言切换而原始 HTTP 详情保持不变。
@@ -10,6 +10,9 @@
   - Debug 构建（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` — 两次局部迁移后均通过，`** BUILD SUCCEEDED **`。
   - 配置校验（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter 'ConfigurationInputNormalizerTests|FieldMappingResolutionTests'` — 通过，`Executed 11 tests, with 0 failures`；验证配置校验返回消息键与原始参数，而非硬编码中文。
   - Debug 构建（2026-07-25，配置校验迁移后）: 同一 `xcodebuild` 命令通过，`** BUILD SUCCEEDED **`。
+  - 日记日期 RED/GREEN（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run NotionFloatCoreSmokeTests` 先按预期失败（缺少 `language: languageStore.language`），传入当前语言后通过，`All smoke tests passed.`；同时将既有 smoke 中已过时的中文硬编码断言迁移为语言键断言。
+  - 全量测试（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 通过，`Executed 46 tests, with 0 failures`。
+  - Debug 构建（2026-07-25，日记日期修复后）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` — 通过，`** BUILD SUCCEEDED **`。
 - 风险/回滚点: 当前批次只变更应用端显示文案与内存消息类型；不改 Notion API、字段名、令牌/缓存数据。可分别回退提交 `068e53e` 与 `3fd2a57`；最终完成前仍需全量测试、smoke 与三语言安全 UI 回测。
 
 ## 2026-07-24 - Onboarding language selector

@@ -1802,7 +1802,7 @@ struct FloatingWidgetView: View {
     }
 
     private func journalDateString(from date: Date) -> String {
-        TodoDateDisplayFormatter.title(for: date)
+        TodoDateDisplayFormatter.title(for: date, language: languageStore.language)
     }
 
     private func headerActionIcon(systemName: String) -> some View {

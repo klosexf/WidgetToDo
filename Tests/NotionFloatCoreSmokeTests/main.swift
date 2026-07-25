@@ -31,7 +31,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try journalHeaderContainsManualSyncButton()
             try journalAutosaveDoesNotCancelAnInFlightWrite()
             try journalOpenInNotionButtonSitsBesideHeaderSyncButton()
-            try journalDateUsesChineseDisplayFormat()
+            try journalDateUsesSelectedLanguage()
             try journalEditorTypographyUsesRelaxedEditorRhythm()
             try todoAndJournalPanelsUseHtmlReferenceBorderWidth()
             try todoDateNavigationKeepsArrowSpacingStable()
@@ -509,7 +509,7 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
     }
 
-    static func journalDateUsesChineseDisplayFormat() throws {
+    static func journalDateUsesSelectedLanguage() throws {
         let rootURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -520,8 +520,8 @@ struct NotionFloatCoreSmokeTestsRunner {
         let source = try String(contentsOf: contentViewURL, encoding: .utf8)
 
         try expect(
-            source.contains("TodoDateDisplayFormatter.title(for: date)"),
-            "journal date should reuse the todo date display formatter"
+            source.contains("TodoDateDisplayFormatter.title(for: date, language: languageStore.language)"),
+            "journal date should reuse the todo date formatter with the selected language"
         )
         try expect(
             !source.contains("formatter.dateFormat = \"yyyy年M月d日\""),
@@ -786,16 +786,16 @@ struct NotionFloatCoreSmokeTestsRunner {
             "configuration form should keep the secure token field binding"
         )
         try expect(
-            source.contains("accessibilityLabel(\"Notion Token\")"),
+            source.contains("accessibilityLabel(languageStore.text(.notionToken))"),
             "configuration form should keep an accessibility label for the token field"
         )
         try expect(
-            source.contains("Text(\"如何获取？\")"),
-            "configuration form should include token help copy"
+            source.contains("Text(languageStore.text(.howToGet))"),
+            "configuration form should localize the token help copy"
         )
         try expect(
-            source.contains("Text(\"粘贴整个URL自动提取\")"),
-            "database sections should explain automatic URL extraction"
+            source.contains("Text(languageStore.text(.pasteFullURL))"),
+            "database sections should localize automatic URL extraction copy"
         )
         try expect(
             source.contains("activeDatabaseHelpTopic = .tasks") &&
@@ -814,13 +814,13 @@ struct NotionFloatCoreSmokeTestsRunner {
             "database help sheets and widget tabs should use language-aware text keys"
         )
         try expect(
-            source.contains("这个日记数据库至少需要这些字段类型：1 个 title、1 个 date。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。") &&
-                source.contains("日记正文会自动保存到对应日记页面中，不需要额外创建文本字段。"),
-            "journal database help should explain the required fields and page-body storage"
+            source.contains("Text(languageStore.text(.journalHelpStep3))") &&
+                source.contains("Text(languageStore.text(.journalHelpStep4))"),
+            "journal database help should localize required-fields and page-body-storage guidance"
         )
         try expect(
-            source.contains("日记推荐使用画廊视图展示，便于浏览和回顾。"),
-            "journal database help should recommend the gallery view"
+            source.contains("Text(languageStore.text(.journalHelpStep5))"),
+            "journal database help should localize the gallery-view recommendation"
         )
         try expect(
             source.contains("mode: .onboarding,") && source.contains("rootViewModel.screen = .welcome"),
@@ -1126,8 +1126,8 @@ struct NotionFloatCoreSmokeTestsRunner {
             "onboarding alignment refresh must keep the validate-and-save action"
         )
         try expect(
-            primaryButtonScope.contains("mode == .settings ? \"保存设置\" : \"验证并继续\""),
-            "onboarding alignment refresh must keep the existing CTA copy contract"
+            primaryButtonScope.contains("Text(languageStore.text(mode == .settings ? .saveSettings : .verifyAndContinue))"),
+            "onboarding alignment refresh must localize its CTA copy"
         )
     }
 
@@ -1161,12 +1161,12 @@ struct NotionFloatCoreSmokeTestsRunner {
         }
 
         try expect(
-            contentSource.contains("初始化配置"),
-            "settings UI should expose the reset configuration entry point"
+            contentSource.contains("languageStore.text(.resetConfiguration)"),
+            "settings UI should localize the reset configuration entry point"
         )
         try expect(
-            contentSource.contains("不会清除本地缓存的任务和日记内容"),
-            "settings reset confirmation should explain local cache remains intact"
+            contentSource.contains("languageStore.text(.resetConfigurationConfirmation)"),
+            "settings reset confirmation should localize the local-cache explanation"
         )
         try expect(
             contentSource.contains("showingResetConfirmation"),
@@ -1242,12 +1242,8 @@ struct NotionFloatCoreSmokeTestsRunner {
         let source = try String(contentsOf: contentViewURL, encoding: .utf8)
 
         try expect(
-            source.contains("TodoDateDisplayFormatter.title(for: todoViewModel.selectedDate)"),
-            "todo date title should delegate to the shared formatter"
-        )
-        try expect(
-            source.contains("TodoDateDisplayFormatter.emptyStateTitle(for: todoViewModel.selectedDate)"),
-            "todo empty state should delegate to the shared formatter"
+            source.components(separatedBy: "for: todoViewModel.selectedDate,\n            language: languageStore.language").count - 1 == 2,
+            "todo date title and empty state should both delegate to the shared formatter with the selected language"
         )
         try todoDateNavigationKeepsArrowSpacingStable()
     }
