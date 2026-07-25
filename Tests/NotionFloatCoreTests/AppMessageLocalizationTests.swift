@@ -28,4 +28,13 @@ final class AppMessageLocalizationTests: XCTestCase {
         XCTAssertEqual(AppText.string(.workspaceSynced, language: .english), "Just synced")
         XCTAssertEqual(AppText.string(.workspaceSynced, language: .french), "Synchronisé à l’instant")
     }
+
+    func testTaskUpdateFailureKeepsRawDetailWhileLocalizingItsWrapper() {
+        let message = AppMessage(.taskUpdateFailed, arguments: ["HTTP 401"])
+
+        XCTAssertEqual(message.string(in: .simplifiedChinese), "任务更新失败：HTTP 401")
+        XCTAssertEqual(message.string(in: .english), "Task update failed: HTTP 401")
+        XCTAssertEqual(message.string(in: .french), "Échec de la mise à jour de la tâche : HTTP 401")
+    }
+
 }

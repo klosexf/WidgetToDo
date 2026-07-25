@@ -10,6 +10,7 @@ public enum AppText {
         case quit
         case appTitle
         case taskSyncFailed
+        case taskUpdateFailed
         case close
         case openNotion
         case openNotionIntegrations
@@ -56,6 +57,7 @@ public enum AppText {
             .quit: "退出",
             .appTitle: "Notion 浮窗",
             .taskSyncFailed: "任务同步失败：%@",
+            .taskUpdateFailed: "任务更新失败：%@",
             .close: "关闭",
             .openNotion: "打开 Notion",
             .openNotionIntegrations: "打开 Notion integrations",
@@ -100,6 +102,7 @@ public enum AppText {
             .quit: "Quit",
             .appTitle: "Notion Widget",
             .taskSyncFailed: "Task sync failed: %@",
+            .taskUpdateFailed: "Task update failed: %@",
             .close: "Close",
             .openNotion: "Open Notion",
             .openNotionIntegrations: "Open Notion integrations",
@@ -144,6 +147,7 @@ public enum AppText {
             .quit: "Quitter",
             .appTitle: "Widget Notion",
             .taskSyncFailed: "Échec de la synchronisation des tâches : %@",
+            .taskUpdateFailed: "Échec de la mise à jour de la tâche : %@",
             .close: "Fermer",
             .openNotion: "Ouvrir Notion",
             .openNotionIntegrations: "Ouvrir les intégrations Notion",
