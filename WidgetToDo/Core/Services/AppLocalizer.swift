@@ -113,6 +113,12 @@ public enum AppText {
         case wordCount
         case minutesValue
         case settingsSceneHint
+        case missingToken
+        case invalidTasksDatabaseInput
+        case invalidJournalDatabaseInput
+        case missingRequiredFieldType
+        case duplicateRequiredField
+        case fieldMappingFailed
     }
 
     private static let translations: [AppLanguage: [Key: String]] = [
@@ -227,7 +233,13 @@ public enum AppText {
             .todayJournal: "今日日记",
             .wordCount: "%@ 字",
             .minutesValue: "%@ 分钟",
-            .settingsSceneHint: "使用菜单栏图标来显示或隐藏悬浮面板。"
+            .settingsSceneHint: "使用菜单栏图标来显示或隐藏悬浮面板。",
+            .missingToken: "请填写 Notion Token。",
+            .invalidTasksDatabaseInput: "Tasks Database ID 或 URL 无效。",
+            .invalidJournalDatabaseInput: "Journal Database ID 或 URL 无效。",
+            .missingRequiredFieldType: "缺少必填字段类型：%@",
+            .duplicateRequiredField: "存在多个%@字段：%@；请仅保留一个 %@ 字段。",
+            .fieldMappingFailed: "数据库字段映射解析失败。"
         ],
         .english: [
             .languageSettingTitle: "Language",
@@ -340,7 +352,13 @@ public enum AppText {
             .todayJournal: "Today's journal",
             .wordCount: "%@ words",
             .minutesValue: "%@ min",
-            .settingsSceneHint: "Use the menu bar icon to show or hide the floating panel."
+            .settingsSceneHint: "Use the menu bar icon to show or hide the floating panel.",
+            .missingToken: "Enter a Notion Token.",
+            .invalidTasksDatabaseInput: "The Tasks Database ID or URL is invalid.",
+            .invalidJournalDatabaseInput: "The Journal Database ID or URL is invalid.",
+            .missingRequiredFieldType: "Missing required property type: %@",
+            .duplicateRequiredField: "Multiple %@ properties were found: %@. Keep exactly one %@ property.",
+            .fieldMappingFailed: "Could not resolve the database field mapping."
         ],
         .french: [
             .languageSettingTitle: "Language",
@@ -453,7 +471,13 @@ public enum AppText {
             .todayJournal: "Journal du jour",
             .wordCount: "%@ mots",
             .minutesValue: "%@ min",
-            .settingsSceneHint: "Utilisez l’icône de la barre des menus pour afficher ou masquer le panneau flottant."
+            .settingsSceneHint: "Utilisez l’icône de la barre des menus pour afficher ou masquer le panneau flottant.",
+            .missingToken: "Saisissez un jeton Notion.",
+            .invalidTasksDatabaseInput: "L’ID ou l’URL de la base Tasks est invalide.",
+            .invalidJournalDatabaseInput: "L’ID ou l’URL de la base Journal est invalide.",
+            .missingRequiredFieldType: "Type de propriété requis manquant : %@",
+            .duplicateRequiredField: "Plusieurs propriétés %@ ont été trouvées : %@. Conservez exactement une propriété %@.",
+            .fieldMappingFailed: "Impossible de résoudre le mappage des champs de la base."
         ]
     ]
 

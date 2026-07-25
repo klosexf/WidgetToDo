@@ -29,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             scheduleDeferredInstanceCleanup()
         } catch {
             let alert = NSAlert()
-            alert.messageText = "启动 Notion Float 失败"
+            alert.messageText = LanguageStore.shared.text(.startupFailed, error.localizedDescription)
             alert.informativeText = error.localizedDescription
             alert.runModal()
             NSApp.terminate(nil)
