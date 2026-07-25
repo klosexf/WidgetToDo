@@ -1,5 +1,15 @@
 # Progress
 
+## 2026-07-25 - Full application localization audit
+- 目标: 将所有应用自有的可见文字、操作、状态、校验提示与 Toast 切换为简体中文、英语、法语；固定保留 `Language` 与三种语言原生名称，不翻译用户/Notion 原始内容。
+- 状态: 进行中。已建立完整实施计划并完成第一批迁移：扩充三语目录；任务/日记的运行时错误、状态横幅与 Toast 改为延迟 `AppMessage` 渲染；待办/日记操作、加载与同步状态、表单、新手引导、欢迎页、迷你胶囊和原生 Settings 场景已从 `LanguageStore` 读取。待迁移 Core 配置与字段校验、AppKit 启动提示，以及最终全仓硬编码审计和三语言 UI 回测。
+- 最近验证:
+  - RED（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter AppMessageLocalizationTests` — 如预期失败，缺少 `.taskUpdateFailed` 键。
+  - GREEN（2026-07-25）: 同一命令通过，`Executed 4 tests, with 0 failures`；验证应用生成的错误包装随语言切换而原始 HTTP 详情保持不变。
+  - 目录完整性（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter AppLanguageTests` — 通过，`Executed 2 tests, with 0 failures`；三语目录包含全部键，`Language` 与语言选项名称不变。
+  - Debug 构建（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` — 两次局部迁移后均通过，`** BUILD SUCCEEDED **`。
+- 风险/回滚点: 当前批次只变更应用端显示文案与内存消息类型；不改 Notion API、字段名、令牌/缓存数据。可分别回退提交 `068e53e` 与 `3fd2a57`；最终完成前仍需全量测试、smoke 与三语言安全 UI 回测。
+
 ## 2026-07-24 - Onboarding language selector
 - 目标: 在首次初始化页复用 Settings 已有的 `Language` 选择行，支持 `简体中文`、`English`、`Français`，选择后立即刷新并保持原有独立持久化行为；语言行位于“连接 Notion”说明之后、`Notion 令牌` 之前，并移除初始化页和设置页共用的上下箭头图标。
 - 非目标: 不新增语言选项或持久化结构；不修改 Notion 配置校验、Token/Keychain、缓存、API、`Package.swift`、Xcode 工程或 entitlements。
