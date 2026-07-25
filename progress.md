@@ -11,6 +11,7 @@
   - 配置校验（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter 'ConfigurationInputNormalizerTests|FieldMappingResolutionTests'` — 通过，`Executed 11 tests, with 0 failures`；验证配置校验返回消息键与原始参数，而非硬编码中文。
   - Debug 构建（2026-07-25，配置校验迁移后）: 同一 `xcodebuild` 命令通过，`** BUILD SUCCEEDED **`。
   - 日记日期 RED/GREEN（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run NotionFloatCoreSmokeTests` 先按预期失败（缺少 `language: languageStore.language`），传入当前语言后通过，`All smoke tests passed.`；同时将既有 smoke 中已过时的中文硬编码断言迁移为语言键断言。
+  - 迷你胶囊英文标题（2026-07-25）: `WidgetToDo/MiniCapsuleViews.swift` 为共享标题添加单行、缩放与布局优先级约束，覆盖 `Today's tasks` / `Today's journal`；精确源码检查先红后绿。`swift test --disable-sandbox` 通过（46 tests），Debug 构建通过；桌面迷你模式英文肉眼回测待在安全运行实例中完成。
   - 全量测试（2026-07-25）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 通过，`Executed 46 tests, with 0 failures`。
   - Debug 构建（2026-07-25，日记日期修复后）: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` — 通过，`** BUILD SUCCEEDED **`。
 - 风险/回滚点: 当前批次只变更应用端显示文案与内存消息类型；不改 Notion API、字段名、令牌/缓存数据。可分别回退提交 `068e53e` 与 `3fd2a57`；最终完成前仍需全量测试、smoke 与三语言安全 UI 回测。

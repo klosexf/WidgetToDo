@@ -16,10 +16,14 @@ struct MiniCapsuleContainer<Leading: View>: View {
                 Text(title)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(MiniCapsulePalette.titleText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .layoutPriority(1)
                 Text(subtitle)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(MiniCapsulePalette.subtitleText)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer()
 
