@@ -105,7 +105,7 @@ public actor NotionRepository {
         }
 
         guard let tasksFieldMapping, let journalFieldMapping else {
-            throw NotionRepositoryError.validationFailed([ValidationIssue(message: "数据库字段映射解析失败。")])
+            throw NotionRepositoryError.validationFailed([ValidationIssue(.fieldMappingFailed)])
         }
 
         let hasPriorityField = tasksFieldMapping.priority != nil
@@ -378,7 +378,7 @@ extension NotionRepositoryError: LocalizedError {
         case let .invalidDatabaseInput(message):
             return message
         case let .validationFailed(issues):
-            let details = issues.map(\.message).joined(separator: "；")
+            let details = issues.map { $0.message.string(in: .default) }.joined(separator: "；")
             return "数据库字段校验失败：\(details)"
         case let .missingCacheRecord(message):
             return message

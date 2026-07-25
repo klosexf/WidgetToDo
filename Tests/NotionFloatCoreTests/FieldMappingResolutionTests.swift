@@ -41,7 +41,8 @@ final class FieldMappingResolutionTests: XCTestCase {
 
         switch result {
         case let .failure(issues):
-            XCTAssertEqual(issues.map(\.message), ["缺少必填字段类型：date"])
+            XCTAssertEqual(issues.map(\.message.key), [.missingRequiredFieldType])
+            XCTAssertEqual(issues.map(\.message.arguments), [["date"]])
         default:
             XCTFail("Expected missing date type failure")
         }
@@ -61,9 +62,10 @@ final class FieldMappingResolutionTests: XCTestCase {
         switch result {
         case let .failure(issues):
             XCTAssertEqual(
-                issues.map(\.message),
-                ["存在多个任务日期字段：开始时间、截止时间，请仅保留一个 date 字段用于任务日期。"]
+                issues.map(\.message.key),
+                [.duplicateRequiredField]
             )
+            XCTAssertEqual(issues.map(\.message.arguments), [["date", "开始时间, 截止时间", "date"]])
         default:
             XCTFail("Expected ambiguous task date field failure")
         }

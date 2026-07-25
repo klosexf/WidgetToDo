@@ -23,7 +23,7 @@ final class ConfigurationInputNormalizerTests: XCTestCase {
         XCTAssertNil(ConfigurationInputNormalizer.normalizeDatabaseInput("https://www.notion.so/not-a-database"))
     }
 
-    func testValidateReportsChineseMessagesForMissingAndInvalidFields() {
+    func testValidateReportsLanguageIndependentMessageKeysForMissingAndInvalidFields() {
         let issues = ConfigurationInputNormalizer.validate(
             token: " ",
             tasksInput: "invalid-tasks",
@@ -31,11 +31,11 @@ final class ConfigurationInputNormalizerTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            issues.map(\.message),
+            issues.map(\.message.key),
             [
-                "请填写 Notion Token。",
-                "Tasks Database ID 或 URL 无效。",
-                "Journal Database ID 或 URL 无效。"
+                .missingToken,
+                .invalidTasksDatabaseInput,
+                .invalidJournalDatabaseInput
             ]
         )
     }

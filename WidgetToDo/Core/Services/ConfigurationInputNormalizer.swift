@@ -9,15 +9,15 @@ public enum ConfigurationInputNormalizer {
         var issues: [ValidationIssue] = []
 
         if token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            issues.append(ValidationIssue(message: "请填写 Notion Token。"))
+            issues.append(ValidationIssue(.missingToken))
         }
 
         if normalizeDatabaseInput(tasksInput) == nil {
-            issues.append(ValidationIssue(message: "Tasks Database ID 或 URL 无效。"))
+            issues.append(ValidationIssue(.invalidTasksDatabaseInput))
         }
 
         if normalizeDatabaseInput(journalInput) == nil {
-            issues.append(ValidationIssue(message: "Journal Database ID 或 URL 无效。"))
+            issues.append(ValidationIssue(.invalidJournalDatabaseInput))
         }
 
         return issues

@@ -7,10 +7,10 @@ public enum DataSourceKind: String, Codable, Sendable {
 
 public struct ValidationIssue: Equatable, Sendable, Identifiable {
     public let id = UUID()
-    public let message: String
+    public let message: AppMessage
 
-    public init(message: String) {
-        self.message = message
+    public init(_ key: AppText.Key, arguments: [String] = []) {
+        message = AppMessage(key, arguments: arguments)
     }
 }
 
@@ -36,9 +36,9 @@ public enum FieldValidator {
 
     private static func resolveTasks(_ properties: [NotionPropertySchema]) -> FieldResolution {
         var issues: [ValidationIssue] = []
-        let title = resolveRequiredField(in: properties, type: "title", label: "任务标题", issues: &issues)
-        let date = resolveRequiredField(in: properties, type: "date", label: "任务日期", issues: &issues)
-        let done = resolveRequiredField(in: properties, type: "checkbox", label: "任务完成状态", issues: &issues)
+        let title = resolveRequiredField(in: properties, type: "title", issues: &issues)
+        let date = resolveRequiredField(in: properties, type: "date", issues: &issues)
+        let done = resolveRequiredField(in: properties, type: "checkbox", issues: &issues)
 
         guard let title, let date, let done, issues.isEmpty else {
             return .failure(issues)
@@ -58,8 +58,8 @@ public enum FieldValidator {
 
     private static func resolveJournal(_ properties: [NotionPropertySchema]) -> FieldResolution {
         var issues: [ValidationIssue] = []
-        let title = resolveRequiredField(in: properties, type: "title", label: "日记标题", issues: &issues)
-        let date = resolveRequiredField(in: properties, type: "date", label: "日记日期", issues: &issues)
+        let title = resolveRequiredField(in: properties, type: "title", issues: &issues)
+        let date = resolveRequiredField(in: properties, type: "date", issues: &issues)
 
         guard let title, let date, issues.isEmpty else {
             return .failure(issues)
@@ -71,20 +71,20 @@ public enum FieldValidator {
     private static func resolveRequiredField(
         in properties: [NotionPropertySchema],
         type: String,
-        label: String,
         issues: inout [ValidationIssue]
     ) -> String? {
         let candidates = propertyNames(in: properties, matching: type)
         switch candidates.count {
         case 0:
-            issues.append(ValidationIssue(message: "缺少必填字段类型：\(type)"))
+            issues.append(ValidationIssue(.missingRequiredFieldType, arguments: [type]))
             return nil
         case 1:
             return candidates[0]
         default:
             issues.append(
                 ValidationIssue(
-                    message: "存在多个\(label)字段：\(candidates.joined(separator: "、"))，请仅保留一个 \(type) 字段用于\(label)。"
+                    .duplicateRequiredField,
+                    arguments: [type, candidates.joined(separator: ", "), type]
                 )
             )
             return nil

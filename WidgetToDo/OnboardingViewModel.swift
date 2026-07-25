@@ -18,7 +18,7 @@ final class OnboardingViewModel: ObservableObject {
     @Published var token = ""
     @Published var tasksDatabaseInput = ""
     @Published var journalDatabaseInput = ""
-    @Published var statusMessage: String?
+    @Published var statusMessage: AppMessage?
     @Published var statusMessageKey: AppText.Key?
     @Published var isWorking = false
     @Published var isErrorState = false
@@ -52,7 +52,7 @@ final class OnboardingViewModel: ObservableObject {
         )
         guard issues.isEmpty else {
             statusMessageKey = nil
-            statusMessage = issues.map(\.message).joined(separator: "\n")
+            statusMessage = issues.first?.message
             isErrorState = true
             return
         }
@@ -67,20 +67,20 @@ final class OnboardingViewModel: ObservableObject {
                 journalInput: journalDatabaseInput
             )
             statusMessageKey = nil
-            statusMessage = "配置已保存。"
+            statusMessage = AppMessage(.configurationSaved)
             isErrorState = false
             didFinishSetup?()
         } catch let NotionRepositoryError.validationFailed(issues) {
             statusMessageKey = nil
-            statusMessage = issues.map(\.message).joined(separator: "\n")
+            statusMessage = issues.first?.message
             isErrorState = true
         } catch let NotionRepositoryError.invalidDatabaseInput(message) {
             statusMessageKey = nil
-            statusMessage = message
+            statusMessage = AppMessage(.fieldMappingFailed, arguments: [message])
             isErrorState = true
         } catch {
             statusMessageKey = nil
-            statusMessage = error.localizedDescription
+            statusMessage = AppMessage(.fieldMappingFailed, arguments: [error.localizedDescription])
             isErrorState = true
         }
     }
@@ -106,7 +106,7 @@ final class OnboardingViewModel: ObservableObject {
     func resetConfigurationForRestart() async throws {
         isWorking = true
         statusMessageKey = nil
-        statusMessage = "正在重置配置..."
+        statusMessage = AppMessage(.resettingConfiguration)
         isErrorState = false
         defer { isWorking = false }
 

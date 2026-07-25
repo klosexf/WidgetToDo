@@ -87,7 +87,8 @@ struct NotionFloatCoreSmokeTestsRunner {
         switch result {
         case let .failure(issues):
             try expect(
-                issues.map(\.message) == ["缺少必填字段类型：date"],
+                issues.map(\.message.key) == [.missingRequiredFieldType]
+                    && issues.map(\.message.arguments) == [["date"]],
                 "task schema validation should report the missing required type"
             )
         default:
@@ -131,7 +132,8 @@ struct NotionFloatCoreSmokeTestsRunner {
         switch result {
         case let .failure(issues):
             try expect(
-                issues.map(\.message) == ["存在多个任务日期字段：开始时间、截止时间，请仅保留一个 date 字段用于任务日期。"],
+                issues.map(\.message.key) == [.duplicateRequiredField]
+                    && issues.map(\.message.arguments) == [["date", "开始时间, 截止时间", "date"]],
                 "task schema validation should report ambiguous date fields with readable names"
             )
         default:
@@ -217,13 +219,13 @@ struct NotionFloatCoreSmokeTestsRunner {
     static func notionRepositoryValidationErrorExposesReadableDescription() throws {
         let error = NotionRepositoryError.validationFailed(
             [
-                ValidationIssue(message: "缺少必填字段：Name(title)"),
-                ValidationIssue(message: "缺少必填字段类型：date")
+                ValidationIssue(.missingRequiredFieldType, arguments: ["Name(title)"]),
+                ValidationIssue(.missingRequiredFieldType, arguments: ["date"])
             ]
         )
 
         try expect(
-            error.localizedDescription == "数据库字段校验失败：缺少必填字段：Name(title)；缺少必填字段类型：date",
+            error.localizedDescription == "数据库字段校验失败：缺少必填字段类型：Name(title)；缺少必填字段类型：date",
             "repository validation errors should join validation issues into one readable message"
         )
     }

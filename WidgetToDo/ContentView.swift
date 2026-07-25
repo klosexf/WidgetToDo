@@ -264,7 +264,7 @@ final class RootViewModel: ObservableObject {
                 }
             } catch {
                 self?.onboardingViewModel.statusMessageKey = nil
-                self?.onboardingViewModel.statusMessage = "读取设置失败：\(error.localizedDescription)"
+                self?.onboardingViewModel.statusMessage = AppMessage(.settingsLoadFailed, arguments: [error.localizedDescription])
                 self?.onboardingViewModel.isErrorState = true
             }
         }
@@ -281,7 +281,7 @@ final class RootViewModel: ObservableObject {
             } catch {
                 self?.languageStore.apply(previousLanguage)
                 self?.onboardingViewModel.statusMessageKey = nil
-                self?.onboardingViewModel.statusMessage = self?.languageStore.text(.savingLanguageFailed)
+                self?.onboardingViewModel.statusMessage = AppMessage(.savingLanguageFailed)
                 self?.onboardingViewModel.isErrorState = true
             }
         }
@@ -296,7 +296,7 @@ final class RootViewModel: ObservableObject {
             screen = .welcome
         } catch {
             onboardingViewModel.statusMessageKey = nil
-            onboardingViewModel.statusMessage = error.localizedDescription
+            onboardingViewModel.statusMessage = AppMessage(.resetConfigurationFailed)
             onboardingViewModel.isErrorState = true
         }
     }
@@ -379,7 +379,7 @@ struct OnboardingView: View {
                         if let messageKey = viewModel.statusMessageKey {
                             statusBanner(message: languageStore.text(messageKey))
                         } else if let message = viewModel.statusMessage {
-                            statusBanner(message: message)
+                            statusBanner(message: languageStore.text(message))
                         }
 
                         if mode == .settings {
@@ -2239,7 +2239,7 @@ private func makePreviewOnboardingViewModel() -> OnboardingViewModel {
     viewModel.token = "secret_preview_token"
     viewModel.tasksDatabaseInput = "任务数据库 ID"
     viewModel.journalDatabaseInput = "日记数据库 ID"
-    viewModel.statusMessage = "请填写 Notion 集成令牌以及两个数据库引用。"
+    viewModel.statusMessage = AppMessage(.missingToken)
     return viewModel
 }
 
