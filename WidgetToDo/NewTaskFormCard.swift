@@ -21,21 +21,22 @@ enum NewTaskFormPalette {
     static let validationBorder = Color.red.opacity(0.85)
     static let focusBorder = Color(red: 0.35, green: 0.61, blue: 0.93)
     static let accent = Color.accentColor
-    static let primaryButtonFill = Color(red: 0.20, green: 0.48, blue: 0.96)
+    static let primaryButtonFill = Color(red: 0.204, green: 0.192, blue: 0.180)
     static let primaryButtonText = Color.white
-    static let secondaryButtonFill = Color(red: 0.85, green: 0.84, blue: 0.82)
-    static let secondaryButtonText = Color(red: 0.22, green: 0.21, blue: 0.19)
+    static let secondaryButtonFill = Color.white
+    static let secondaryButtonBorder = Color(red: 0.886, green: 0.859, blue: 0.824)
+    static let secondaryButtonText = Color(red: 0.365, green: 0.333, blue: 0.306)
 }
 
 struct NewTaskPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(size: 12, weight: .bold))
             .foregroundStyle(NewTaskFormPalette.primaryButtonText)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity)
+            .frame(height: 38)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(NewTaskFormPalette.primaryButtonFill.opacity(configuration.isPressed ? 0.85 : 1))
             )
     }
@@ -44,13 +45,17 @@ struct NewTaskPrimaryButtonStyle: ButtonStyle {
 struct NewTaskSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(size: 12, weight: .bold))
             .foregroundStyle(NewTaskFormPalette.secondaryButtonText)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity)
+            .frame(height: 38)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(NewTaskFormPalette.secondaryButtonFill.opacity(configuration.isPressed ? 0.85 : 1))
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(NewTaskFormPalette.secondaryButtonFill.opacity(configuration.isPressed ? 0.92 : 1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(NewTaskFormPalette.secondaryButtonBorder, lineWidth: 1)
             )
     }
 }
@@ -215,9 +220,7 @@ struct NewTaskFormCard: View {
                 }
             }
 
-            HStack(spacing: 10) {
-                Spacer()
-
+            HStack(spacing: 8) {
                 Button(languageStore.text(.cancel)) {
                     viewModel.dismissForm()
                 }

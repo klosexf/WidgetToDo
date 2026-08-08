@@ -91,6 +91,54 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
         XCTAssertEqual(cached.estimatedMinutes, 90)
     }
 
+    /// 番茄钟累计写回契约：任务原有时长 45 分钟，完成一轮 25 分钟后，
+    /// 视图层计算 `45 + 25 = 70` 并复用现有 `updateTaskTitle` 写入；
+    /// 返回值与缓存必须为 70，请求体必须命中已映射的 number 字段。
+    func testPomodoroAccumulationWritesCumulativeDurationToExistingField() async throws {
+        let task = TaskItem(
+            id: "task-pomodoro",
+            title: "写 WidgetToDo PRD",
+            isDone: false,
+            priority: "High",
+            estimatedMinutes: 45,
+            date: ISO8601DateFormatter().date(from: "2026-05-21T00:00:00Z")!,
+            url: URL(string: "https://www.notion.so/task-pomodoro"),
+            syncStatus: .synced
+        )
+        let responseBody = """
+        {
+          "id": "\(task.id)",
+          "url": "https://www.notion.so/task-pomodoro",
+          "properties": {
+            "任务标题": { "title": [{ "plain_text": "写 WidgetToDo PRD" }] },
+            "计划日期": { "date": { "start": "2026-05-21" } },
+            "已完成": { "checkbox": false },
+            "任务优先级": { "select": { "name": "High" } },
+            "预计时长": { "number": 70 }
+          }
+        }
+        """
+        let harness = try await makeHarness(responseStatusCode: 200, responseBody: responseBody)
+        try harness.cache.upsert(task)
+
+        let newTotal = (task.estimatedMinutes ?? 0) + 25
+        let updated = try await harness.repository.updateTaskTitle(
+            id: task.id,
+            title: task.title,
+            estimatedMinutes: newTotal
+        )
+
+        XCTAssertEqual(newTotal, 70)
+        XCTAssertEqual(updated.estimatedMinutes, 70)
+        XCTAssertEqual(updated.syncStatus, .synced)
+        let requestBody = try XCTUnwrap(MockURLProtocol.lastRequestBody)
+        XCTAssertTrue(requestBody.contains(#""预计时长""#), "累计写回应复用已映射的 number 字段名")
+        XCTAssertTrue(requestBody.contains(#""number":70"#), "请求体应携带累计后的 70 分钟")
+        let cached = try XCTUnwrap(harness.cache.task(id: task.id))
+        XCTAssertEqual(cached.estimatedMinutes, 70)
+        XCTAssertEqual(cached.syncStatus, .synced)
+    }
+
     func testUpdateTaskTitleMarksCacheFailedWhenRemoteWriteFails() async throws {
         let task = makeTask()
         let harness = try await makeHarness(

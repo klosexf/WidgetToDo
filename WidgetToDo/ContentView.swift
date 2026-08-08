@@ -1096,11 +1096,11 @@ private enum FloatingWidgetPalette {
     static let checkboxBorder = Color(red: 0.741, green: 0.714, blue: 0.686)
     static let checkboxCompleteTop = Color(red: 0.49, green: 0.835, blue: 0.427)
     static let checkboxCompleteBottom = Color(red: 0.4, green: 0.78, blue: 0.373)
-    static let priorityBg = Color(red: 0.918, green: 0.949, blue: 1.0)
-    static let priorityText = Color(red: 0.133, green: 0.129, blue: 0.125)
     static let metaText = Color(red: 0.545, green: 0.522, blue: 0.494)
     static let dangerText = Color(red: 1.0, green: 0.294, blue: 0.243)
     static let warningText = Color(red: 1.0, green: 0.616, blue: 0.184)
+    static let durationText = Color(red: 0.78, green: 0.45, blue: 0.14)
+    static let durationBg = Color(red: 0.996, green: 0.949, blue: 0.886)
     static let retryText = Color(red: 0.4, green: 0.376, blue: 0.353)
     static let dividerColor = Color(red: 0.914, green: 0.894, blue: 0.875).opacity(0.95)
     static let journalDate = Color(red: 0.604, green: 0.576, blue: 0.553)
@@ -1325,6 +1325,8 @@ struct FloatingWidgetView: View {
                 syncBanner
                     .padding(.bottom, FloatingWidgetMetrics.syncBannerBottomSpacing)
 
+                PomodoroFocusCard(viewModel: todoViewModel)
+
                 if todoViewModel.isLoading {
                     ProgressView(languageStore.text(.loadingTasks))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1354,6 +1356,14 @@ struct FloatingWidgetView: View {
 
             if todoViewModel.editingTask != nil {
                 EditTaskFormCard(viewModel: todoViewModel)
+            }
+
+            if todoViewModel.pomodoroStartTask != nil {
+                PomodoroStartCard(viewModel: todoViewModel)
+            }
+
+            if todoViewModel.pomodoroPrompt != nil {
+                PomodoroPromptCard(viewModel: todoViewModel)
             }
 
             VStack {
@@ -1530,28 +1540,20 @@ struct FloatingWidgetView: View {
                         .modifier(TrackingModifier(value: -0.24))
 
                     HStack(spacing: FloatingWidgetMetrics.taskRowMetaSpacing) {
-                        if let priority = task.priority {
-                            Text(priority)
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(FloatingWidgetPalette.priorityText)
-                                .modifier(TrackingModifier(value: -0.2))
-                                .frame(minWidth: 24)
-                                .frame(height: 20)
-                                .padding(.horizontal, 7)
-                                .background(
-                                    Capsule(style: .continuous)
-                                        .fill(FloatingWidgetPalette.priorityBg)
-                                )
-                        }
-
                         if let estimatedMinutes = task.estimatedMinutes {
                             HStack(spacing: 3) {
                                 Image(systemName: "clock")
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(.system(size: 9, weight: .bold))
                                 Text(languageStore.text(.minutesValue, estimatedMinutes))
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(.system(size: 10, weight: .bold))
                             }
-                            .foregroundStyle(FloatingWidgetPalette.metaText)
+                            .foregroundStyle(FloatingWidgetPalette.durationText)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(FloatingWidgetPalette.durationBg)
+                            )
                         }
 
                         if task.estimatedMinutes != nil {
@@ -1587,6 +1589,10 @@ struct FloatingWidgetView: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(FloatingWidgetPalette.retryText)
                     .buttonStyle(.plain)
+                }
+
+                if !task.isDone {
+                    PomodoroTaskRowStartAction(viewModel: todoViewModel, task: task)
                 }
 
                 Menu {
@@ -2105,9 +2111,7 @@ struct EditTaskFormCard: View {
                 }
             }
 
-            HStack(spacing: 10) {
-                Spacer()
-
+            HStack(spacing: 8) {
                 Button(languageStore.text(.cancel)) {
                     viewModel.cancelEditing()
                 }

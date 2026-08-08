@@ -50,6 +50,9 @@ struct NotionFloatCoreSmokeTestsRunner {
             try statusBarMenuContainsSettingsEntry()
             try floatingWindowManagerDoesNotDependOnGlobalMouseUpMonitoring()
             try floatingPanelDoesNotSynchronouslyActivateDuringEventDispatch()
+            try pomodoroViewModelIntegrationKeepsContract()
+            try pomodoroViewsKeepContract()
+            try pomodoroContentViewIntegrationKeepsContract()
             try await notionClientBuildsDatabaseSchemaURLWithoutQuery()
             try await notionClientPreservesQueryItemsInBlockChildrenURL()
             print("All smoke tests passed.")
@@ -1304,6 +1307,273 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             !source.contains("RunLoop.main.perform"),
             "floating panel should not enqueue deferred activation work from sendEvent"
+        )
+    }
+
+    static func pomodoroViewModelIntegrationKeepsContract() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let viewModelURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("TodoListViewModel.swift")
+        let source = try String(contentsOf: viewModelURL, encoding: .utf8)
+
+        try expect(
+            source.contains("import AppKit"),
+            "TodoListViewModel should import AppKit to play the system beep on natural end"
+        )
+        try expect(
+            source.contains("private var pomodoroEngine = PomodoroSessionEngine()"),
+            "TodoListViewModel should own a PomodoroSessionEngine instance"
+        )
+        try expect(
+            source.contains("@Published private(set) var pomodoroSession: PomodoroSession?"),
+            "TodoListViewModel should publish the active Pomodoro session"
+        )
+        try expect(
+            source.contains("private var pomodoroTickTask: Task<Void, Never>?"),
+            "TodoListViewModel should keep a cancellable Pomodoro tick task"
+        )
+        try expect(
+            source.contains("private var finishedPomodoro: FinishedPomodoroContext?"),
+            "TodoListViewModel should track finished Pomodoro context for idempotent retries"
+        )
+        try expect(
+            source.contains("struct FinishedPomodoroContext: Equatable")
+                && source.contains("var durationWriteSucceeded: Bool"),
+            "FinishedPomodoroContext should expose a durationWriteSucceeded flag for retry gating"
+        )
+        try expect(
+            source.contains("func presentPomodoroStart(for task: TaskItem)")
+                && source.contains("func cancelPomodoroStart()")
+                && source.contains("func selectPomodoroPreset(_ minutes: Int)")
+                && source.contains("func validatePomodoroCustomMinutes() -> Int?")
+                && source.contains("func beginPomodoro()"),
+            "TodoListViewModel should expose the Pomodoro start/preset/custom/begin entry points"
+        )
+        try expect(
+            source.contains("func pausePomodoro()")
+                && source.contains("func resumePomodoro()")
+                && source.contains("func requestPomodoroAbandon()")
+                && source.contains("func confirmPomodoroAbandon()"),
+            "TodoListViewModel should expose pause/resume/abandon actions"
+        )
+        try expect(
+            source.contains("func requestPomodoroManualCompletion()")
+                && source.contains("func confirmPomodoroManualCompletion() async"),
+            "TodoListViewModel should expose manual completion actions"
+        )
+        try expect(
+            source.contains("func confirmPomodoroNaturalEnd() async")
+                && source.contains("func retryPomodoroDurationWrite() async")
+                && source.contains("func dismissPomodoroLater()")
+                && source.contains("func dismissPomodoroSuccess()"),
+            "TodoListViewModel should expose natural-end, retry, and dismiss actions"
+        )
+        try expect(
+            source.contains("Task.sleep(nanoseconds: 1_000_000_000)"),
+            "Pomodoro tick should sleep ~1 second between advances to avoid drift"
+        )
+        try expect(
+            source.contains("pomodoroTickTask?.cancel()"),
+            "TodoListViewModel should cancel the tick task on deinit and whenever a session pauses/ends"
+        )
+        try expect(
+            source.contains("NSSound.beep()"),
+            "Natural end should play a system sound via NSSound.beep()"
+        )
+        try expect(
+            source.contains("let newTotal = (baseMinutes ?? 0) + context.minutesToAdd"),
+            "Pomodoro duration writeback should accumulate onto the existing estimatedMinutes (45 + 25 = 70)"
+        )
+        try expect(
+            source.contains("try await repository.updateTaskTitle(")
+                && source.contains("estimatedMinutes: newTotal"),
+            "Pomodoro duration writeback should reuse the existing updateTaskTitle API with the cumulative total"
+        )
+        try expect(
+            source.contains("guard finishedPomodoro?.taskID == context.taskID else { return }"),
+            "Pomodoro writeback should bail out if the finished context has been replaced by another round"
+        )
+        try expect(
+            source.contains("if !durationSuccess {")
+                && source.contains("pomodoroPrompt = .durationWriteFailed"),
+            "Pomodoro manual completion should surface a duration write failure prompt instead of completing the task"
+        )
+        try expect(
+            source.contains("pomodoroPrompt = .naturalEnd(minutesToAdd: context.minutesToAdd)")
+                && source.contains("pomodoroPrompt = .durationWriteFailed"),
+            "Pomodoro natural end should present either the natural-end prompt or a duration write failure prompt"
+        )
+    }
+
+    static func pomodoroViewsKeepContract() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let viewsURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("PomodoroViews.swift")
+        let source = try String(contentsOf: viewsURL, encoding: .utf8)
+
+        try expect(
+            source.contains("struct PomodoroFocusCard: View"),
+            "PomodoroViews should define PomodoroFocusCard"
+        )
+        try expect(
+            source.contains("struct PomodoroStartCard: View"),
+            "PomodoroViews should define PomodoroStartCard"
+        )
+        try expect(
+            source.contains("struct PomodoroPromptCard: View"),
+            "PomodoroViews should define PomodoroPromptCard"
+        )
+        try expect(
+            source.contains("struct PomodoroTaskRowStartAction: View"),
+            "PomodoroViews should define the compact task-row start action"
+        )
+        // Start dialog has 25/45/custom presets and NO completion toggle (spec §1, §2).
+        try expect(
+            source.contains("optionButton(minutes: 25") && source.contains("optionButton(minutes: 45"),
+            "Start card should offer 25- and 45-minute presets"
+        )
+        try expect(
+            source.contains("optionButton(minutes: -1"),
+            "Start card should offer a custom duration preset"
+        )
+        try expect(
+            !source.contains("completionToggle") || source.contains("private var completionToggle"),
+            "completionToggle should only appear in the prompt card, not in the start card"
+        )
+        // The completion toggle is bound to the view model flag and defaults off (spec §4, §5).
+        try expect(
+            source.contains("$viewModel.pomodoroCompleteTaskToggle"),
+            "Completion toggle should bind to viewModel.pomodoroCompleteTaskToggle"
+        )
+        // Manual completion offers 继续专注 + dynamic primary (记录时长 / 记录并完成任务).
+        try expect(
+            source.contains("case .manualCompletion"),
+            "Prompt card should route manual completion"
+        )
+        try expect(
+            source.contains(".pomodoroRecordDuration") && source.contains(".pomodoroRecordAndComplete"),
+            "Manual end should switch primary action copy with the toggle"
+        )
+        // Natural end is a single primary action (保持未完成 / 完成任务), no secondary.
+        try expect(
+            source.contains("case .naturalEnd"),
+            "Prompt card should route natural end"
+        )
+        try expect(
+            source.contains(".pomodoroKeepIncomplete") && source.contains(".pomodoroCompleteTask"),
+            "Natural end should switch between 保持未完成 and 完成任务"
+        )
+        // Success state centers a single 知道了 (spec §6).
+        try expect(
+            source.contains("case .success(let completedTask, let minutesToAdd)"),
+            "Prompt card should route success with the recorded minutes"
+        )
+        try expect(
+            source.contains(".pomodoroSuccessCompleted") && source.contains(".pomodoroSuccessIncomplete"),
+            "Success dialog should distinguish completed vs incomplete task copy"
+        )
+        try expect(
+            source.contains("languageStore.text(copy, minutesToAdd)"),
+            "Success dialog should interpolate the recorded minutes into the success copy"
+        )
+        try expect(
+            source.contains(".pomodoroDone"),
+            "Success dialog should use a single primary 知道了 button"
+        )
+        // Duration-write failure offers retry/later, never claims success.
+        try expect(
+            source.contains("case .durationWriteFailed"),
+            "Prompt card should route duration write failure"
+        )
+        try expect(
+            source.contains(".pomodoroRetryDurationWrite") && source.contains(".pomodoroLater"),
+            "Duration-write failure should offer retry and later actions"
+        )
+        // Abandon uses destructive styling; pause and abandon route to the right view-model actions.
+        try expect(
+            source.contains("case .pause") && source.contains("case .abandon"),
+            "Prompt card should route pause and abandon"
+        )
+        try expect(
+            source.contains("viewModel.requestPomodoroAbandon()") && source.contains("viewModel.confirmPomodoroAbandon()"),
+            "Abandon flow should call request then confirm on the view model"
+        )
+        try expect(
+            source.contains("viewModel.resumePomodoro()"),
+            "Pause and manual-end 继续专注 should resume the view model session"
+        )
+        // No macOS confirmationDialog; all dialogs are custom SwiftUI overlays.
+        try expect(
+            !source.contains("confirmationDialog"),
+            "Pomodoro dialogs should be custom overlays, not macOS confirmationDialog"
+        )
+        // Task-row start action is disabled during any active session/start/prompt.
+        try expect(
+            source.contains("viewModel.pomodoroSession != nil")
+                && source.contains("viewModel.pomodoroStartTask != nil")
+                && source.contains("viewModel.pomodoroPrompt != nil"),
+            "Task-row start action should disable during any session, start dialog, or prompt"
+        )
+        try expect(
+            source.contains("viewModel.presentPomodoroStart(for: task)"),
+            "Task-row start action should present the start dialog via the view model"
+        )
+    }
+
+    static func pomodoroContentViewIntegrationKeepsContract() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        // Focus card sits above the task list, after the sync banner.
+        try expect(
+            source.contains("PomodoroFocusCard(viewModel: todoViewModel)"),
+            "todoPanel should mount PomodoroFocusCard above the task list"
+        )
+        // Start and prompt overlays live in the todoPanel ZStack.
+        try expect(
+            source.contains("PomodoroStartCard(viewModel: todoViewModel)"),
+            "todoPanel ZStack should mount PomodoroStartCard"
+        )
+        try expect(
+            source.contains("PomodoroPromptCard(viewModel: todoViewModel)"),
+            "todoPanel ZStack should mount PomodoroPromptCard"
+        )
+        // Incomplete task rows expose the compact timer start action.
+        try expect(
+            source.contains("if !task.isDone {") && source.contains("PomodoroTaskRowStartAction(viewModel: todoViewModel, task: task)"),
+            "Incomplete task rows should expose the Pomodoro start action"
+        )
+        // Journal panel must remain free of Pomodoro view names: each Pomodoro
+        // view type should be mounted exactly once (only in the Todo path).
+        try expect(
+            source.components(separatedBy: "PomodoroFocusCard").count - 1 == 1,
+            "PomodoroFocusCard should be mounted exactly once (todoPanel only)"
+        )
+        try expect(
+            source.components(separatedBy: "PomodoroStartCard").count - 1 == 1,
+            "PomodoroStartCard should be mounted exactly once (todoPanel only)"
+        )
+        try expect(
+            source.components(separatedBy: "PomodoroPromptCard").count - 1 == 1,
+            "PomodoroPromptCard should be mounted exactly once (todoPanel only)"
+        )
+        try expect(
+            source.components(separatedBy: "PomodoroTaskRowStartAction").count - 1 == 1,
+            "PomodoroTaskRowStartAction should be mounted exactly once (incomplete task rows only)"
         )
     }
 

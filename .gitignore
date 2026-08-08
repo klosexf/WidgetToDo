@@ -8,3 +8,12 @@ DerivedData/
 .worktrees/
 .superpowers/
 docs/superpowers/plans/2026-07-24-language-setting.md
+
+# 第三方音频素材（freesound 下载，勿入库）
+WidgetToDo/freesound_community-house_alarm-clock_loud-92419.mp3
+
+# 一次性交互探索原型
+docs/superpowers/prototypes/
+
+# 设计 QA 自查记录（过程文档，不入库）
+design-qa.md

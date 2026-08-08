@@ -1,5 +1,132 @@
 # Progress
 
+## 2026-08-08 - Align new/edit task dialog buttons with Pomodoro focus dialog
+- 目标: 将“新建任务”和“编辑任务”弹框底部的“取消/创建”与“取消/保存”两组按钮的样式和大小，改成与“开始进行专注”弹框底部的“取消/开始专注”按钮一致。
+- 非目标: 不改弹框尺寸、输入框、标题、阴影/背景；不改番茄钟弹框本身；不动 Notion API、缓存、Keychain、设置持久化、Package.swift、.xcodeproj 或 entitlements。
+- 影响路径:
+  - `WidgetToDo/WidgetToDo/NewTaskFormCard.swift`: 更新 `NewTaskFormPalette` 主次按钮色值（主按钮改为 #34312e 深灰底白字，次按钮改为白底 #e2dbd2 边框 #5d554e 字）；`NewTaskPrimaryButtonStyle` / `NewTaskSecondaryButtonStyle` 高度改为 38pt、字号 12pt bold、圆角 9pt、横向撑满；底部 HStack 间距由 10 改为 8 并移除 `Spacer()`，使两按钮等宽并排。
+  - `WidgetToDo/WidgetToDo/ContentView.swift`: `EditTaskFormCard` 底部 HStack 同样改为间距 8 并移除 `Spacer()`，复用更新后的按钮样式。
+- 状态: 已完成代码修改；UI 手测待 Xcode / App runtime 中确认。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoButtonStyleDerivedData build`: 通过，`** BUILD SUCCEEDED **`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox`: 通过，`Executed 63 tests, with 0 failures`。
+  - `swift test`（默认 CommandLineTools 环境）: 阻塞，编译 XCTest 目标时报 `no such module 'XCTest'`；属既有环境问题，已通过 Xcode 工具链验证。
+  - UI 手测: 未执行；建议在 Xcode 运行后核对“新建任务”“编辑任务”底部按钮与“开始专注”弹框按钮在高度、圆角、颜色、字重与并排布局上视觉一致。
+- 风险/回滚点:
+  - 仅影响两个任务表单的底部按钮视觉；如需恢复旧样式，将 `NewTaskFormPalette` 按钮色值、`NewTaskPrimaryButtonStyle` / `NewTaskSecondaryButtonStyle` 的字体/高度/圆角/背景改回，并恢复 HStack 的 `Spacer()` 与 10pt 间距即可。
+  - 不涉及数据契约或持久化，回滚无数据影响。
+
+## 2026-08-08 - Rename user-facing "预计时长" to "时长"
+- 目标: 将“新建任务”“编辑任务”表单中的字段标签与占位符从“预计时长”改为“时长”；并统一检查所有用户可见文案中的“预计时长”，全部替换为“时长”。
+- 非目标: 不改底层模型/字段名（`estimatedMinutes` 等内部命名保留）、不改 Notion API 字段映射、不改测试数据中的字段名 mock、不动 Package.swift/.xcodeproj/entitlements。
+- 影响路径:
+  - `WidgetToDo/Core/Services/AppLocalizer.swift`:
+    - 中文：`.estimatedMinutesLabel` 改为“时长”，`.estimatedMinutesInvalid` 改为“时长需填写为大于 0 的分钟数”，`.tasksHelpStep4` 中的两处“预计时长”改为“时长”。
+    - 英文：`.estimatedMinutesLabel` 改为“Duration”，`.estimatedMinutesInvalid` 改为“Duration must be a positive number of minutes”，`.tasksHelpStep4` 中的“estimated time”改为“duration”。
+    - 法文：`.estimatedMinutesLabel` 改为“Durée”，`.estimatedMinutesInvalid` 改为“La durée doit être un nombre positif de minutes”，`.tasksHelpStep4` 中的“durée estimée”改为“durée”。
+  - `WidgetToDo/en.lproj/Localizable.strings`: 同步更新 key 与 value（Estimated time → Duration，Enter estimated time → Enter duration，帮助文本 estimated time → duration）。
+  - `WidgetToDo/fr.lproj/Localizable.strings`: 同步更新 key 与 value（Durée estimée → Durée，Saisissez la durée estimée → Saisissez la durée，帮助文本 durée estimée → durée）。
+- 状态: 已完成代码修改与核心构建验证。
+- 最近验证:
+  - `rg -n "预计时长" WidgetToDo/WidgetToDo`: 通过，确认应用源码中已无用户可见的“预计时长”。
+  - `swift build`: 通过，核心模块构建成功。
+  - `swift test`: 阻塞，当前环境 active developer directory 为 `/Library/Developer/CommandLineTools`，缺少 XCTest；本次改动纯文案，已通过源码审查与核心构建验证。
+  - UI 手测: 建议在 Xcode 运行后确认“新建任务”“编辑任务”表单标签与占位符显示为“时长”，帮助文案同步更新。
+- 风险/回滚点:
+  - 仅影响用户可见中文文案与未使用的 Localizable.strings key；底层 `estimatedMinutes` 映射、测试、Notion API 契约均不变。
+  - 回滚: 将 AppLocalizer.swift 与两个 Localizable.strings 中的上述字符串改回即可。
+
+## 2026-08-07 - Pomodoro completion alarm-style chime
+- 目标: 将番茄钟倒计时完成时的提示音从单声系统 beep 改为真实闹钟音效，让用户在一般环境噪音下能清晰听到。
+- 非目标: 不改番茄钟业务逻辑、不改其他 UI/弹框、不动 Notion API/缓存/Keychain/设置持久化、不动 Package.swift/.xcodeproj/entitlements。
+- 影响路径:
+  - 新增 `WidgetToDo/freesound_community-house_alarm-clock_loud-92419.mp3`（freesound 下载的真实闹钟音效，约 4.46s）。
+  - `WidgetToDo/TodoListViewModel.swift`：`finishPomodoroRound()` 中的 `NSSound.beep()` 替换为新增的私有 helper `playPomodoroCompletionChime()`；helper 用 `Bundle.main.url(forResource:withExtension:)` 加载 mp3，再用 `NSSound(contentsOf:byReference:)` 播放一次；加载失败回退 `NSSound.beep()`。
+- 状态: 已完成代码改动与构建验证；UI/听觉手测待用户在 Xcode 运行 App 后确认。
+- 设计要点:
+  - 工程使用 `PBXFileSystemSynchronizedRootGroup`（Xcode 15+ 特性），`WidgetToDo/` 文件夹内所有文件自动同步进 app bundle，无需修改 .xcodeproj。
+  - mp3 已验证打包进 `WidgetToDo.app/Contents/Resources/freesound_community-house_alarm-clock_loud-92419.mp3`。
+  - 音频时长约 4.46s，已包含完整闹钟铃响节奏，无需循环重复。
+  - `NSSound(contentsOf:)` 加载 bundle 内 mp3；失败回退到 `NSSound.beep()`，保证兼容性。
+- 最近验证:
+  - 构建: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoPomodoroAlarmMp3DerivedData build` — `** BUILD SUCCEEDED **`。
+  - 资源打包: `ls /private/tmp/WidgetToDoPomodoroAlarmMp3DerivedData/Build/Products/Debug/WidgetToDo.app/Contents/Resources/ | grep freesound` — 确认 `freesound_community-house_alarm-clock_loud-92419.mp3` 已在 app bundle 内。
+  - 音频属性: `afinfo ... mp3` — 4.464s, 2ch, 24000 Hz, 160kbps mp3。
+  - 标准入口 `swift test` 仍阻塞于 `sandbox-exec: sandbox_apply: Operation not permitted`，与既有环境问题一致；本轮使用 `--disable-sandbox` + `DEVELOPER_DIR`。
+  - 听觉手测: 待用户在 Xcode 运行新构建 App 后触发番茄钟自然结束路径，确认真实闹钟音效播放；本机无法自动验证声音。
+- 风险/回滚点:
+  - `NSSound(contentsOf:)` 对 mp3 的支持在 macOS 上稳定；若极特殊环境加载失败会回退到 beep，不会静音。
+  - mp3 文件名较长且含特殊字符（连字符、下划线），`Bundle.main.url(forResource:withExtension:)` 按完整文件名匹配，已验证可正确解析。
+  - 回滚: 将 `finishPomodoroRound()` 中的 `playPomodoroCompletionChime()` 改回 `NSSound.beep()`，删除 helper 与 mp3 文件即可（mp3 删除属 L3，需人工确认）。
+
+## 2026-08-06 - Remove priority badges from task list rows
+- 目标: 在产品代码的任务列表行中移除「高/中/低」优先级标签的显示；保留 `TaskItem`/`PendingTaskItem` 的 `priority` 字段、新建任务时的优先级选择以及按优先级排序逻辑，避免影响数据契约与后台行为。
+- 非目标: 不修改 Notion API 字段映射、不删除模型属性、不改排序规则、不动新建/编辑任务表单、不动番茄钟/日记/设置/窗口/工程配置。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift`：移除 `taskRowView(_:)` 中的 `if let priority = task.priority` 优先级胶囊；删除 `FloatingWidgetPalette` 中不再使用的 `priorityBg` 与 `priorityText`。
+  - `WidgetToDo/PendingTodoRowView.swift`：移除 `PendingTodoRowView` 中的优先级胶囊；删除 `PendingPalette` 中不再使用的 `priorityBg` 与 `priorityText`；将分隔符 `·` 的显示条件从 `priority != nil || estimatedMinutes != nil` 简化为 `estimatedMinutes != nil`。
+- 状态: 已完成代码修改与 app target 构建验证；UI 手测待用户在 Xcode 运行 App 后确认。
+- 最近验证:
+  - `git diff --check -- WidgetToDo/ContentView.swift WidgetToDo/PendingTodoRowView.swift progress.md`: 通过，无空白格式问题。
+  - `rg -n "priorityBg|priorityText|if let priority = task.priority|if let priority = item.priority|item.priority != nil" WidgetToDo/ContentView.swift WidgetToDo/PendingTodoRowView.swift`: 通过，确认两处任务列表均已无优先级标签相关代码。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build`: 通过，`** BUILD SUCCEEDED **`。
+  - `swift test`: 阻塞，当前环境 active developer directory 为 `/Library/Developer/CommandLineTools`，直接运行触发 `sandbox-exec: sandbox_apply: Operation not permitted`；本次改动纯 UI 层，已通过 app target 构建验证。
+  - UI 手测: 本轮未启动 App 做肉眼确认；任务列表中的优先级胶囊移除效果已通过源码审查与 app target 构建验证。建议在 Xcode 运行后核对主任务列表与 pending/mini 胶囊列表均不再显示优先级标签。
+- 风险/回滚点:
+  - 模型与排序逻辑未动，移除的只是显示层；如需恢复优先级标签显示，将删除的代码块与调色板常量加回即可。
+  - 本次改动不影响 Notion 数据、缓存、Keychain 或设置持久化。
+
+## 2026-08-05 - Pomodoro start-dialog reference layout
+- 目标: 依据用户提供的启动专注弹框参考，重排原型中的「开始一轮专注」弹框；保留现有产品的暖白、中性操作色和成功绿，不照搬参考图的蓝色。
+- 影响路径:
+  - `docs/superpowers/prototypes/Pomodoro Task Flow Explorations.html`：启动弹框重组为任务信息 → 「本轮时长」三等分选择（25 分钟、45 分钟、自定义）→ 仅在选择自定义后展开的分钟输入 → 左文案/右开关的自动完成设置 → 并列取消与开始按钮 → 底部同步说明。自定义仍限制为 1–480 分钟整数，且结束和再来一轮的文案/计时同步所选时长。
+  - `design-qa.md`：补充本轮参考图和应检查的开始弹框状态。
+  - `progress.md`：记录本轮修改与验证。
+- 状态: 已完成独立 HTML 原型的启动弹框布局重排；未进入 Swift/App/Notion 实现。浏览器视觉 QA 仍因本地 `file://` 策略受阻，待用户在已打开的原型中肉眼确认。
+- 最近验证:
+  - 启动弹框静态契约检查 — 通过：存在三个等宽时长选项、自定义触发器与条件输入行、自动完成的标题/提示/开关结构。
+  - 内联交互脚本解析 — 通过（`new Function(...)`）。
+  - `git diff --check` — 通过，无空白错误。
+- 风险/回滚点: 仅调整独立 HTML 原型及 QA/进度文档；不接入 App target、Notion、设置、Keychain 或 SQLite。恢复该 HTML 的上一版本即可回退弹框布局。
+
+### 2026-08-05 后续微调 — 自定义时长输入
+- 根据用户截图，移除了自定义输入行中会在窄宽度下折行的「输入分钟数」前缀。当前为整行可输入的 `输入分钟数（1–480）` 占位提示，右侧固定「分钟」单位并用细分隔线区分；点选「自定义」后不再立即显示错误，只有输入非整数或越界值时才提示。
+- 验证: `rg` 精确检查确认单位、占位提示、占位样式与错误提示分支均存在；内联交互脚本通过 `new Function(...)` 解析；`git diff --check` 通过。浏览器视觉 QA 继续受本地 `file://` 策略阻塞。
+
+### 2026-08-05 后续微调 — 进行中番茄卡与手动完成
+- 进行中卡调整为「左侧大倒计时圆环 + 右侧任务信息 + 右侧底部横排放弃 / 暂停 / 完成」布局。完成采用现有成功绿色而非参考图蓝色。
+- 完成按钮进入确认弹框；确认后停止本轮、隐藏置顶计时卡并标记任务完成。倒计时结束且启动时已选择自动完成的路径同样会收起置顶计时卡。
+- 验证: `rg` 精确检查确认卡片网格、完成按钮、完成确认弹框与收尾状态函数存在；内联交互脚本通过 `new Function(...)` 解析；`git diff --check` 通过。浏览器视觉 QA 继续受本地 `file://` 策略阻塞。
+
+### 2026-08-05 后续微调 — 完成语义与确认弹框
+- 明确 v1 边界：番茄时长只用于倒计时，不写入任务的预计时长或任何“实际专注时长”字段；完成任务的唯一数据动作是把 Notion 现有完成勾选设为已完成。
+- 手动完成弹框移除自动完成开关和“剩余时间不会计入番茄”表述，收敛为「完成任务？」→「结束本轮，并在 Notion 中将任务设为已完成。」→「继续专注 / 完成任务」。启动弹框中的开关改名为「倒计时结束时，自动完成任务」且默认关闭；开发计划同步写入此数据边界。
+- 验证: 静态检查确认旧的「标记完成」、休息和再来一轮文案/入口已移除；新的完成语义、默认关闭开关和结束提示存在；内联交互脚本通过 `new Function(...)` 解析；`git diff --check` 通过。浏览器视觉 QA 继续受本地 `file://` 策略阻塞。
+
+## 2026-08-03 - Pomodoro × Task reference-layout revision
+- 目标: 依据用户提供的“进行中任务卡”与“番茄结束弹窗”两张视觉参考，将番茄钟探索稿收敛为任务列表内的条件性置顶专注卡：默认不显示，只有用户确认开始专注后才出现；用户在倒计时期间仍能持续看到并选择完整任务列表。继续保持仅在启动时勾选才自动完成任务的规则。
+- 影响路径:
+  - `docs/superpowers/prototypes/Pomodoro Task Flow Explorations.html`：重做为“日期导航 →（已开始时才出现的）置顶进行中卡 → 多条任务列表”的同页结构；点击任务先出现开始确认，再显示计时卡。开始弹窗支持 25 分钟、45 分钟和 1–480 分钟的自定义整数输入；确认后计时卡与开始按钮文字同步为所选时长。暂停与放弃均进入居中确认浮层；结束、暂停、放弃均保留任务状态后果说明。颜色/边框/圆角切换为当前 `FloatingWidgetPalette` 的暖白与低饱和中性视觉语言，而非照搬参考图配色。
+  - `design-qa.md`：记录参考图与原型的视觉 QA 阻塞状态。
+  - `progress.md`：记录本次原型更新和验证。
+- 状态: 已完成条件性任务列表置顶专注卡与暂停/放弃确认交互的原型修正；浏览器视觉 QA 被本地 `file://` URL 策略阻塞，待用户在已打开的原型中肉眼确认后再迭代。未进入 Swift/App/Notion 实现。
+- 最近验证:
+  - `git diff --check` — 通过，无空白错误。
+  - 时长控件 RED/GREEN — 先确认 HTML 中缺少 `25` / `45` / `custom-duration` 控件；加入后静态契约检查通过。自定义时长限制为 1–480 分钟整数。
+  - 内联交互脚本解析 — 通过（`new Function(...)`）；默认隐藏计时卡、多任务开始确认、预设/自定义时长、置顶任务更新、暂停确认/继续、放弃二次确认、自动/手动完成分支、再来一个、休息与 Esc 关闭均存在对应事件处理。
+  - 视觉 QA — 阻塞，详见 `design-qa.md`：Playwright 缺少 Chromium，应用内浏览器的 URL 策略禁止代理读取本地原型；未绕过限制。
+- 风险/回滚点: 仅变更独立 HTML 原型及其 QA/进度文档，不接入 App target、Notion、设置、Keychain 或 SQLite。恢复该 HTML 到上一版本即可回到三方案探索板。
+
+## 2026-08-02 - Pomodoro × Task interaction exploration
+- 目标: 在不改动 App/Notion 运行逻辑的前提下，探索「启动番茄钟时明确勾选，结束后才自动完成所选任务」的桌面组件交互。
+- 状态: 已交付 3 个可点击的 HTML 探索方案，待用户选择或组合方向后再写正式设计规格；尚未进入 Swift 实现。
+- 产物: `docs/superpowers/prototypes/Pomodoro Task Flow Explorations.html`。包含 A 行内启动、B 专注启动卡、C 胶囊优先；B + C 的组合为当前推荐方向。
+- 最近验证:
+  - `git diff --check` — 通过，无空白错误。
+  - 静态交互入口检查（`rg`）— 确认方案切换、A/B 启动与 B/C 完成本轮的事件入口均存在。
+  - 浏览器预览: 阻塞。当前环境的 Playwright 缺少 Chromium；应用内浏览器的 URL 安全策略禁止打开本地 `file://` 原型，未绕过该策略。需用户通过本地文件链接打开后进行肉眼与点击体验。
+- 风险/回滚点: 该产物仅为独立原型，不接入 App target、Notion、设置、Keychain 或 SQLite；删除该 HTML 即可完全移除探索稿（本轮未执行删除）。
+
 ## 2026-07-25 - Full application localization audit
 - 目标: 将所有应用自有的可见文字、操作、状态、校验提示与 Toast 切换为简体中文、英语、法语；固定保留 `Language` 与三种语言原生名称，不翻译用户/Notion 原始内容。
 - 状态: 进行中。已建立完整实施计划并完成第一批迁移：扩充三语目录；任务/日记的运行时错误、状态横幅与 Toast 改为延迟 `AppMessage` 渲染；待办/日记操作、加载与同步状态、表单、新手引导、欢迎页、迷你胶囊、原生 Settings 场景和 AppKit 启动提示已从 `LanguageStore` 读取。日记标题日期现明确将当前 `languageStore.language` 传给共享日期格式化器，避免英语/法语回退为默认中文。Core 配置与字段校验已改为返回语言无关的消息键；待处理 Notion 客户端的应用包装错误，以及最终全仓硬编码审计和三语言 UI 回测。
@@ -494,3 +621,209 @@
   - `swift run NotionFloatCoreSmokeTests`: 可构建并运行 smoke executable；本次更新过的 database normalization 源码扫描通过，随后在既有无关断言 `settings reset flow should keep a dedicated settingsBackRow view` 处失败。
   - `xcodebuild -list -project WidgetToDo.xcodeproj`: 阻塞，active developer directory 为 `/Library/Developer/CommandLineTools`，当前环境没有可用 Xcode。
   - `rg` 检查旧单参数 `onChange` 形态: 无匹配输出。
+
+## 2026-08-05 - Pomodoro prototype and implementation-plan accumulation rule
+- 目标: 将番茄钟交互原型和待交付开发计划统一为“沿用现有预计时长并累计增加”的规则；例如原值 45 分钟完成一轮 25 分钟后显示为 70 分钟。倒计时结束播放提示音、先写回时长、再由用户手动决定是否完成任务。
+- 非目标: 不开发 Swift 功能；不改 `WidgetToDo` 生产代码、Notion API、数据库字段、缓存、设置、窗口或任何既有产品 UI。
+- 影响路径:
+  - `docs/superpowers/prototypes/Pomodoro Task Flow Explorations.html`
+  - `docs/superpowers/plans/2026-08-05-pomodoro-task-focus.md`
+  - `progress.md`
+- 状态: 已完成原型与计划调整。原型已移除“倒计时结束自动完成任务”开关；结束原型事件会累计本轮时长并显示“本轮已完成”确认，任务只有在用户点击“完成任务”后才变更为完成。计划明确生产实现使用现有 `预计时长` 字段，采用 45 + 25 = 70 的增量写回规则、`NSSound.beep()`、时长写入先于任务完成、失败不双计入的重试约束。
+- 最近验证:
+  - `rg -n "auto|自动完成|预计时长|45.*25|70|NSSound" docs/superpowers/plans/2026-08-05-pomodoro-task-focus.md`: 通过；确认计划含累计契约、45 + 25 = 70、无自动完成开关与系统提示音约束。
+  - `rg -n "auto|自动完成|repeatFocus|settleCompleted|recordFocusDuration|playCompletionTone|本轮已完成" docs/superpowers/prototypes/Pomodoro\ Task\ Flow\ Explorations.html`: 通过；旧自动完成和失效的重复专注逻辑无匹配，原型含累计、提示音和结束确认逻辑。
+  - `git diff --check`: 通过；文档与原型无空白格式问题。
+  - UI 手测: 未执行；本次仅调整本地 HTML 原型与开发计划，in-app Browser 对本地 `file://` 页面访问受当前工具策略限制。生产 App 未改动，因此不存在生产 UI 验证结论。
+- 风险/回滚点: 风险仅限原型与交付计划和后续实现的语义约束；回滚这三个文档改动即可，不会影响现有应用或 Notion 数据。
+
+## 2026-08-05 - Pomodoro duration label and explicit completion switch
+- 目标: 将番茄钟原型和计划中的用户可见“预计时长”统一为“时长”；在结束专注的最终确认弹框加入默认关闭的“同时完成任务”开关，允许用户只记录时长而不完成任务。
+- 非目标: 不重命名实际 Notion 字段或 Swift 的 `estimatedMinutes` 模型属性；不开发生产 Swift 代码；不改其他任务列表、日记、设置、窗口或 Notion 功能。
+- 影响路径:
+  - `docs/superpowers/prototypes/Pomodoro Task Flow Explorations.html`
+  - `docs/superpowers/plans/2026-08-05-pomodoro-task-focus.md`
+  - `progress.md`
+- 状态: 已完成原型与计划调整。开始弹框不出现完成开关；手动结束弹框关闭开关时主动作是“记录时长”，打开后为“记录并完成任务”。自然结束会先记录时长，关闭开关时为“保持未完成”，打开后为“完成任务”。
+- 最近验证:
+  - `node -e '... new Function(script[1]) ...'`: 通过，`Pomodoro Task Flow Explorations.html` 内嵌 JavaScript 语法有效。
+  - `rg -n "预计时长|auto-complete|autoComplete|自动完成|repeatFocus|settleCompleted" docs/superpowers/prototypes/Pomodoro\ Task\ Flow\ Explorations.html docs/superpowers/plans/2026-08-05-pomodoro-task-focus.md || true`: 通过，无旧“预计时长”、自动完成开关或失效原型逻辑匹配。
+  - `git diff --check`: 通过，无空白格式问题。
+  - Playwright 截图: 阻塞。`npx playwright screenshot ...` 报当前 CLI 需要的 `chromium_headless_shell-1234` 不存在；本机缓存仅有其他 Chromium 版本。未下载/修改浏览器运行时。in-app Browser 对本地 `file://` 页面访问也受当前工具策略限制。生产 App 未改动。
+- 风险/回滚点: 风险仅在未实现功能的原型/计划语义；回滚上述文档和原型改动即可。实际字段名称继续沿用内部 `estimatedMinutes`，避免改动 Notion 数据契约。
+
+## 2026-08-05 - Pomodoro final-dialog single-action alignment
+- 目标: 移除最终成功弹框中重复的任务标题，并将单一“知道了”按钮置于弹框操作区正中，避免沿用双按钮网格而偏在左侧。
+- 非目标: 不调整开始、暂停、放弃弹框中的任务标题；不改生产 Swift 代码、Notion 逻辑或其他产品布局。
+- 影响路径:
+  - `docs/superpowers/prototypes/Pomodoro Task Flow Explorations.html`
+  - `docs/superpowers/plans/2026-08-05-pomodoro-task-focus.md`
+  - `progress.md`
+- 状态: 已完成。`结束专注`、`本轮已完成` 及其成功态不重复显示任务名；成功态给操作区增加 `single-action` 网格，唯一“知道了”按钮居中。开始、暂停、放弃继续显示任务名称以保留上下文。
+- 最近验证:
+  - `node -e '... new Function(script[1]) ... dialog-actions.single-action ...'`: 通过，内嵌 JavaScript 语法有效，成功态单按钮样式和状态切换代码均存在。
+  - `git diff --check`: 通过，无空白格式问题。
+  - UI 截图: 沿用上一条 Playwright 运行时缺失阻塞，未声称肉眼截图通过。
+- 风险/回滚点: 风险仅限本地原型成功态布局；回滚 `single-action` 样式、`finishFocus()` 中的状态类及计划/进度文档即可。
+
+## 2026-08-05 - Pomodoro product specification
+- 目标: 为交付其他 AI 的番茄钟开发计划补充独立产品 Spec，作为时长累计、完成开关、最终弹框和非目标的单一产品规则来源。
+- 非目标: 不新增生产代码、不改变已有开发计划的实施范围、不改 Notion/Swift 数据契约或其他产品 UI。
+- 影响路径:
+  - `docs/superpowers/specs/2026-08-05-pomodoro-task-focus-design.md`
+  - `docs/superpowers/plans/2026-08-05-pomodoro-task-focus.md`
+  - `progress.md`
+- 状态: 已完成。Spec 明确“时长”作为用户可见名称、内部仍沿用 `estimatedMinutes`、45 + 25 = 70、最终“同时完成任务”开关默认关闭、自然/手动结束的写入顺序、最终弹框不重复任务标题及单按钮居中。开发计划已链接该 Spec。
+- 最近验证:
+  - `rg -n "TBD|TODO|预计时长|automatic|自动完成|时长 70|同时完成任务|标题|居中|NotionRepository" docs/superpowers/specs/2026-08-05-pomodoro-task-focus-design.md`: 通过；未发现占位项、旧用户可见字段名或自动完成规则，关键产品约束均存在。
+  - `git diff --check`: 通过，无空白格式问题。
+- 风险/回滚点: 风险只在文档一致性；回滚该 Spec 文件和计划中的 Spec 链接即可，不影响应用代码或用户数据。
+
+## 2026-08-05 - Pomodoro implementation reference hierarchy
+- 目标: 明确交付其他 AI 时的效果参考边界，防止其依据讨论截图或原型外区域扩展 UI 改动。
+- 非目标: 不改原型视觉、生产代码或产品行为；不把讨论截图提升为实现来源。
+- 影响路径:
+  - `docs/superpowers/specs/2026-08-05-pomodoro-task-focus-design.md`
+  - `docs/superpowers/plans/2026-08-05-pomodoro-task-focus.md`
+  - `progress.md`
+- 状态: 已完成。Spec 与计划均规定：Spec 是行为/数据规则来源；`docs/superpowers/prototypes/Pomodoro Task Flow Explorations.html` 是新增番茄钟 UI 的唯一视觉与交互来源；现有生产 Todo UI 是所有非番茄钟区域的不可改动基线；讨论截图只用于评审，不作为实现依据。
+- 最近验证:
+  - `rg -n -C 1 "source of truth|Reference hierarchy|only visual|only.*reference|Discussion screenshots|生产界面" docs/superpowers/specs/2026-08-05-pomodoro-task-focus-design.md docs/superpowers/plans/2026-08-05-pomodoro-task-focus.md`: 通过；两份文档都包含来源层级和截图排除约束。
+  - `git diff --check`: 通过，无空白格式问题。
+- 风险/回滚点: 风险仅限开发交接语义；回滚这两段引用层级说明和本进度记录即可。
+
+## 2026-08-06 - Pomodoro core engine and accumulation contract
+- 目标: 落地番茄钟核心模块（纯计时引擎 + 本地化契约 + 时长累计写回契约），TDD 验证；本轮严格遵守“仅改动番茄钟相关代码、不改动现有其他功能模块及 UI”，不触碰 ViewModel / ContentView / 窗口层。
+- 非目标: 不做 UI 卡片/弹框、不做 ViewModel tick 编排、不改 Package.swift/.xcodeproj/entitlements/NotionClient/SettingsStore/Keychain/SQLite、不重命名 `estimatedMinutes` 或 Notion 字段、不持久化活跃会话。
+- 影响路径:
+  - 新增 `WidgetToDo/Core/Models/PomodoroSession.swift`
+  - 新增 `WidgetToDo/Core/Services/PomodoroSessionEngine.swift`
+  - 新增 `Tests/NotionFloatCoreTests/PomodoroSessionEngineTests.swift`
+  - 增量改动 `WidgetToDo/Core/Services/AppLocalizer.swift`（仅追加 45 个 `pomodoro*` 键，中/英/法）
+  - 增量改动 `Tests/NotionFloatCoreTests/AppMessageLocalizationTests.swift`（追加 4 条断言）
+  - 增量改动 `Tests/NotionFloatCoreTests/NotionRepositoryTaskMutationTests.swift`（新增 45+25=70 累计测试）
+- 状态: 已完成核心模块代码与全部自动化验证；UI 集成（plan Task 3-5）留待后续。
+- 设计要点:
+  - `PomodoroSession` 可变字段为 `public private(set)`，引擎跨文件采用“整体替换 via 公开 init”，不 mutate 副本。
+  - 引擎基于 `Date` 计算时间推移，避免每秒自减漂移；`advance`/`pause` 把活跃增量钳位到 `remainingSeconds`，跨零不超额累计。
+  - `completedMinutes(at:)` 向上取整，手动结束至少 1 分钟，无会话返回 0；自然结束给出整轮时长。
+- 最近验证:
+  - RED: `cd /Users/chenxiaofeng/Documents/Tare\ code\ file/widgets\ for\ notion/WidgetToDo && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter PomodoroSessionEngineTests` — 如预期编译失败 `cannot find 'PomodoroSessionEngine' in scope`。
+  - 绿: 同上目录 `swift test --disable-sandbox --filter 'PomodoroSessionEngineTests|AppMessageLocalizationTests|NotionRepositoryTaskMutationTests'` — `Executed 29 tests, with 0 failures`。
+  - 全量: `swift test --disable-sandbox` — `Executed 62 tests, with 0 failures`。
+  - smoke: `swift run --disable-sandbox NotionFloatCoreSmokeTests` — `All smoke tests passed.`。
+  - 构建: `xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoPomodoroCoreDerivedData build` — `** BUILD SUCCEEDED **`。
+  - 标准入口 `swift test` 仍阻塞于 `sandbox-exec: sandbox_apply: Operation not permitted`，与既有环境问题一致；本轮全部使用 `--disable-sandbox` + `DEVELOPER_DIR`。
+  - UI 手测: 本轮无 UI 改动，无需手测。
+- 风险/回滚点:
+  - 后续在引擎文件内直接 `session.phase = ...` 会因 `private(set)` 编译失败，须保持替换式写法。
+  - 本轮无法端到端验证 45→70 在真实界面上的体现，待 ViewModel + UI 接入后补 Xcode 手测。
+  - 回滚：还原三处增量文件并删除三个新增文件即可；无数据迁移。
+
+## 2026-08-06 - Pomodoro ViewModel integration and smoke guards
+- 目标: 将番茄钟核心引擎接入 `TodoListViewModel`，完成 tick 编排、写回顺序、幂等重试上下文；同步在 smoke 中加入源码守卫，防止后续回归。严格遵守“仅改动番茄钟相关代码、不改动现有其他功能模块及 UI”，不触碰 ContentView / 窗口层 / Package.swift / .xcodeproj / entitlements / NotionClient / SettingsStore / Keychain / SQLite。
+- 非目标: 不做 `PomodoroViews.swift` 焦点卡/弹框、不在 `ContentView` 接入开始入口与活动卡、不持久化活跃会话、不重命名 `estimatedMinutes` 或 Notion 字段。
+- 影响路径:
+  - 增量改动 `WidgetToDo/TodoListViewModel.swift`（新增 `PomodoroPrompt`、`FinishedPomodoroContext`、`@Published` 番茄钟状态、公开动作 `presentPomodoroStart`/`beginPomodoro`/`pausePomodoro`/`resumePomodoro`/`requestPomodoroAbandon`/`confirmPomodoroAbandon`/`requestPomodoroManualCompletion`/`confirmPomodoroManualCompletion`/`confirmPomodoroNaturalEnd`/`retryPomodoroDurationWrite`/`dismissPomodoroLater`/`dismissPomodoroSuccess`，私有 helper `startPomodoroTick`/`cancelPomodoroTick`/`finishPomodoroRound`/`recordPomodoroDuration`，`deinit` 取消 tick；`import AppKit` 用于 `NSSound.beep()`）。
+  - 增量改动 `Tests/NotionFloatCoreSmokeTests/main.swift`（新增 `pomodoroViewModelIntegrationKeepsContract()` 源码守卫并在 `main` 中调用）。
+  - `progress.md`。
+- 状态: 已完成 ViewModel 集成与全部自动化验证；UI 卡片与 ContentView 接入（plan Task 4-5）留待后续。
+- 设计要点:
+  - Tick 任务以 `Task.sleep(nanoseconds: 1_000_000_000)` 每秒推进 `pomodoroEngine.advance(to: Date())`，收到 `.finished` 后停止本轮 tick 并进入 `finishPomodoroRound`。
+  - 写回顺序：自然结束先 `NSSound.beep()` → 写回时长 → 成功后呈现 `.naturalEnd` prompt 让用户决定是否完成任务；手动结束先暂停 → 计算 `completedMinutes` → 写回时长 → 成功后按开关决定是否完成任务。失败进入 `.durationWriteFailed`，不继续完成动作，避免双计入。
+  - 幂等重试：`FinishedPomodoroContext.durationWriteSucceeded` 标记本次写回是否成功；`retryPomodoroDurationWrite` 仅在未成功时重试，成功后转回 `.naturalEnd`；每次异步分支后用 `guard finishedPomodoro?.taskID == context.taskID` 防止上下文被另一轮替换。
+  - 时长累计：`recordPomodoroDuration` 取当前任务 `estimatedMinutes`（或上下文里的 baseEstimatedMinutes 兜底），`newTotal = (baseMinutes ?? 0) + context.minutesToAdd`，复用既有 `repository.updateTaskTitle(id:title:estimatedMinutes:)`，满足 45 + 25 = 70 契约。
+  - `deinit` 取消 tick 任务，避免 ViewModel 释放后仍在推进。
+- 最近验证:
+  - smoke: `cd /Users/chenxiaofeng/Documents/Tare\ code\ file/widgets\ for\ notion/WidgetToDo && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — `All smoke tests passed.`（含新增 `pomodoroViewModelIntegrationKeepsContract` 守卫）。
+  - 全量: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — `Executed 62 tests, with 0 failures`。
+  - 构建: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoPomodoroVMDerivedData build` — `** BUILD SUCCEEDED **`。首次构建曾因 TRAE Sandbox 拦截 Keychain 访问导致 CodeSign 失败（非代码错误），重跑增量构建通过。
+  - 标准入口 `swift test` 仍阻塞于 `sandbox-exec: sandbox_apply: Operation not permitted`，与既有环境问题一致；本轮全部使用 `--disable-sandbox` + `DEVELOPER_DIR`。
+  - UI 手测: 本轮无 UI 改动，无需手测。
+- 风险/回滚点:
+  - `TodoListViewModel` 现在依赖 `PomodoroSessionEngine` 与 `PomodoroSession`；后续在引擎内直接 `session.phase = ...` 会因 `private(set)` 编译失败，须保持替换式写法。
+  - 自然结束的 `finishPomodoroRound` 在 `Task { @MainActor [weak self] in ... }` 中异步写回；若用户在写回未完成时快速开始下一轮，`guard finishedPomodoro?.taskID == context.taskID` 会丢弃旧结果，但 UI 不会自动清掉旧 prompt——待 UI 接入时验证是否需要在 `beginPomodoro` 主动清空 `pomodoroPrompt`。
+  - 回滚：还原 `TodoListViewModel.swift` 与 `Tests/NotionFloatCoreSmokeTests/main.swift` 即可；无数据迁移，无 Notion 字段变更。
+
+## 2026-08-06 - Pomodoro UI views and ContentView integration
+- 目标: 落地番茄钟 UI 层（plan Task 4-5），创建 `PomodoroViews.swift` 焦点卡/开始弹框/提示弹框，在 `ContentView` 待办路径接入「计时」入口与条件性置顶专注卡。严格遵守"仅改动番茄钟相关代码、不改动现有其他功能模块及 UI"，不触碰 Journal/设置/onboarding/mini-mode/top bar/date nav/正常任务行布局/Package.swift/.xcodeproj/entitlements/NotionClient/SettingsStore/Keychain/SQLite。
+- 非目标: 不持久化活跃会话、不重命名 `estimatedMinutes` 或 Notion 字段、不改 Package.swift/.xcodeproj、不改 Notion API 契约。
+- 影响路径:
+  - 新增 `WidgetToDo/PomodoroViews.swift`（`PomodoroFocusCard` 置顶专注卡、`PomodoroStartCard` 开始弹框、`PomodoroPromptCard` 提示弹框路由 pause/abandon/manualCompletion/naturalEnd/durationWriteFailed/success、`PomodoroTaskRowStartAction` 任务行「计时」按钮；自包含 `PomodoroPalette`/`PomodoroMetrics`/`PomodoroTrackingModifier`，镜像现有 `FloatingWidgetPalette` 色值以保持视觉一致且不改动现有 private 枚举）。
+  - 增量改动 `WidgetToDo/ContentView.swift`（仅 3 处接入：`todoPanel` VStack 中 `syncBanner` 之后插入 `PomodoroFocusCard`；`todoPanel` ZStack 中 `EditTaskFormCard` 之后插入 `PomodoroStartCard` + `PomodoroPromptCard`；`taskRowView` action HStack 中菜单按钮前给未完成任务加 `PomodoroTaskRowStartAction`）。
+  - 增量改动 `Tests/NotionFloatCoreSmokeTests/main.swift`（新增 `pomodoroViewsKeepContract()` 与 `pomodoroContentViewIntegrationKeepsContract()` 源码守卫并在 `main` 中调用）。
+  - `progress.md`。
+- 状态: 已完成 UI 层代码与全部自动化验证；UI 手测待用户在 Xcode 运行 App 后确认。
+- 设计要点:
+  - 焦点卡：左圆环倒计时（`Circle().trim` 按 `remainingSeconds/totalSeconds` 进度，暂停态变橙色）+ 右任务标题/meta + 下方等宽 `放弃/暂停-继续/完成` 三按钮；`pomodoroSession == nil` 时不渲染，无空白占位。
+  - 开始弹框：标题居中 + 任务名 + 文案 + hint + 「本轮时长」三等分预设（25/45/自定义）+ 自定义选中时展开 TextField + 取消/开始按钮；无完成开关（spec §1-2）。
+  - 提示弹框路由：pause→`放弃本轮`/`继续专注`；abandon→`继续专注`/`确认放弃`（destructive）；manualCompletion→`结束专注`kicker + 文案 + 完成开关（默认关）+ `继续专注`/动态 primary（`记录时长`/`记录并完成任务`）；naturalEnd→`本轮已完成` + 文案 + hint + 完成开关 + 单 primary（`保持未完成`/`完成任务`，spec §5 单按钮）；durationWriteFailed→`稍后决定`/`重试写入`；success→单按钮 `知道了`（spec §6 居中）。
+  - 完成开关绑定 `viewModel.pomodoroCompleteTaskToggle`（ViewModel 端在进入 manual/natural prompt 前重置为 false）。
+  - 任务行「计时」按钮：任何活跃会话/开始弹框/提示弹框期间禁用（`pomodoroSession != nil || pomodoroStartTask != nil || pomodoroPrompt != nil`），保证单会话。
+  - 弹框背景改为透明（`Color.clear`），保留点击空白处交互：开始弹框点击空白处取消；提示弹框点击空白处恢复专注（等效「继续专注」）。
+  - 开始弹框视觉重排：宽度收窄到 260pt；标题 18pt 粗体；文案 12pt；移除任务名和 divider；「本轮时长」改为独立 13pt 标题；三个预设按钮改为 40pt 高大圆角胶囊，选中态为浅米色底+棕色边框；取消/开始按钮改为 42pt 高大圆角胶囊并排，开始专注按钮改为深色（近黑棕）底；「不会修改任务状态」hint 移到按钮下方。
+  - 严格按 WidgetToDo-Welcome-Modal.html 的 `.pomo-*` CSS 重写全部番茄钟视图：PomodoroPalette 改为镜像 HTML 色值（#fdfbf9/#e1dcd6/#a17c59/#34312e/#68c46b/#bf524b 等）；PomodoroMetrics 改为镜像 HTML 尺寸（focus card 68pt ring/16pt radius，dialog 16pt radius/300pt width，option 38pt 高/9pt radius，button 38pt 高/9pt radius，toggle 40x24）；新增 PomodoroDialogShell/PomodoroScrim/PomodoroKicker/PomodoroDialogTitle/PomodoroDialogBody/PomodoroDialogHint/PomodoroPrimaryButton/PomodoroSecondaryButton/PomodoroCompleteButton/PomodoroDestructiveButton/PomodoroDialogActions/PomodoroDurationPicker/PomodoroCompletionToggle/PomodoroSwitch 等共享组件；scrim 改为 warm dark rgba(39,34,29,.26)+ultraThinMaterial 模糊；focus card ring 改为 conic-gradient 近似+inner disc；completion toggle 改为横向布局+自定义 iOS switch；custom input 带分隔线。同步更新 smoke 守卫匹配新组件名（optionButton/PomodoroSwitch/.pomodoroDone）。
+  - 手动结束「继续专注」调 `resumePomodoro()`（会话在 `requestPomodoroManualCompletion` 中已 pause，resume 恢复运行并清 prompt）。
+  - 未使用 macOS `confirmationDialog`，全部自定义 SwiftUI overlay，与现有 NewTaskFormCard/EditTaskFormCard 风格一致。
+- 最近验证:
+  - smoke: `cd /Users/chenxiaofeng/Documents/Tare\ code\ file/widgets\ for\ notion/WidgetToDo && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — `All smoke tests passed.`（含新增 `pomodoroViewsKeepContract` + `pomodoroContentViewIntegrationKeepsContract` 守卫）。
+  - 全量: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — `Executed 62 tests, with 0 failures`。
+  - 构建: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoPomodoroUIDerivedData build` — `** BUILD SUCCEEDED **`。
+  - 标准入口 `swift test` 仍阻塞于 `sandbox-exec: sandbox_apply: Operation not permitted`，与既有环境问题一致；本轮全部使用 `--disable-sandbox` + `DEVELOPER_DIR`。
+  - UI 手测: 代码与构建已通过；端到端手测（25/45/自定义启动、暂停排除非活跃时间、放弃不写、自然 25 在 45 上 beep 并显示 70、稍后决定保留 70/未完成、完成按 duration-first 顺序、61 秒手动结束加 2 分钟、duration 失败不完成/双加）待用户在 Xcode 运行 App 后确认。
+- 风险/回滚点:
+  - `PomodoroPalette` 镜像 `FloatingWidgetPalette` 色值；若未来生产调色板变更，需同步更新 `PomodoroPalette` 以保持一致。
+  - 焦点卡圆环 `trim(from: 0, to: max(0.02, progress))` 在 remaining=0 时仍显示极小弧段，避免完全消失的视觉跳变；若需精确归零可调整。
+  - 自然结束单按钮设计与 spec §5 一致；若用户反馈需要 secondary action，需同时更新 spec 与 ViewModel。
+
+## 2026-08-07 - Pomodoro success dialog shows recorded minutes
+- 目标: 修复番茄钟完成弹框未显示具体保存时长数字的问题。
+- 非目标: 不改其他弹框、不调整 UI 样式、不动 Notion API 或持久化。
+- 影响路径:
+  - 增量改动 `WidgetToDo/TodoListViewModel.swift`：`PomodoroPrompt.success` 关联值由 `(completedTask: Bool)` 扩展为 `(completedTask: Bool, minutesToAdd: Int)`；`confirmPomodoroManualCompletion` 与 `confirmPomodoroNaturalEnd` 中 7 处 `.success(...)` 全部传入 `context.minutesToAdd`。
+  - 增量改动 `WidgetToDo/PomodoroViews.swift`：`success` case 匹配改为 `(completedTask, minutesToAdd)`，`successDialog` 接收 `minutesToAdd` 并调用 `languageStore.text(copy, minutesToAdd)` 注入分钟数。
+  - 增量改动 `Tests/NotionFloatCoreSmokeTests/main.swift`：更新 success prompt 守卫，断言 `case .success(let completedTask, let minutesToAdd)` 与 `languageStore.text(copy, minutesToAdd)`。
+- 状态: 已完成；构建与 smoke 均通过。
+- 设计要点:
+  - 时长数字来自本轮写回时实际使用的 `FinishedPomodoroContext.minutesToAdd`，与自然结束/手动结束/重试后的成功状态保持一致。
+- 最近验证:
+  - 构建: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoPomodoroUIDerivedData build` — `** BUILD SUCCEEDED **`。
+  - smoke: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — `All smoke tests passed.`。
+- 风险/回滚点:
+  - `PomodoroPrompt` 是文件内私有 enum，影响面仅限 ViewModel 与 PromptCard，无外部依赖。
+  - 回滚：还原上述三处 `.success` 关联值与调用即可。
+
+## 2026-08-07 - Remove bracket wrapping around Int localization arguments
+- 目标: 修复所有使用 `LanguageStore.text(key, intValue)` 的地方把整型参数渲染成 `[x]`（如 `[1] 分钟`、`开始 [25] 分钟专注`）的问题。用户框选了任务列表时长、开始弹框按钮、结束专注弹框、成功弹框共 4 处。
+- 非目标: 不改本地化文案字符串本身、不改番茄钟业务逻辑、不动 Notion API 或持久化。
+- 影响路径:
+  - 修复 `WidgetToDo/LanguageStore.swift`：`text(_:_:)` 原来把 `CVarArg...` 数组直接传给 `AppText.string` 的 variadic 重载，导致 `[CVarArg]` 被当作单个参数后 `String(describing:)` 输出数组描述 `[x]`；改为显式 `arguments.map { String(describing: $0) }` 后调用 `[String]` 重载。
+  - 增量改动 `Tests/NotionFloatCoreTests/AppMessageLocalizationTests.swift`：新增 `testCVarArgIntArgumentsAreNotWrappedInBrackets()`，覆盖 minutesValue 和 3 处番茄钟文案，断言 `AppText.string` 的 CVarArg 重载不会输出 `[x]`。
+- 状态: 已完成；构建、全量测试、smoke 均通过。
+- 设计要点:
+  - 该修复位于通用本地化入口，收益范围覆盖整个 App 所有带整型参数的本地化调用（如 wordCount、completedTasksCount 等），但改动本身只改一行代码，且保持 `LanguageStore.text` 的签名与现有调用点完全兼容。
+- 最近验证:
+  - 构建: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoPomodoroUIDerivedData build` — `** BUILD SUCCEEDED **`。
+  - 全量: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — `Executed 63 tests, with 0 failures`（新增 1 个 localization 回归测试）。
+  - smoke: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — `All smoke tests passed.`。
+- 风险/回滚点:
+  - `LanguageStore.text` 是全局本地化入口，若某处调用依赖之前的错误行为（理论上不存在），修复后会暴露；目前已通过全量测试与 smoke 验证。
+  - 回滚：还原 `LanguageStore.swift` 的一行改动并删除新增测试即可。
+
+## 2026-08-07 - Fix resume focus from abandon dialog + remove grey scrim
+- 目标: 修复放弃确认弹框中「继续专注」按钮点击无反应的问题；按用户要求移除番茄钟弹框后的灰色蒙版。
+- 非目标: 不改其他弹框文案/样式、不动业务逻辑（除 resume 入口外）、不动 Notion API 或持久化。
+- 影响路径:
+  - 修复 `WidgetToDo/TodoListViewModel.swift`：`resumePomodoro()` 原先用 `guard pomodoroSession?.phase == .paused else { return }`，在放弃确认弹框中会话 phase 仍为 `.running`，导致按钮无响应；改为 `if phase == .paused { resume + startTick }` 后统一 `pomodoroPrompt = nil`，使运行态下点击「继续专注」也能关闭弹框。
+  - 修复 `WidgetToDo/PomodoroViews.swift`：`PomodoroScrim` 由 `PomodoroPalette.scrimBg + .ultraThinMaterial` 改为 `Color.clear`，保留 `contentShape` 与点击空白处关闭行为。
+- 状态: 已完成；构建、全量测试、smoke 均通过。
+- 设计要点:
+  - 「继续专注」在暂停态恢复计时，在运行态仅关闭弹框，符合用户从暂停/放弃两个入口点击同一文案的直觉。
+  - 透明 scrim 保留点击空白处关闭（开始弹框取消、提示弹框继续），同时满足用户不要灰色遮罩的要求。
+- 最近验证:
+  - 构建: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoPomodoroUIDerivedData build` — `** BUILD SUCCEEDED **`。
+  - 全量: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — `Executed 63 tests, with 0 failures`。
+  - smoke: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — `All smoke tests passed.`。
+- 风险/回滚点:
+  - `resumePomodoro()` 是公开入口，改动后行为更宽容；如需严格暂停态才响应，可恢复 guard，但需为放弃弹框单独提供关闭方法。
+  - 回滚：还原 `TodoListViewModel.swift` 的 `resumePomodoro()` 与 `PomodoroViews.swift` 的 `PomodoroScrim` 即可。

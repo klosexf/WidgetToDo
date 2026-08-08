@@ -24,8 +24,8 @@
 "填写任务内容" = "Enter a task";
 "标题不能为空" = "A title is required";
 "日期" = "Date";
-"预计时长" = "Estimated time";
-"填写预计时长" = "Enter estimated time";
+"时长" = "Duration";
+"填写时长" = "Enter duration";
 "分钟" = "minutes";
 "创建" = "Create";
 "编辑任务" = "Edit Task";
@@ -60,7 +60,7 @@
 "1. 在 Notion 中打开你的 Tasks Database，确保进入的是这个任务数据库本身，而不是某个单独页面。" = "1. Open your Tasks Database in Notion and make sure you are on the database itself, not an individual page.";
 "2. 如果当前看到的是嵌入在页面里的数据库视图，先点击数据库标题或“Open as full page”，切到数据库完整页面。" = "2. If it is an embedded database view, select the database title or “Open as full page” to open the full database.";
 "3. 这个任务数据库至少需要这些字段类型：1 个 title、1 个 date、1 个 checkbox。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。" = "3. The Tasks Database needs one title, one date, and one checkbox property. Names may be customized, but there must be exactly one of each required type.";
-"4. 如果你还希望在应用里使用预计时长，可以额外准备 number 字段；只有当任务数据库里恰好只有 1 个 number 字段时，应用才会自动把它当作预计时长。" = "4. To use estimated time, add a number property. The app uses it only when the Tasks Database has exactly one number property.";
+"4. 如果你还希望在应用里使用时长，可以额外准备 number 字段；只有当任务数据库里恰好只有 1 个 number 字段时，应用才会自动把它当作时长。" = "4. To use duration, add a number property. The app uses it only when the Tasks Database has exactly one number property.";
 "5. 在右上角点击“分享”或页面菜单，选择“复制链接”。也可以直接复制浏览器地址栏中的完整链接。" = "5. Use Share or the page menu in the upper-right corner and choose Copy link. You can also copy the full browser URL.";
 "6. 把完整链接粘贴到 Tasks Database ID 输入框，应用会自动提取其中的数据库 ID。" = "6. Paste the full link into Tasks Database ID; the app extracts the database ID automatically.";
 "1. 在 Notion 中打开你的 Journal Database，确认这是用于保存日记条目的数据库。" = "1. Open your Journal Database in Notion and confirm it stores journal entries.";

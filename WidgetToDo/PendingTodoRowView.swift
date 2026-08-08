@@ -5,9 +5,9 @@ private enum PendingPalette {
     static let checkBg = Color.white.opacity(0.92)
     static let hourglassColor = Color(red: 139/255, green: 133/255, blue: 126/255)
     static let titleColor = Color(red: 35/255, green: 34/255, blue: 33/255).opacity(0.5)
-    static let priorityBg = Color(red: 234/255, green: 242/255, blue: 255/255)
-    static let priorityText = Color(red: 34/255, green: 33/255, blue: 32/255)
     static let metaText = Color(red: 139/255, green: 133/255, blue: 126/255)
+    static let durationText = Color(red: 0.78, green: 0.45, blue: 0.14)
+    static let durationBg = Color(red: 0.996, green: 0.949, blue: 0.886)
     static let failureOverlay = Color.red.opacity(0.2)
 }
 
@@ -36,30 +36,23 @@ struct PendingTodoRowView: View {
                     .foregroundStyle(PendingPalette.titleColor)
 
                 HStack(spacing: 6) {
-                    if let priority = item.priority {
-                        Text(priority)
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(PendingPalette.priorityText)
-                            .frame(minWidth: 24)
-                            .frame(height: 20)
-                            .padding(.horizontal, 7)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(PendingPalette.priorityBg)
-                            )
-                    }
-
                     if let estimatedMinutes = item.estimatedMinutes {
                         HStack(spacing: 3) {
                             Image(systemName: "clock")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.system(size: 9, weight: .bold))
                             Text(languageStore.text(.minutesValue, estimatedMinutes))
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.system(size: 10, weight: .bold))
                         }
-                        .foregroundStyle(PendingPalette.metaText)
+                        .foregroundStyle(PendingPalette.durationText)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(PendingPalette.durationBg)
+                        )
                     }
 
-                    if item.priority != nil || item.estimatedMinutes != nil {
+                    if item.estimatedMinutes != nil {
                         Text("·")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(PendingPalette.metaText)

@@ -12,7 +12,7 @@ final class LanguageStore: ObservableObject {
     }
 
     func text(_ key: AppText.Key, _ arguments: CVarArg...) -> String {
-        AppText.string(key, language: language, arguments)
+        AppText.string(key, language: language, arguments: arguments.map { String(describing: $0) })
     }
 
     func text(_ message: AppMessage) -> String {

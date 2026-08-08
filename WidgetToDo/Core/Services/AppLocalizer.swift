@@ -119,6 +119,52 @@ public enum AppText {
         case missingRequiredFieldType
         case duplicateRequiredField
         case fieldMappingFailed
+        case pomodoroTaskStartAction
+        case pomodoroStartDialogTitle
+        case pomodoroStartDialogCopy
+        case pomodoroStartDialogHint
+        case pomodoroStartDialogCancel
+        case pomodoroStartDialogBegin
+        case pomodoroStartDialogBeginGeneric
+        case pomodoroDurationFieldLabel
+        case pomodoroDurationPreset25
+        case pomodoroDurationPreset45
+        case pomodoroDurationCustom
+        case pomodoroDurationCustomPlaceholder
+        case pomodoroDurationUnit
+        case pomodoroDurationError
+        case pomodoroFocusCardMeta
+        case pomodoroFocusCardPausedMeta
+        case pomodoroAbandon
+        case pomodoroPause
+        case pomodoroComplete
+        case pomodoroPauseDialogTitle
+        case pomodoroPauseDialogCopy
+        case pomodoroPauseAbandonRound
+        case pomodoroResumeFocus
+        case pomodoroAbandonDialogTitle
+        case pomodoroAbandonDialogCopy
+        case pomodoroConfirmAbandon
+        case pomodoroEndFocusKicker
+        case pomodoroEndFocusDialogCopy
+        case pomodoroRecordDuration
+        case pomodoroRecordAndComplete
+        case pomodoroRoundComplete
+        case pomodoroRoundCompleteCopy
+        case pomodoroRoundCompleteHint
+        case pomodoroKeepIncomplete
+        case pomodoroCompleteTask
+        case pomodoroDurationAdded
+        case pomodoroCompleteTaskToggle
+        case pomodoroCompleteTaskToggleOffHint
+        case pomodoroCompleteTaskToggleOnHint
+        case pomodoroSuccessCompleted
+        case pomodoroSuccessIncomplete
+        case pomodoroDone
+        case pomodoroTaskDurationLabel
+        case pomodoroDurationWriteFailed
+        case pomodoroRetryDurationWrite
+        case pomodoroLater
     }
 
     private static let translations: [AppLanguage: [Key: String]] = [
@@ -144,7 +190,7 @@ public enum AppText {
             .tasksHelpStep1: "1. 在 Notion 中打开你的 Tasks Database，确保进入的是这个任务数据库本身，而不是某个单独页面。",
             .tasksHelpStep2: "2. 如果当前看到的是嵌入在页面里的数据库视图，先点击数据库标题或“Open as full page”，切到数据库完整页面。",
             .tasksHelpStep3: "3. 这个任务数据库至少需要这些字段类型：1 个 title、1 个 date、1 个 checkbox。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。",
-            .tasksHelpStep4: "4. 如果你还希望在应用里使用预计时长，可以额外准备 number 字段；只有当任务数据库里恰好只有 1 个 number 字段时，应用才会自动把它当作预计时长。",
+            .tasksHelpStep4: "4. 如果你还希望在应用里使用时长，可以额外准备 number 字段；只有当任务数据库里恰好只有 1 个 number 字段时，应用才会自动把它当作时长。",
             .tasksHelpStep5: "5. 在右上角点击“分享”或页面菜单，选择“复制链接”。也可以直接复制浏览器地址栏中的完整链接。",
             .tasksHelpStep6: "6. 把完整链接粘贴到 Tasks Database ID 输入框，应用会自动提取其中的数据库 ID。",
             .journalDatabaseHelpTitle: "获取 Journal Database 链接",
@@ -211,9 +257,9 @@ public enum AppText {
             .taskLabel: "任务",
             .taskTitleRequired: "任务标题不能为空。",
             .dateLabel: "日期",
-            .estimatedMinutesLabel: "预计时长",
+            .estimatedMinutesLabel: "时长",
             .minutesLabel: "分钟",
-            .estimatedMinutesInvalid: "预计时长需填写为大于 0 的分钟数",
+            .estimatedMinutesInvalid: "时长需填写为大于 0 的分钟数",
             .create: "创建",
             .save: "保存",
             .taskUpdated: "任务已更新",
@@ -239,7 +285,53 @@ public enum AppText {
             .invalidJournalDatabaseInput: "Journal Database ID 或 URL 无效。",
             .missingRequiredFieldType: "缺少必填字段类型：%@",
             .duplicateRequiredField: "存在多个%@字段：%@；请仅保留一个 %@ 字段。",
-            .fieldMappingFailed: "数据库字段映射解析失败。"
+            .fieldMappingFailed: "数据库字段映射解析失败。",
+            .pomodoroTaskStartAction: "计时",
+            .pomodoroStartDialogTitle: "开始进行专注",
+            .pomodoroStartDialogCopy: "结束后本次时长将累计到“时长”。",
+            .pomodoroStartDialogHint: "不会修改任务状态",
+            .pomodoroStartDialogCancel: "取消",
+            .pomodoroStartDialogBegin: "开始 %@ 分钟专注",
+            .pomodoroStartDialogBeginGeneric: "开始专注",
+            .pomodoroDurationFieldLabel: "本轮时长",
+            .pomodoroDurationPreset25: "25 分钟",
+            .pomodoroDurationPreset45: "45 分钟",
+            .pomodoroDurationCustom: "自定义",
+            .pomodoroDurationCustomPlaceholder: "输入分钟数（1–480）",
+            .pomodoroDurationUnit: "分钟",
+            .pomodoroDurationError: "请输入 1 到 480 之间的整数分钟数",
+            .pomodoroFocusCardMeta: "专注中 · 本轮 %@ 分钟",
+            .pomodoroFocusCardPausedMeta: "已暂停 · 计时不会继续",
+            .pomodoroAbandon: "放弃",
+            .pomodoroPause: "暂停",
+            .pomodoroComplete: "完成",
+            .pomodoroPauseDialogTitle: "专注已暂停",
+            .pomodoroPauseDialogCopy: "计时已暂停，当前任务仍保持未完成。你可以继续专注，或选择放弃本轮。",
+            .pomodoroPauseAbandonRound: "放弃本轮",
+            .pomodoroResumeFocus: "继续专注",
+            .pomodoroAbandonDialogTitle: "确认放弃？",
+            .pomodoroAbandonDialogCopy: "放弃后，本轮专注不会记录任何时长，任务会继续保留在列表中。",
+            .pomodoroConfirmAbandon: "确认放弃",
+            .pomodoroEndFocusKicker: "结束专注",
+            .pomodoroEndFocusDialogCopy: "确认后，将 %@ 分钟累计到“时长”。剩余时间不会计入时长。",
+            .pomodoroRecordDuration: "记录时长",
+            .pomodoroRecordAndComplete: "记录并完成任务",
+            .pomodoroRoundComplete: "本轮已完成",
+            .pomodoroRoundCompleteCopy: "已将 %@ 分钟累计到“时长”。",
+            .pomodoroRoundCompleteHint: "可同时完成任务，或保持未完成继续后续专注",
+            .pomodoroKeepIncomplete: "保持未完成",
+            .pomodoroCompleteTask: "完成任务",
+            .pomodoroDurationAdded: "已将 %@ 分钟累计到“时长”。",
+            .pomodoroCompleteTaskToggle: "同时完成任务",
+            .pomodoroCompleteTaskToggleOffHint: "关闭则只记录本轮时长，任务保持未完成",
+            .pomodoroCompleteTaskToggleOnHint: "开启则记录时长，且任务设为已完成",
+            .pomodoroSuccessCompleted: "已将 %@ 分钟累计到“时长”。任务已完成。",
+            .pomodoroSuccessIncomplete: "已将 %@ 分钟累计到“时长”。任务保持未完成。",
+            .pomodoroDone: "知道了",
+            .pomodoroTaskDurationLabel: "时长 %@ 分钟",
+            .pomodoroDurationWriteFailed: "本轮已结束，但时长未能写入。",
+            .pomodoroRetryDurationWrite: "重试写入",
+            .pomodoroLater: "稍后决定"
         ],
         .english: [
             .languageSettingTitle: "Language",
@@ -263,7 +355,7 @@ public enum AppText {
             .tasksHelpStep1: "1. Open your Tasks Database in Notion and make sure you are on the database itself, not an individual page.",
             .tasksHelpStep2: "2. If it is an embedded database view, select the database title or “Open as full page” to open the full database.",
             .tasksHelpStep3: "3. The Tasks Database needs one title, one date, and one checkbox property. Names may be customized, but there must be exactly one of each required type.",
-            .tasksHelpStep4: "4. To use estimated time, add a number property. The app uses it only when the Tasks Database has exactly one number property.",
+            .tasksHelpStep4: "4. To use duration, add a number property. The app uses it only when the Tasks Database has exactly one number property.",
             .tasksHelpStep5: "5. Use Share or the page menu in the upper-right corner and choose Copy link. You can also copy the full browser URL.",
             .tasksHelpStep6: "6. Paste the full link into Tasks Database ID; the app extracts the database ID automatically.",
             .journalDatabaseHelpTitle: "Get a Journal Database link",
@@ -330,9 +422,9 @@ public enum AppText {
             .taskLabel: "Task",
             .taskTitleRequired: "Task title is required.",
             .dateLabel: "Date",
-            .estimatedMinutesLabel: "Estimated time",
+            .estimatedMinutesLabel: "Duration",
             .minutesLabel: "minutes",
-            .estimatedMinutesInvalid: "Estimated time must be a positive number of minutes",
+            .estimatedMinutesInvalid: "Duration must be a positive number of minutes",
             .create: "Create",
             .save: "Save",
             .taskUpdated: "Task updated",
@@ -358,7 +450,53 @@ public enum AppText {
             .invalidJournalDatabaseInput: "The Journal Database ID or URL is invalid.",
             .missingRequiredFieldType: "Missing required property type: %@",
             .duplicateRequiredField: "Multiple %@ properties were found: %@. Keep exactly one %@ property.",
-            .fieldMappingFailed: "Could not resolve the database field mapping."
+            .fieldMappingFailed: "Could not resolve the database field mapping.",
+            .pomodoroTaskStartAction: "Timer",
+            .pomodoroStartDialogTitle: "Start a focus round",
+            .pomodoroStartDialogCopy: "When this round ends, its time will be added to “Duration”.",
+            .pomodoroStartDialogHint: "Task status will not change",
+            .pomodoroStartDialogCancel: "Cancel",
+            .pomodoroStartDialogBegin: "Start a %@-minute focus",
+            .pomodoroStartDialogBeginGeneric: "Start focus",
+            .pomodoroDurationFieldLabel: "Round duration",
+            .pomodoroDurationPreset25: "25 minutes",
+            .pomodoroDurationPreset45: "45 minutes",
+            .pomodoroDurationCustom: "Custom",
+            .pomodoroDurationCustomPlaceholder: "Enter minutes (1–480)",
+            .pomodoroDurationUnit: "minutes",
+            .pomodoroDurationError: "Enter a whole number of minutes between 1 and 480",
+            .pomodoroFocusCardMeta: "Focusing · %@ min this round",
+            .pomodoroFocusCardPausedMeta: "Paused · the timer is not running",
+            .pomodoroAbandon: "Abandon",
+            .pomodoroPause: "Pause",
+            .pomodoroComplete: "Done",
+            .pomodoroPauseDialogTitle: "Focus paused",
+            .pomodoroPauseDialogCopy: "The timer is paused and the task stays incomplete. You can resume the round or abandon it.",
+            .pomodoroPauseAbandonRound: "Abandon round",
+            .pomodoroResumeFocus: "Resume focus",
+            .pomodoroAbandonDialogTitle: "Abandon this round?",
+            .pomodoroAbandonDialogCopy: "Abandoning stops the timer without recording any time. The task stays in the list.",
+            .pomodoroConfirmAbandon: "Abandon",
+            .pomodoroEndFocusKicker: "End focus",
+            .pomodoroEndFocusDialogCopy: "%@ minutes will be added to “Duration”. Remaining time is not counted.",
+            .pomodoroRecordDuration: "Record time",
+            .pomodoroRecordAndComplete: "Record and complete task",
+            .pomodoroRoundComplete: "Round complete",
+            .pomodoroRoundCompleteCopy: "%@ minutes were added to “Duration”.",
+            .pomodoroRoundCompleteHint: "You can also complete the task, or keep it incomplete for another round",
+            .pomodoroKeepIncomplete: "Keep incomplete",
+            .pomodoroCompleteTask: "Complete task",
+            .pomodoroDurationAdded: "%@ minutes were added to “Duration”.",
+            .pomodoroCompleteTaskToggle: "Also complete the task",
+            .pomodoroCompleteTaskToggleOffHint: "Off records only this round’s time and keeps the task incomplete",
+            .pomodoroCompleteTaskToggleOnHint: "On records the time and marks the task complete",
+            .pomodoroSuccessCompleted: "%@ minutes were added to “Duration”. The task is complete.",
+            .pomodoroSuccessIncomplete: "%@ minutes were added to “Duration”. The task stays incomplete.",
+            .pomodoroDone: "Got it",
+            .pomodoroTaskDurationLabel: "Duration %@ min",
+            .pomodoroDurationWriteFailed: "The round ended, but the time could not be saved.",
+            .pomodoroRetryDurationWrite: "Retry save",
+            .pomodoroLater: "Decide later"
         ],
         .french: [
             .languageSettingTitle: "Language",
@@ -382,7 +520,7 @@ public enum AppText {
             .tasksHelpStep1: "1. Ouvrez votre base Tasks dans Notion et vérifiez que vous êtes sur la base elle-même, et non sur une page individuelle.",
             .tasksHelpStep2: "2. S’il s’agit d’une vue de base intégrée, ouvrez le titre de la base ou « Open as full page » pour accéder à la base complète.",
             .tasksHelpStep3: "3. La base Tasks requiert une propriété title, date et checkbox. Les noms sont libres, mais il doit y avoir exactement une propriété de chaque type requis.",
-            .tasksHelpStep4: "4. Pour utiliser une durée estimée, ajoutez une propriété number. L’app ne l’utilise que si la base Tasks contient exactement une propriété number.",
+            .tasksHelpStep4: "4. Pour utiliser une durée, ajoutez une propriété number. L’app ne l’utilise que si la base Tasks contient exactement une propriété number.",
             .tasksHelpStep5: "5. Dans Share ou le menu de page en haut à droite, choisissez Copier le lien. Vous pouvez aussi copier l’URL complète du navigateur.",
             .tasksHelpStep6: "6. Collez le lien complet dans Tasks Database ID ; l’app extrait automatiquement l’identifiant de la base.",
             .journalDatabaseHelpTitle: "Obtenir un lien Journal Database",
@@ -449,9 +587,9 @@ public enum AppText {
             .taskLabel: "Tâche",
             .taskTitleRequired: "Le titre de la tâche est obligatoire.",
             .dateLabel: "Date",
-            .estimatedMinutesLabel: "Durée estimée",
+            .estimatedMinutesLabel: "Durée",
             .minutesLabel: "minutes",
-            .estimatedMinutesInvalid: "La durée estimée doit être un nombre positif de minutes",
+            .estimatedMinutesInvalid: "La durée doit être un nombre positif de minutes",
             .create: "Créer",
             .save: "Enregistrer",
             .taskUpdated: "Tâche mise à jour",
@@ -477,7 +615,53 @@ public enum AppText {
             .invalidJournalDatabaseInput: "L’ID ou l’URL de la base Journal est invalide.",
             .missingRequiredFieldType: "Type de propriété requis manquant : %@",
             .duplicateRequiredField: "Plusieurs propriétés %@ ont été trouvées : %@. Conservez exactement une propriété %@.",
-            .fieldMappingFailed: "Impossible de résoudre le mappage des champs de la base."
+            .fieldMappingFailed: "Impossible de résoudre le mappage des champs de la base.",
+            .pomodoroTaskStartAction: "Minuteur",
+            .pomodoroStartDialogTitle: "Démarrer une session de concentration",
+            .pomodoroStartDialogCopy: "À la fin de la session, sa durée sera ajoutée à « Durée ».",
+            .pomodoroStartDialogHint: "Le statut de la tâche ne change pas",
+            .pomodoroStartDialogCancel: "Annuler",
+            .pomodoroStartDialogBegin: "Démarrer %@ min de concentration",
+            .pomodoroStartDialogBeginGeneric: "Démarrer la concentration",
+            .pomodoroDurationFieldLabel: "Durée de la session",
+            .pomodoroDurationPreset25: "25 minutes",
+            .pomodoroDurationPreset45: "45 minutes",
+            .pomodoroDurationCustom: "Personnalisé",
+            .pomodoroDurationCustomPlaceholder: "Saisir les minutes (1–480)",
+            .pomodoroDurationUnit: "minutes",
+            .pomodoroDurationError: "Saisissez un nombre entier de minutes entre 1 et 480",
+            .pomodoroFocusCardMeta: "Concentration · %@ min cette session",
+            .pomodoroFocusCardPausedMeta: "En pause · le minuteur ne tourne plus",
+            .pomodoroAbandon: "Abandonner",
+            .pomodoroPause: "Pause",
+            .pomodoroComplete: "Terminer",
+            .pomodoroPauseDialogTitle: "Concentration en pause",
+            .pomodoroPauseDialogCopy: "Le minuteur est en pause et la tâche reste incomplète. Vous pouvez reprendre la session ou l’abandonner.",
+            .pomodoroPauseAbandonRound: "Abandonner la session",
+            .pomodoroResumeFocus: "Reprendre la concentration",
+            .pomodoroAbandonDialogTitle: "Abandonner cette session ?",
+            .pomodoroAbandonDialogCopy: "Abandonner arrête le minuteur sans enregistrer de durée. La tâche reste dans la liste.",
+            .pomodoroConfirmAbandon: "Abandonner",
+            .pomodoroEndFocusKicker: "Fin de la concentration",
+            .pomodoroEndFocusDialogCopy: "%@ minutes seront ajoutées à « Durée ». Le temps restant n’est pas compté.",
+            .pomodoroRecordDuration: "Enregistrer la durée",
+            .pomodoroRecordAndComplete: "Enregistrer et terminer la tâche",
+            .pomodoroRoundComplete: "Session terminée",
+            .pomodoroRoundCompleteCopy: "%@ minutes ont été ajoutées à « Durée ».",
+            .pomodoroRoundCompleteHint: "Vous pouvez aussi terminer la tâche, ou la laisser incomplète pour une autre session",
+            .pomodoroKeepIncomplete: "Laisser incomplète",
+            .pomodoroCompleteTask: "Terminer la tâche",
+            .pomodoroDurationAdded: "%@ minutes ont été ajoutées à « Durée ».",
+            .pomodoroCompleteTaskToggle: "Terminer aussi la tâche",
+            .pomodoroCompleteTaskToggleOffHint: "Désactivé : seule la durée de la session est enregistrée, la tâche reste incomplète",
+            .pomodoroCompleteTaskToggleOnHint: "Activé : enregistre la durée et marque la tâche comme terminée",
+            .pomodoroSuccessCompleted: "%@ minutes ont été ajoutées à « Durée ». La tâche est terminée.",
+            .pomodoroSuccessIncomplete: "%@ minutes ont été ajoutées à « Durée ». La tâche reste incomplète.",
+            .pomodoroDone: "J’ai compris",
+            .pomodoroTaskDurationLabel: "Durée %@ min",
+            .pomodoroDurationWriteFailed: "La session est terminée, mais la durée n’a pas pu être enregistrée.",
+            .pomodoroRetryDurationWrite: "Réessayer l’enregistrement",
+            .pomodoroLater: "Décider plus tard"
         ]
     ]
 

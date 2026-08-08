@@ -24,8 +24,8 @@
 "填写任务内容" = "Saisissez une tâche";
 "标题不能为空" = "Le titre est requis";
 "日期" = "Date";
-"预计时长" = "Durée estimée";
-"填写预计时长" = "Saisissez la durée estimée";
+"时长" = "Durée";
+"填写时长" = "Saisissez la durée";
 "分钟" = "minutes";
 "创建" = "Créer";
 "编辑任务" = "Modifier la tâche";
@@ -60,7 +60,7 @@
 "1. 在 Notion 中打开你的 Tasks Database，确保进入的是这个任务数据库本身，而不是某个单独页面。" = "1. Ouvrez votre base Tasks dans Notion et vérifiez que vous êtes sur la base elle-même, et non sur une page individuelle.";
 "2. 如果当前看到的是嵌入在页面里的数据库视图，先点击数据库标题或“Open as full page”，切到数据库完整页面。" = "2. S’il s’agit d’une vue de base intégrée, ouvrez le titre de la base ou « Open as full page » pour accéder à la base complète.";
 "3. 这个任务数据库至少需要这些字段类型：1 个 title、1 个 date、1 个 checkbox。字段名可以自定义，但每种必填类型只能有 1 个，否则应用无法判断该用哪个字段。" = "3. La base Tasks requiert une propriété title, date et checkbox. Les noms sont libres, mais il doit y avoir exactement une propriété de chaque type requis.";
-"4. 如果你还希望在应用里使用预计时长，可以额外准备 number 字段；只有当任务数据库里恰好只有 1 个 number 字段时，应用才会自动把它当作预计时长。" = "4. Pour utiliser une durée estimée, ajoutez une propriété number. L’app ne l’utilise que si la base Tasks contient exactement une propriété number.";
+"4. 如果你还希望在应用里使用时长，可以额外准备 number 字段；只有当任务数据库里恰好只有 1 个 number 字段时，应用才会自动把它当作时长。" = "4. Pour utiliser une durée, ajoutez une propriété number. L’app ne l’utilise que si la base Tasks contient exactement une propriété number.";
 "5. 在右上角点击“分享”或页面菜单，选择“复制链接”。也可以直接复制浏览器地址栏中的完整链接。" = "5. Dans Share ou le menu de page en haut à droite, choisissez Copier le lien. Vous pouvez aussi copier l’URL complète du navigateur.";
 "6. 把完整链接粘贴到 Tasks Database ID 输入框，应用会自动提取其中的数据库 ID。" = "6. Collez le lien complet dans Tasks Database ID ; l’app extrait automatiquement l’identifiant de la base.";
 "1. 在 Notion 中打开你的 Journal Database，确认这是用于保存日记条目的数据库。" = "1. Ouvrez votre base Journal dans Notion et confirmez qu’elle stocke les entrées de journal.";
