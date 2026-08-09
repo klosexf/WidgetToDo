@@ -1,5 +1,20 @@
 # Progress
 
+## 2026-08-08 - Remove "不会修改任务状态" hint from focus start dialog
+- 目标: 移除“开始进行专注”弹框底部按钮下方的“不会修改任务状态”提示文案。
+- 非目标: 不改弹框结构、按钮、时长选择、文案“结束后本次时长将累计到‘时长’”；不改动番茄钟逻辑、状态、Notion 持久化。
+- 影响路径:
+  - `WidgetToDo/WidgetToDo/PomodoroViews.swift`: 移除 `PomodoroStartCard` 中 `PomodoroDialogHint(...)` 视图行；同步移除不再使用的 `PomodoroMetrics.dialogHintTopSpacing`。
+- 状态: 已完成代码修改；自动化验证与 UI 手测受当前环境沙箱限制未完成。
+- 最近验证:
+  - `xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` (sandbox 内): 失败。`PomodoroViews.swift` 单文件编译命令显示 `SwiftCompile normal arm64 Compiling PomodoroViews.swift` 正常，但整体构建因沙箱对 swift-plugin-server / Keychain 的 `sandbox-exec: sandbox_apply: Operation not permitted` 与 `#Preview` macro 插件响应异常而失败。
+  - `swift test` / `swift build` (sandbox 内，Xcode 工具链): 失败，`sandbox-exec: sandbox_apply: Operation not permitted`。
+  - 标准入口 `swift test` (CommandLineTools): 失败，缺 XCTest。
+  - UI 手测: 未执行；建议在 Xcode 运行后确认“开始进行专注”弹框底部已不显示“不会修改任务状态”。
+- 风险/回滚点:
+  - 仅影响 `PomodoroStartCard` 视觉；如需恢复，补回 `PomodoroDialogHint(...)` 与 `dialogHintTopSpacing` 即可。
+  - 不涉及任务时长累计逻辑或 Notion 状态变更。
+
 ## 2026-08-08 - Align new/edit task dialog buttons with Pomodoro focus dialog
 - 目标: 将“新建任务”和“编辑任务”弹框底部的“取消/创建”与“取消/保存”两组按钮的样式和大小，改成与“开始进行专注”弹框底部的“取消/开始专注”按钮一致。
 - 非目标: 不改弹框尺寸、输入框、标题、阴影/背景；不改番茄钟弹框本身；不动 Notion API、缓存、Keychain、设置持久化、Package.swift、.xcodeproj 或 entitlements。

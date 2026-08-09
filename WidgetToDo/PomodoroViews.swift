@@ -101,7 +101,6 @@ private enum PomodoroMetrics {
     static let dialogPaddingBottom: CGFloat = 22
     static let dialogPaddingHorizontal: CGFloat = 20
     static let dialogActionsTopSpacing: CGFloat = 18
-    static let dialogHintTopSpacing: CGFloat = 10
 
     // Dialog text
     static let kickerSize: CGFloat = 17
@@ -715,8 +714,6 @@ struct PomodoroStartCard: View {
                         )
                     }
 
-                    PomodoroDialogHint(text: languageStore.text(.pomodoroStartDialogHint))
-                        .padding(.top, PomodoroMetrics.dialogHintTopSpacing)
                 }
             }
         }

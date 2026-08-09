@@ -245,6 +245,9 @@ struct NewTaskFormCard: View {
                 .stroke(NewTaskFormPalette.cardBorder, lineWidth: 1)
         )
         .shadow(color: NewTaskFormPalette.cardShadow, radius: 18, y: 10)
+        .onSubmit {
+            viewModel.submit()
+        }
     }
 
     private func titleBorderColor() -> Color {
