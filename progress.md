@@ -1,5 +1,43 @@
 # Progress
 
+## 2026-08-10 - Add MIT LICENSE
+- 目标: 为仓库补充 MIT LICENSE 文件，明确授权他人使用、修改、分发代码；同步 README 许可证徽章与段落。
+- 非目标: 不改 Swift 源码、测试、构建配置；版权行暂用 GitHub 用户名 `klosexf`，后续可由维护者改为真实姓名。
+- 影响路径:
+  - 新增 `WidgetToDo/LICENSE`（标准 MIT 文本，版权行 `Copyright (c) 2026 klosexf`）。
+  - 修改 `WidgetToDo/README.md`：顶部徽章新增 `license-MIT`；许可证段落从「尚未声明」改为指向本地 `LICENSE` 的链接。
+- 状态: 已完成；LICENSE 文件已创建，README 徽章与段落已同步。
+- 最近验证:
+  - 命令: `git status --short` — 显示新增 `LICENSE`、修改 `README.md` 与 `progress.md`，无其他意外改动。
+  - 命令: `head -3 LICENSE` — 确认首行为 `MIT License`，第二行为空，第三行为 `Copyright (c) 2026 klosexf`。
+  - 命令: `grep -c "license-MIT" README.md` — 通过，徽章已写入。
+  - 无 `swift test`：本次仅新增许可证文档与 README 文案，不涉及代码或测试变更。
+- 风险/回滚点:
+  - 版权持有人写的是 GitHub 用户名 `klosexf`；若维护者希望用真实姓名，直接改 LICENSE 第二行即可。
+  - 回滚：`git rm LICENSE` 并还原 README 徽章与许可证段落，无代码影响。
+
+## 2026-08-10 - Add project README
+- 目标: 为仓库新增一份 `README.md`，让 GitHub 仓库主页有项目说明，覆盖功能特性、系统要求、下载安装、Notion 集成配置、架构目录、构建测试、打包发布与开发约定。
+- 非目标: 不改任何 Swift 源码、测试、`Package.swift`、`.xcodeproj`、entitlements 或 Notion / 持久化逻辑；不新增 LICENSE 文件（许可证由维护者后续决定）。
+- 影响路径:
+  - 新增 `WidgetToDo/README.md`（仓库根目录，GitHub 自动渲染）。
+- 状态: 已完成；README 引用的全部文件路径已用脚本逐一核对存在性。
+- 内容要点:
+  - 徽章标注 macOS 15+ / Swift 6.2 / v1.1.0；不写 license 徽章（仓库尚未声明 LICENSE）。
+  - 功能覆盖：悬浮面板、今日待办、新建任务（含可选预计时长）、当日日记、番茄钟、迷你胶囊、状态栏图标、多语言（zh-Hans/en/fr）、SQLite 本地缓存、Keychain 令牌。
+  - 架构图标注 `View/ViewModel → NotionRepository → NotionClient/Store` 分层约束，与 AGENTS.md 一致。
+  - 构建测试命令与 progress.md 既有条目一致：`swift build`、`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test`、`swift run NotionFloatCoreSmokeTests`、`xcodebuild ... build`。
+  - 明确说明 `AGENTS.md` 与 `bugs.md` 是本地维护、不进入 git 的文档，避免 GitHub 死链。
+  - 截图留占位注释，待维护者补充 `docs/screenshots/` 后替换。
+- 最近验证:
+  - 命令: `cd WidgetToDo && for f in <README 引用的 27 个路径>; do [ -e "$f" ] && echo OK || echo MISS; done` — 通过；27 个路径全部 OK（含 `progress.md`、`Package.swift`、各 ViewModel/View、Core 子目录、lproj、Tests、docs/superpowers）。
+  - 命令: `git ls-files | grep -iE "^(bugs|agents)\.md$"` — 确认 `bugs.md` / `AGENTS.md` 未被 git 追踪，README 已改为说明它们是本地不入库文档，无死链。
+  - 命令: `git tag -l` — 确认最新 tag 为 `v1.1.0`，README 版本徽章与之相符。
+  - 无 `swift test`：本次仅新增文档，不涉及代码或测试变更。
+- 风险/回滚点:
+  - README 中「截图占位」「LICENSE 待补充」为待办项，不影响功能。
+  - 回滚：`git rm README.md` 或 `git checkout -- README.md` 即可，无代码影响。
+
 ## 2026-08-08 - Remove "不会修改任务状态" hint from focus start dialog
 - 目标: 移除“开始进行专注”弹框底部按钮下方的“不会修改任务状态”提示文案。
 - 非目标: 不改弹框结构、按钮、时长选择、文案“结束后本次时长将累计到‘时长’”；不改动番茄钟逻辑、状态、Notion 持久化。
