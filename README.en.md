@@ -31,7 +31,7 @@ If you manage tasks in Notion, every time you want to glance at today's to-dos, 
 
 - **Floating panel**: Draggable, snap-to-grid, collapses into a mini capsule.
 - **Today's tasks**: Check off, create, and edit Notion tasks.
-- **New task**: Title/priority/status/estimated duration, with readable validation messages.
+- **New task**: Title/status/estimated duration, with readable validation messages.
 - **Daily journal**: Edit today's journal, manually sync to Notion.
 - **Pomodoro timer**: Focus timer with task status integration.
 - **Status bar icon**: Left-click to summon the panel, right-click for menu.
@@ -106,11 +106,10 @@ Create a new **Full Page Database** in Notion (not an inline database embedded i
 | Task date | **Date** | Custom, e.g. `Date` | The app filters today's tasks by this field |
 | Done status | **Checkbox** | Custom, e.g. `Done` | Checked = completed |
 
-**Optional fields (2 — only effective if exactly 1 of each type exists):**
+**Optional field (1 — only effective if exactly 1 of this type exists):**
 
 | Purpose | Notion Property Type | Field Name | Notes |
 | --- | --- | --- | --- |
-| Priority | **Select** | Custom, e.g. `Priority` | Suggested options: `Urgent` / `High` / `Medium` / `Low` |
 | Estimated duration | **Number** | Custom, e.g. `Estimated` | In minutes, e.g. `30` = 30 min |
 
 > ⚠️ **Field count constraint**: Each **required** type (title / date / checkbox) must exist **exactly once** in the database. If you have 2 checkbox fields, the app can't determine which to use and will report a validation error. The same applies to optional fields: 2 number fields will disable the duration feature.
