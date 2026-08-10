@@ -13,14 +13,6 @@
   <a href="#下载与安装"><img alt="version" src="https://img.shields.io/badge/version-v1.1.0-lightgrey"></a>
 </p>
 
-<h3 align="center">⬇️ 立即下载体验 WidgetToDo</h3>
-
-<p align="center">
-  <a href="https://github.com/klosexf/WidgetToDo/releases">
-    <img alt="下载 WidgetToDo" src="https://img.shields.io/badge/下载_WidgetToDo_v1.1-macOS_DMG-blue?style=for-the-badge">
-  </a>
-</p>
-
 > 把 Notion 今日任务和当日日记，装进一块常驻桌面的悬浮面板——不开浏览器，不切 Notion 客户端。
 
 ## 它解决什么
@@ -63,6 +55,14 @@
 | Swift 工具链 | Swift 6.2 |
 | Xcode | 推荐 Xcode 16+（CommandLineTools 下 `swift test` 会报 `no such module 'XCTest'`，需完整 Xcode） |
 | Notion | 一个 Notion 账户 + 一个 Tasks 数据库 + 一个日记数据库 |
+
+<h3 align="center">⬇️ 立即下载体验 WidgetToDo</h3>
+
+<p align="center">
+  <a href="https://github.com/klosexf/WidgetToDo/releases">
+    <img alt="下载 WidgetToDo" src="https://img.shields.io/badge/下载_WidgetToDo_v1.1-macOS_DMG-blue?style=for-the-badge">
+  </a>
+</p>
 
 ## 下载与安装
 
