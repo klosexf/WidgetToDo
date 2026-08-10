@@ -1,5 +1,23 @@
 # Progress
 
+## 2026-08-10 - 新增英文版 README 并支持中英切换
+- 目标: 创建英文版 README.en.md，在两个 README 顶部添加语言切换链接。
+- 非目标: 不改 Swift 源码、测试、构建配置；不重做 SVG（英文版复用现有 hero 和架构图 SVG，章节头改用 markdown 标题避免中文装饰图）。
+- 影响路径:
+  - 新增 `WidgetToDo/README.en.md`：完整翻译中文 README，保留 hero.svg 和截图，架构图保留（技术术语为主），三个章节头 SVG 改用普通 markdown 标题。
+  - 修改 `WidgetToDo/README.md`：在 hero 前添加语言切换链接。
+- 状态: 已完成。
+- 最近验证:
+  - 命令: `audit_readme.py README.md` — 通过；6 个本地图片引用。
+  - 命令: `audit_readme.py README.en.md` — 通过；3 个本地图片引用（hero + 截图 + 架构图）。
+  - 无 `swift test`：本次仅新增/修改 README 文档，不涉及代码或测试变更。
+- 风险/回滚点:
+  - 英文版未用章节头 SVG，视觉上比中文版朴素，但避免了外国人看到无意义的中文装饰图。
+  - hero.svg 和 architecture-flow.svg 中的中文文字在英文版中保留（前者展示应用实际 UI，后者以技术术语为主），外国人可理解。
+  - 回滚：`git checkout -- README.md` 并 `rm README.en.md` 即可。
+- 后续待跟进:
+  - 如需英文版 SVG 章节头，可后续补做。
+
 ## 2026-08-10 - 补充 README 未签名应用放行说明
 - 目标: 在 README「下载与安装」的 DMG 方式下，补充 macOS 首次启动未签名应用被拦截的多种解决方案。
 - 非目标: 不改 Swift 源码、测试、构建配置；不改变应用签名策略。

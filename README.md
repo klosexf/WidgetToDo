@@ -1,4 +1,8 @@
 <p align="center">
+  <a href="README.md">简体中文</a> | <a href="README.en.md">English</a>
+</p>
+
+<p align="center">
   <img src="./assets/readme/hero.svg" width="100%" alt="WidgetToDo — macOS 桌面浮窗，把 Notion 今日任务和当日日记装进一块常驻桌面的悬浮面板">
 </p>
 
