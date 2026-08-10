@@ -13,6 +13,12 @@
   <a href="#download--installation"><img alt="version" src="https://img.shields.io/badge/version-v1.1.0-lightgrey"></a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/klosexf/WidgetToDo/releases">
+    <img alt="Download WidgetToDo" src="https://img.shields.io/badge/⬇_Download_WidgetToDo_v1.1-blue?style=for-the-badge">
+  </a>
+</p>
+
 > Put your Notion today's tasks and daily journal into an always-on desktop floating panel — no browser, no switching to the Notion app.
 
 ## The Problem It Solves

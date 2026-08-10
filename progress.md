@@ -1,5 +1,18 @@
 # Progress
 
+## 2026-08-10 - README 顶部添加醒目下载按钮
+- 目标: 在两个 README 顶部 badges 下方添加大号下载按钮，链接到 Releases 页面，方便用户快速找到下载入口。
+- 影响路径:
+  - 修改 `WidgetToDo/README.md`：badges 下方新增 `for-the-badge` 样式的「⬇ 下载 WidgetToDo v1.1」蓝色按钮，链接到 Releases。
+  - 修改 `WidgetToDo/README.en.md`：同步新增英文版「⬇ Download WidgetToDo v1.1」按钮。
+- 状态: 已完成。
+- 最近验证:
+  - 命令: `audit_readme.py README.md` / `audit_readme.py README.en.md` — 均通过；图片引用无新增问题。
+  - 无 `swift test`：本次仅改 README 文案，不涉及代码或测试变更。
+- 风险/回滚点:
+  - 下载按钮用 shields.io 动态生成，离线时无法加载；但 GitHub 默认联网，正常显示。
+  - 回滚：`git checkout -- README.md README.en.md` 即可。
+
 ## 2026-08-10 - 新增英文版 README 并支持中英切换
 - 目标: 创建英文版 README.en.md，在两个 README 顶部添加语言切换链接。
 - 非目标: 不改 Swift 源码、测试、构建配置；不重做 SVG（英文版复用现有 hero 和架构图 SVG，章节头改用 markdown 标题避免中文装饰图）。
