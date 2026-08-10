@@ -13,9 +13,11 @@
   <a href="#download--installation"><img alt="version" src="https://img.shields.io/badge/version-v1.1.0-lightgrey"></a>
 </p>
 
+<h3 align="center">⬇️ Download WidgetToDo Now</h3>
+
 <p align="center">
   <a href="https://github.com/klosexf/WidgetToDo/releases">
-    <img alt="Download WidgetToDo" src="https://img.shields.io/badge/⬇_Download_WidgetToDo_v1.1-blue?style=for-the-badge">
+    <img alt="Download WidgetToDo" src="https://img.shields.io/badge/Download_WidgetToDo_v1.1-macOS_DMG-blue?style=for-the-badge">
   </a>
 </p>
 
