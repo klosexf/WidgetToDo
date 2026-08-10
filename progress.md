@@ -1,5 +1,25 @@
 # Progress
 
+## 2026-08-10 - 补充 README 未签名应用放行说明
+- 目标: 在 README「下载与安装」的 DMG 方式下，补充 macOS 首次启动未签名应用被拦截的多种解决方案。
+- 非目标: 不改 Swift 源码、测试、构建配置；不改变应用签名策略。
+- 是否会发生: 会。当前版本未做 Apple Developer 代码签名，用户首次从 DMG 安装后启动，macOS Gatekeeper 可能提示「无法验证开发者」或「无法检查是否包含恶意软件」。
+- 解决方案（已写入 README）:
+  1. 系统设置 → 隐私与安全性 → 仍要打开。
+  2. 右键 `WidgetToDo.app` → 打开 → 确认框点「打开」。
+  3. 终端执行 `xattr -cr /Applications/WidgetToDo.app` 移除隔离属性后再次双击。
+- 影响路径:
+  - 修改 `WidgetToDo/README.md`：将原来只有一句话的未签名提示，扩展为带编号列表的完整说明，并给出 `xattr -cr` 命令示例。
+- 状态: 已完成。
+- 最近验证:
+  - 命令: `python3 .../audit_readme.py WidgetToDo/README.md` — 通过；6 个本地图片引用全部解析，无新增问题。
+  - 无 `swift test`：本次仅改 README 文案，不涉及代码或测试变更。
+- 风险/回滚点:
+  - `xattr -cr` 会移除应用的扩展属性（包括 quarantine），这是开发者分发未签名应用的常规做法；对普通用户而言是安全的，但 README 已说明仅用于当前未签名版本。
+  - 回滚：`git checkout -- README.md progress.md` 即可。
+- 后续待跟进:
+  - 如后续购买 Apple Developer 账号并做公证/签名，可移除该说明或改为「已签名，无需额外操作」。
+
 ## 2026-08-10 - Beautify README with project-native SVG assets
 - 目标: 用 beautify-github-readme Skill 重设计 README 首页，新增纯 SVG 视觉系统（hero / 章节头 / 架构分层图），并按 Value → Proof → Mechanism → First use → Detail 重排信息架构；hero 和真实 proof 截图贴合实际应用 UI。
 - 非目标: 不改任何 Swift 源码、测试、`Package.swift`、`.xcodeproj`、entitlements 或持久化逻辑；不用 ImageGen / 混合合成 / GIF 动画；不 commit、不 push。
