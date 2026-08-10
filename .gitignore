@@ -17,3 +17,6 @@ docs/superpowers/prototypes/
 
 # 设计 QA 自查记录（过程文档，不入库）
 design-qa.md
+
+# DMG 打包产物（走 GitHub Release，不入库）
+*.dmg
