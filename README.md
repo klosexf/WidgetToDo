@@ -1,31 +1,47 @@
-# WidgetToDo
+<p align="center">
+  <img src="./assets/readme/hero.svg" width="100%" alt="WidgetToDo — macOS 桌面浮窗，把 Notion 今日任务和当日日记装进一块常驻桌面的悬浮面板">
+</p>
 
-> macOS 桌面浮窗应用 — 把 Notion 数据库里的今日任务和当日日记，装进一块常驻桌面的悬浮面板。
+<p align="center">
+  <a href="#下载与安装"><img alt="platform" src="https://img.shields.io/badge/platform-macOS%2015%2B-blue"></a>
+  <a href="#系统要求"><img alt="swift" src="https://img.shields.io/badge/Swift-6.2-orange"></a>
+  <a href="#许可证"><img alt="license" src="https://img.shields.io/badge/license-MIT-green"></a>
+  <a href="#下载与安装"><img alt="version" src="https://img.shields.io/badge/version-v1.1.0-lightgrey"></a>
+</p>
 
-[![platform](https://img.shields.io/badge/platform-macOS%2015%2B-blue)](#系统要求)
-[![swift](https://img.shields.io/badge/Swift-6.2-orange)](#系统要求)
-[![license](https://img.shields.io/badge/license-MIT-green)](#许可证)
-[![version](https://img.shields.io/badge/version-v1.1.0-lightgrey)](#下载与安装)
+> 把 Notion 今日任务和当日日记，装进一块常驻桌面的悬浮面板——不开浏览器，不切 Notion 客户端。
 
-WidgetToDo 是一个原生 macOS 应用，用 SwiftUI + AppKit 构建。它在桌面上挂一块可拖拽、可吸附、可缩为迷你胶囊的悬浮窗，直接读写你的 Notion Tasks 数据库与日记数据库——不需要打开浏览器，也不需要切到 Notion 客户端。
+## 它解决什么
 
-<!-- 截图占位：建议在此放 1-2 张浮窗全尺寸 + 迷你胶囊的截图，例如：
-![WidgetToDo 浮窗预览](docs/screenshots/floating-widget.png)
--->
+用 Notion 管任务的人，每次看一眼今日待办、勾一个完成、写一段日记，都要切到浏览器或 Notion 客户端。WidgetToDo 把这两件事变成桌面常驻浮窗：
 
----
+- **常驻桌面**：可拖拽、网格吸附、多档布局；一键缩为迷你胶囊，只留标题与关键操作。
+- **直连 Notion**：读写 Tasks 数据库与日记数据库；令牌存 macOS Keychain，断网时 SQLite 缓存仍可查看上次拉取的任务。
+- **原生 macOS**：SwiftUI + AppKit 构建，菜单栏常驻图标，简中 / 英 / 法三语本地化。
+
+<p align="center">
+  <img src="./docs/screenshots/app-main-light.png" width="60%" alt="WidgetToDo 主界面：待办/日记 tab、日期导航、番茄钟卡片、任务行与时长徽章">
+</p>
+
+<p align="center">
+  <img src="./assets/readme/section-features.svg" width="100%" alt="功能特性">
+</p>
 
 ## 功能特性
 
-- **悬浮面板**：常驻桌面的浮动窗口，支持拖拽、网格吸附、多档布局；可一键缩为迷你胶囊，只保留标题与关键操作。
-- **今日待办**：从 Notion Tasks 数据库拉取今日任务，支持勾选完成、新建任务、编辑任务，行内显示优先级、状态与可选的「预计时长」。
-- **新建任务**：弹框内输入标题、优先级、状态、可选预计时长（分钟）；输入校验失败时给出可读中文提示。
-- **当日日记**：在日记 tab 里编辑今天的日记页，支持手动同步到 Notion。
-- **番茄钟专注**：内置番茄钟，支持专注时长累计与任务状态联动。
-- **状态栏图标**：菜单栏常驻图标，左键唤起浮窗、右键弹菜单。
-- **多语言**：内置简体中文、英文、法文三套本地化资源。
-- **本地缓存**：Notion 数据本地 SQLite 缓存，断网时仍可查看上次拉取的任务。
-- **安全令牌**：Notion 集成令牌存放在 macOS Keychain，不进源码、不进日志。
+- **悬浮面板**：可拖拽、吸附、缩为迷你胶囊。
+- **今日待办**：勾选、新建、编辑 Notion 任务。
+- **新建任务**：标题/优先级/状态/预计时长，校验有中文提示。
+- **当日日记**：编辑当日日记，手动同步到 Notion。
+- **番茄钟**：专注计时，与任务状态联动。
+- **状态栏图标**：左键唤起浮窗，右键弹菜单。
+- **多语言**：简中 / 英 / 法。
+- **本地缓存**：SQLite 断网可查。
+- **安全令牌**：Keychain 存放，不进源码与日志。
+
+<p align="center">
+  <img src="./assets/readme/section-getting-started.svg" width="100%" alt="下载与配置">
+</p>
 
 ## 系统要求
 
@@ -63,9 +79,21 @@ open WidgetToDo.xcodeproj
 
 令牌会写入 macOS Keychain，配置信息走 `SettingsStore` 持久化到 Application Support，均不进入源码。
 
-## 架构与目录结构
+<p align="center">
+  <img src="./assets/readme/section-architecture.svg" width="100%" alt="架构与开发">
+</p>
 
-仓库是一个单仓库原生 macOS 项目，核心可测逻辑通过 SwiftPM 暴露为 `NotionFloatCore` library，App 层用 Xcode project 组装。
+## 架构与分层
+
+仓库是一个单仓库原生 macOS 项目，核心可测逻辑通过 SwiftPM 暴露为 `NotionFloatCore` library，App 层用 Xcode project 组装。UI 层不直接发 Notion 请求，统一走：
+
+<p align="center">
+  <img src="./assets/readme/architecture-flow.svg" width="100%" alt="分层架构：View/ViewModel → NotionRepository → NotionClient / SQLiteCache / KeychainTokenStore / SettingsStore">
+</p>
+
+窗口拖拽、吸附、布局等可复用纯逻辑放在 `Core/Services/`，便于 `swift test` 覆盖；AppKit / SwiftUI 层只消费计算结果。
+
+### 目录结构
 
 ```text
 WidgetToDo/
@@ -99,16 +127,6 @@ WidgetToDo/
 ```
 
 > 仓库外（本地工作目录）还维护着 `AGENTS.md`（协作约定）和 `bugs.md`（已知问题 / 失败方案）两份文档，它们不进入 git，仅用于本地开发参考。
-
-### 分层约束
-
-UI 层不直接发 Notion 请求，统一走：
-
-```
-View / ViewModel  →  NotionRepository  →  NotionClient / SQLiteCache / KeychainTokenStore
-```
-
-窗口拖拽、吸附、布局等可复用纯逻辑放在 `Core/Services/`，便于 `swift test` 覆盖；AppKit / SwiftUI 层只消费计算结果。
 
 ## 构建与测试
 

@@ -1,5 +1,31 @@
 # Progress
 
+## 2026-08-10 - Beautify README with project-native SVG assets
+- 目标: 用 beautify-github-readme Skill 重设计 README 首页，新增纯 SVG 视觉系统（hero / 章节头 / 架构分层图），并按 Value → Proof → Mechanism → First use → Detail 重排信息架构；hero 和真实 proof 截图贴合实际应用 UI。
+- 非目标: 不改任何 Swift 源码、测试、`Package.swift`、`.xcodeproj`、entitlements 或持久化逻辑；不用 ImageGen / 混合合成 / GIF 动画；不 commit、不 push。
+- 模式: README 整体重设计（用户选定）· 纯 SVG（用户选定「图片生成仅需要 svg」）。
+- 影响路径:
+  - 新增 `WidgetToDo/assets/readme/hero.svg`（1200×420，左标题 + 右浅色真实 UI 浮窗面板：待办/日记 tab、日期导航、番茄钟环形进度卡片、任务行与时长徽章）。
+  - 新增 `WidgetToDo/assets/readme/section-features.svg` / `section-getting-started.svg` / `section-architecture.svg`（1200×68，深色章节头横幅）。
+  - 新增 `WidgetToDo/assets/readme/architecture-flow.svg`（1200×280，三列分层图）。
+  - 新增 `WidgetToDo/docs/screenshots/` 目录（等待用户放入真实截图）。
+  - 修改 `WidgetToDo/README.md`：顶部嵌入 hero；新增「它解决什么」首屏段落并嵌入 `docs/screenshots/app-main-light.png` 作为真实 proof；三个主章节前置 SVG 章节头；架构段嵌入 architecture-flow；保留全部原有技术内容。
+- 视觉系统: hero 采用浅色暖灰画布（#F7F5F0）+ 真实应用 UI 配色（白卡片 #FFF、主文字 #1C1C1E、次要文字 #8E8E93、棕色 #B58A5F、完成按钮绿 #4CAF50、时长 pill 浅橙 #FFF5E6）；章节头/架构图保留深色自含背景以在 GitHub light/dark 下独立成块。
+- 状态: 已完成；真实截图已就位，audit 通过。
+- 最近验证:
+  - 命令: `cp 微信图片_20260810123831_2045_19.png WidgetToDo/docs/screenshots/app-main-light.png` — 通过；图片 654×882，约 88KB。
+  - 命令: `python3 .../audit_readme.py WidgetToDo/README.md` — 通过；6 个本地图片引用全部解析（5 SVG + 1 PNG 截图），SVG viewBox / title 基础检查通过。
+  - 命令: 自写 Python 脚本对 5 个 SVG 做 bounds 校验 — 通过；无 rect/circle/text 溢出 viewBox，无 script/foreignObject，均有 `<title>`。
+  - 命令: `sips -s format png hero.svg --out /tmp/hero-light.png` + `sips -g pixelWidth -g pixelHeight` — 通过；渲染为 1200×420 PNG，无错误。
+  - 命令: integrated_browser 渲染 `/tmp/readme-full.html`（900px GitHub 宽度）— 页面快照确认 hero / 真实截图 / 章节头 / architecture-flow 按序加载，截图位于「它解决什么」之后、section-features 之前。
+  - 无 `swift test`：本次仅改 README 与新增 SVG/PNG 静态资源，不涉及代码或测试变更。
+- 风险/回滚点:
+  - SVG 内中文依赖系统字体栈（PingFang SC / -apple-system）；GitHub 渲染端通常有中文字体。
+  - 视觉未由我直接肉眼复核；用户可在 Browser View 或 GitHub 实际页面确认。
+  - 回滚：`git checkout -- README.md progress.md` 并 `rm -rf assets/readme/ docs/screenshots/`，无代码影响。
+- 后续待跟进:
+  - 可选：经用户批准后，按 Skill Step 9 提供「README MADE WITH」签名。
+
 ## 2026-08-10 - Add MIT LICENSE
 - 目标: 为仓库补充 MIT LICENSE 文件，明确授权他人使用、修改、分发代码；同步 README 许可证徽章与段落。
 - 非目标: 不改 Swift 源码、测试、构建配置；版权行暂用 GitHub 用户名 `klosexf`，后续可由维护者改为真实姓名。

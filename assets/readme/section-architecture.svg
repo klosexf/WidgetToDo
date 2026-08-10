@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="68" viewBox="0 0 1200 68" role="img" aria-labelledby="s3-title s3-desc">
+  <title id="s3-title">架构与开发</title>
+  <desc id="s3-desc">章节 03：分层架构、目录结构、构建测试与打包。</desc>
+  <rect width="1200" height="68" rx="14" fill="#0E0F12"/>
+  <text x="56" y="42" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" letter-spacing="1.6" fill="#E87A5D">03</text>
+  <line x1="92" y1="24" x2="92" y2="44" stroke="#2A2E36" stroke-width="1"/>
+  <text x="112" y="42" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif" font-size="22" font-weight="600" fill="#F2F3F5">架构与开发</text>
+  <text x="276" y="42" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="1.4" fill="#5F6671">ARCHITECTURE &amp; DEV</text>
+  <g transform="translate(1124 28)">
+    <rect x="0" y="0" width="20" height="12" rx="6" fill="none" stroke="#3A3F4A" stroke-width="1"/>
+    <circle cx="6" cy="6" r="2.4" fill="#8B919A"/>
+  </g>
+</svg>
