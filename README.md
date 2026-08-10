@@ -94,12 +94,68 @@ open WidgetToDo.xcodeproj
 
 ## 配置 Notion 集成
 
-1. 在 Notion 创建一个 **internal integration**，拿到 `secret_xxx` 形式的集成令牌。
-2. 把这个集成**显式共享**到你的 Tasks 数据库和日记数据库（Notion 要求集成被共享后才能访问）。
-3. 启动 WidgetToDo，在引导界面填入令牌并选择数据库。
-4. Tasks 数据库支持一个可选的 `number` 字段用于映射「预计时长（分钟）」；没有该字段也能正常使用，只是不显示时长。
+整个配置流程分为 4 步：创建集成令牌 → 搭建数据库 → 共享集成到数据库 → 在应用中填入。
 
-令牌会写入 macOS Keychain，配置信息走 `SettingsStore` 持久化到 Application Support，均不进入源码。
+### 第 1 步：创建 Notion 集成令牌
+
+1. 打开 [notion.so/my-integrations](https://www.notion.so/my-integrations)，点击 **「创建新集成」**。
+2. 填写名称（如 `WidgetToDo`），选择你的 Workspace，能力勾选 **读取内容、更新内容、插入内容**。
+3. 创建后复制 `secret_xxx` 形式的令牌——**这串令牌只显示一次**，请妥善保存。
+
+### 第 2 步：搭建 Tasks 数据库
+
+在 Notion 中新建一个 **Full Page Database**（完整页面数据库，不是页面内嵌入的 inline database），作为任务数据库。
+
+**必须字段（3 个，缺一不可，每种类型只能有 1 个）：**
+
+| 字段用途 | Notion 字段类型 | 字段名 | 说明 |
+| --- | --- | --- | --- |
+| 任务标题 | **Title**（标题） | 自定义，如 `Name` 或 `任务名` | 数据库自带，通常默认叫 `Name` |
+| 任务日期 | **Date**（日期） | 自定义，如 `Date` 或 `日期` | 应用按此字段筛选今日任务 |
+| 完成状态 | **Checkbox**（复选框） | 自定义，如 `Done` 或 `完成` | 勾选表示已完成 |
+
+**可选字段（2 个，每种类型只能有 1 个才会生效）：**
+
+| 字段用途 | Notion 字段类型 | 字段名 | 说明 |
+| --- | --- | --- | --- |
+| 优先级 | **Select**（单选） | 自定义，如 `Priority` | 选项建议用 `Urgent` / `High` / `Medium` / `Low` |
+| 预计时长 | **Number**（数字） | 自定义，如 `Estimated` | 单位为分钟，如 `30` 表示 30 分钟 |
+
+> ⚠️ **字段数量约束**：每种**必填**类型（title / date / checkbox）在数据库里**只能存在 1 个**。如果你有 2 个 checkbox 字段，应用无法判断用哪个，会报校验错误。可选字段同理：如果有 2 个 number 字段，时长功能会被禁用。
+
+### 第 3 步：搭建 Journal 数据库
+
+再新建一个 **Full Page Database**，作为日记数据库。
+
+**必须字段（2 个，缺一不可，每种类型只能有 1 个）：**
+
+| 字段用途 | Notion 字段类型 | 字段名 | 说明 |
+| --- | --- | --- | --- |
+| 日记标题 | **Title**（标题） | 自定义，如 `Name` 或 `标题` | 应用会自动生成格式为「日记 2026-08-10」的标题 |
+| 日记日期 | **Date**（日期） | 自定义，如 `Date` 或 `日期` | 应用按此字段查找/创建当天日记 |
+
+> 日记**正文**直接写入 Notion 页面的 body（页面内容区），**不需要**额外创建文本类型的 property 字段。日记数据库推荐使用 Gallery 视图，便于浏览回顾。
+
+### 第 4 步：把集成共享到两个数据库
+
+集成默认无法访问任何数据库，必须**逐个显式共享**：
+
+1. 打开 Tasks 数据库 → 右上角 `···` 菜单 → **「Connections」/「连接」** → 搜索你创建的集成名（如 `WidgetToDo`）→ 点击添加。
+2. 对 Journal 数据库重复同样操作。
+3. 确认两个数据库都已添加该集成。
+
+> 如果共享后仍提示无权访问，检查 Workspace 设置中是否允许集成访问已限制的页面。
+
+### 第 5 步：在应用中填入配置
+
+1. 启动 WidgetToDo，进入引导界面。
+2. 填入第 1 步拿到的 `secret_xxx` 令牌。
+3. 获取数据库链接：在 Notion 中打开 Tasks 数据库 → 右上角 `分享` → `复制链接`（也可直接复制浏览器地址栏的完整 URL）。
+4. 把完整 URL 粘贴到「Tasks Database ID」输入框——应用会自动提取其中的数据库 ID，无需手动截取。
+5. 对 Journal 数据库重复同样操作，粘贴到「Journal Database ID」。
+6. 点击保存。应用会自动校验数据库字段是否符合要求，校验通过后进入主界面。
+
+> 令牌写入 macOS Keychain，配置信息走 `SettingsStore` 持久化到 Application Support，均不进入源码。
 
 <p align="center">
   <img src="./assets/readme/section-architecture.svg" width="100%" alt="架构与开发">

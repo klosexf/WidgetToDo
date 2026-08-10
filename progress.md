@@ -1,5 +1,29 @@
 # Progress
 
+## 2026-08-10 - README 补充 Notion 数据库搭建详细教程
+- 目标: 在「配置 Notion 集成」部分补充完整的数据库搭建教程，让用户清楚知道怎么创建数据库、需要哪些字段、如何关联。
+- 依据: 读取 FieldValidator.swift / NotionClient.swift / NotionRepository.swift / AppSettings.swift 代码，确认实际字段校验逻辑。
+- 字段要求（已写入 README）:
+  - Tasks 数据库必须：1 个 title + 1 个 date + 1 个 checkbox（每种类型恰好 1 个，否则校验失败）。
+  - Tasks 数据库可选：1 个 select（优先级，选项 Urgent/High/Medium/Low）+ 1 个 number（预计时长，分钟）。多于 1 个则该功能禁用。
+  - Journal 数据库必须：1 个 title + 1 个 date。正文写入页面 body，不需要文本字段。
+- 教程结构（中英文版均 5 步）:
+  1. 创建 Notion 集成令牌（my-integrations 页面，能力勾选）。
+  2. 搭建 Tasks 数据库（字段表格 + 字段数量约束警告）。
+  3. 搭建 Journal 数据库（字段表格 + 正文说明）。
+  4. 把集成共享到两个数据库（Connections 操作步骤）。
+  5. 在应用中填入配置（粘贴 URL 自动提取 ID）。
+- 影响路径:
+  - 修改 `WidgetToDo/README.md`：「配置 Notion 集成」从 4 行扩展为完整 5 步教程。
+  - 修改 `WidgetToDo/README.en.md`：同步英文版。
+- 状态: 已完成。
+- 最近验证:
+  - 命令: `audit_readme.py README.md` / `audit_readme.py README.en.md` — 均通过。
+  - 无 `swift test`：本次仅改 README 文档，不涉及代码或测试变更。
+- 风险/回滚点:
+  - 字段要求基于当前代码逻辑（FieldValidator.resolveTasks / resolveJournal），若后续代码改变字段校验逻辑需同步更新 README。
+  - 回滚：`git checkout -- README.md README.en.md` 即可。
+
 ## 2026-08-10 - README 顶部添加醒目下载按钮
 - 目标: 在两个 README 顶部 badges 下方添加大号下载按钮，链接到 Releases 页面，方便用户快速找到下载入口。
 - 影响路径:

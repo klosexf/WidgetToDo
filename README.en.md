@@ -86,12 +86,68 @@ In Xcode, select the `WidgetToDo` scheme and press `⌘R` to run. On first launc
 
 ## Configure Notion Integration
 
-1. Create an **internal integration** in Notion and copy the integration token (in `secret_xxx` format).
-2. **Explicitly share** this integration with your Tasks database and journal database (Notion requires integrations to be shared before they can access content).
-3. Launch WidgetToDo, paste the token in the welcome screen, and select your databases.
-4. The Tasks database supports an optional `number` field for "estimated duration (minutes)". The app works fine without it — it just won't display the duration.
+The setup has 5 steps: create an integration token → set up databases → share the integration → enter configuration in the app.
 
-The token is stored in macOS Keychain; configuration is persisted via `SettingsStore` to Application Support. Neither ever enters the source code.
+### Step 1: Create a Notion Integration Token
+
+1. Go to [notion.so/my-integrations](https://www.notion.so/my-integrations) and click **"Create new integration"**.
+2. Fill in a name (e.g. `WidgetToDo`), select your Workspace, and check **Read content, Update content, Insert content** capabilities.
+3. After creation, copy the `secret_xxx` token — **it's only shown once**, so save it somewhere safe.
+
+### Step 2: Set Up the Tasks Database
+
+Create a new **Full Page Database** in Notion (not an inline database embedded in a page) to serve as your Tasks database.
+
+**Required fields (3 — all mandatory, exactly 1 of each type):**
+
+| Purpose | Notion Property Type | Field Name | Notes |
+| --- | --- | --- | --- |
+| Task title | **Title** | Custom, e.g. `Name` | Built-in; usually named `Name` by default |
+| Task date | **Date** | Custom, e.g. `Date` | The app filters today's tasks by this field |
+| Done status | **Checkbox** | Custom, e.g. `Done` | Checked = completed |
+
+**Optional fields (2 — only effective if exactly 1 of each type exists):**
+
+| Purpose | Notion Property Type | Field Name | Notes |
+| --- | --- | --- | --- |
+| Priority | **Select** | Custom, e.g. `Priority` | Suggested options: `Urgent` / `High` / `Medium` / `Low` |
+| Estimated duration | **Number** | Custom, e.g. `Estimated` | In minutes, e.g. `30` = 30 min |
+
+> ⚠️ **Field count constraint**: Each **required** type (title / date / checkbox) must exist **exactly once** in the database. If you have 2 checkbox fields, the app can't determine which to use and will report a validation error. The same applies to optional fields: 2 number fields will disable the duration feature.
+
+### Step 3: Set Up the Journal Database
+
+Create another **Full Page Database** to serve as your Journal database.
+
+**Required fields (2 — all mandatory, exactly 1 of each type):**
+
+| Purpose | Notion Property Type | Field Name | Notes |
+| --- | --- | --- | --- |
+| Journal title | **Title** | Custom, e.g. `Name` | The app auto-generates titles like "日记 2026-08-10" |
+| Journal date | **Date** | Custom, e.g. `Date` | The app uses this to find/create the daily entry |
+
+> Journal **body text** is written directly into the Notion page content area — **no** extra text property is needed. A Gallery view is recommended for the Journal database for easier browsing.
+
+### Step 4: Share the Integration with Both Databases
+
+Integrations cannot access any database by default — you must **share each database explicitly**:
+
+1. Open the Tasks database → click the `···` menu in the top-right → **"Connections"** → search for your integration name (e.g. `WidgetToDo`) → click to add.
+2. Repeat for the Journal database.
+3. Confirm that both databases have the integration connected.
+
+> If you still get permission errors after sharing, check your Workspace settings to ensure integrations are allowed to access restricted pages.
+
+### Step 5: Enter Configuration in the App
+
+1. Launch WidgetToDo to enter the onboarding screen.
+2. Paste the `secret_xxx` token from Step 1.
+3. Get the database link: open the Tasks database in Notion → click `Share` in the top-right → `Copy link` (or just copy the full URL from your browser's address bar).
+4. Paste the full URL into the "Tasks Database ID" field — the app automatically extracts the database ID from the URL, no manual trimming needed.
+5. Repeat for the Journal database, pasting into "Journal Database ID".
+6. Click save. The app validates the database fields automatically and enters the main interface once validation passes.
+
+> The token is stored in macOS Keychain; configuration is persisted via `SettingsStore` to Application Support. Neither ever enters the source code.
 
 ## Architecture & Layers
 
