@@ -1145,7 +1145,7 @@ private enum FloatingWidgetMetrics {
 
     static let taskRowHorizontalSpacing: CGFloat = 10
     static let taskRowTextStackSpacing: CGFloat = 6
-    static let taskRowMetaSpacing: CGFloat = 6
+    static let taskRowMetaSpacing: CGFloat = 4
     static let taskRowActionSpacing: CGFloat = 6
     static let taskRowTopPadding: CGFloat = 14
     static let taskRowBottomPadding: CGFloat = 16

@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-08-11 - 任务元信息相邻元素间距统一为 4pt
+- 目标: 将任务列表中时间标签、选择标签、分隔点和同步状态之间的相邻元素间距由 6pt 统一调整为 4pt。
+- 非目标: 不改标签内部内边距、Notion 颜色映射、时长显示规则、右侧“计时/更多”操作区或其他页面布局。
+- 影响路径:
+  - `ContentView`：仅调整任务元信息行的共享间距常量。
+  - `TaskRowLayoutContractTests`：新增 4pt 间距回归契约。
+- 状态: 已在隔离分支 `fix/task-meta-spacing-4` 完成，待合并至本地主分支 `main`。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter TaskRowLayoutContractTests` — 2 tests / 0 failures。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 70 tests / 0 failures（存在基线已有的 PomodoroSessionEngineTests 未使用返回值警告）。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoTaskMetaSpacingDerivedData build` — `BUILD SUCCEEDED`。
+- 手测: 实际浮窗中“工作/创作 · 已同步”与“1 分钟 · 学习 · 已同步”均保持单行，右侧“计时/更多”完整显示；相邻元信息采用 4pt 间距。
+- 风险/回滚点: 仅收紧元信息行横向空隙；极窄窗口仍沿用既有截断与优先级策略。回滚该分支提交即可恢复 6pt。
+
 ## 2026-08-11 - 选择标签按文本自适应宽度
 - 目标: 修复短选择项（如“工作/创作”）被拉伸为固定长胶囊的问题。
 - 根因: 标签文字设置了 `maxWidth: 142`，在任务行存在剩余空间时会扩展到该宽度，而不是采用文字的固有宽度。

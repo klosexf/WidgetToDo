@@ -2,6 +2,12 @@ import Foundation
 import XCTest
 
 final class TaskRowLayoutContractTests: XCTestCase {
+    func testTaskRowMetaElementsUseFourPointSpacing() throws {
+        let source = try String(contentsOf: contentViewURL(), encoding: .utf8)
+
+        XCTAssertTrue(source.contains("static let taskRowMetaSpacing: CGFloat = 4"))
+    }
+
     func testTaskRowKeepsDurationOnOneLineBeforeCompressingChoiceValue() throws {
         let source = try String(contentsOf: contentViewURL(), encoding: .utf8)
 
