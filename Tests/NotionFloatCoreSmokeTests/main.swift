@@ -40,6 +40,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try welcomeViewUsesDedicatedIllustrationAssetAndCallback()
             try configurationFormContainsSettingsHelpAndExtractionCopy()
             try newTaskFormKeepsCreateTaskContract()
+            try newTaskTypePickerUsesSearchableDropdownContract()
             try todoTaskDurationMatchesHtmlReferenceContract()
             try newTaskFormDoesNotDimTodoPanel()
             try onboardingVisualAlignmentKeepsExistingBehaviorContract()
@@ -978,6 +979,55 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             !normalized.contains("regularMaterial"),
             "new task form should no longer use regularMaterial in the bounded form source"
+        )
+    }
+
+    static func newTaskTypePickerUsesSearchableDropdownContract() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let formURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("NewTaskFormCard.swift")
+        let source = try String(contentsOf: formURL, encoding: .utf8)
+
+        try expect(
+            source.contains("@State private var searchText"),
+            "type picker should keep local search text"
+        )
+        try expect(
+            source.contains("@State private var isOptionsPresented"),
+            "type picker should keep local dropdown state"
+        )
+        try expect(
+            source.contains("TextField(\"搜索或选择类型\""),
+            "type picker should expose an input placeholder"
+        )
+        try expect(
+            source.contains("Image(systemName: \"chevron.down\")"),
+            "type picker should use a down arrow"
+        )
+        try expect(
+            source.contains("filteredOptions"),
+            "type picker should filter Notion options"
+        )
+        try expect(
+            source.contains("selection = option.name"),
+            "type picker should preserve the selection binding"
+        )
+        try expect(
+            source.contains("selection = nil"),
+            "type picker should retain a clear choice"
+        )
+        try expect(
+            source.contains("optionsListHeight") && source.contains(".frame(height: optionsListHeight)"),
+            "type picker should reserve visible height for filtered options"
+        )
+        try expect(
+            source.contains("ScrollView(.vertical, showsIndicators: true)") &&
+                source.contains("maxHeight: NewTaskFormMetrics.cardMaxHeight"),
+            "new task form should scroll overflow instead of clipping fields"
         )
     }
 
