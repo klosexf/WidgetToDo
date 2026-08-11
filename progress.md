@@ -1,5 +1,18 @@
 # Progress
 
+## 2026-08-11 - 编辑任务弹框底部留白收紧
+- 目标: 移除编辑任务弹框在类型列表关闭时按钮下方的大块无效空白，同时保持类型列表展开后的最大高度与纵向滚动。
+- 非目标: 不改新建任务弹框、编辑字段尺寸、保存/取消交互、Notion 数据绑定或类型选择逻辑。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift`: 编辑表单仅在类型列表关闭时按内容高度收缩；列表展开时继续使用现有最大高度和外层滚动。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`: 编辑表单源码契约限定到 `EditTaskFormCard` 区段，并断言高度收缩仅在类型列表关闭时启用。
+- 状态: 已完成隔离分支代码与验证，待合并回 `main`。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — 通过；新契约先在原实现上按预期失败：`edit form should shrink only while the type list is closed`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoEditCardHeightDerivedData build` — `BUILD SUCCEEDED`。
+- 手测: 使用隔离 Debug app 编辑现有任务。类型列表关闭时弹框高度紧凑，保存/取消下方不再有大块留白；展开 6 个类型后外层滚动条从 0 滚到 1，取消/保存按钮仍可达；取消关闭弹框，未触发 Notion 写入。
+- 风险/回滚点: 收缩逻辑依赖 `isTypeOptionsPresented`；回滚该 `fixedSize` 动态约束即可恢复原高度行为。
+
 ## 2026-08-11 - 编辑任务类型搜索下拉框与溢出滚动
 - 目标: 让编辑任务弹框的类型选择与新建任务一致：左侧可输入筛选，右侧固定下箭头展开；当类型列表使弹框内容超过承载高度时可纵向滚动。
 - 非目标: 不改 `TodoListViewModel.editingPriority` 的数据绑定、Notion Select 选项来源、`saveTaskEdit()` 请求、标题/时长校验、新建任务弹框或类型颜色映射。
