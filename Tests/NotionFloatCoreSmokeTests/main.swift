@@ -1130,8 +1130,8 @@ struct NotionFloatCoreSmokeTestsRunner {
             "edit form should use the shared overflow-aware slim scroller"
         )
         try expect(
-            editFormSource.contains(".fixedSize(horizontal: false, vertical: !isTypeOptionsPresented)"),
-            "edit form should shrink only while the type list is closed"
+            !editFormSource.contains(".fixedSize(horizontal: false, vertical: !isTypeOptionsPresented)"),
+            "AppKit-backed edit form should not use the incompatible fixed-size modifier"
         )
     }
 
