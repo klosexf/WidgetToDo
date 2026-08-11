@@ -1033,6 +1033,16 @@ struct NotionFloatCoreSmokeTestsRunner {
             "shared form scroller should recompute document height when SwiftUI content changes"
         )
         try expect(
+            scrollerSource.contains("let usesContentHeight: Bool") &&
+                scrollerSource.contains("init(usesContentHeight: Bool = false"),
+            "shared slim scroller should keep content-height negotiation opt-in"
+        )
+        try expect(
+            scrollerSource.contains("override var intrinsicContentSize: NSSize") &&
+                scrollerSource.contains("invalidateIntrinsicContentSize()"),
+            "content-height scroller should expose and invalidate measured intrinsic height"
+        )
+        try expect(
             newTaskSource.contains("SlimFormScrollView {"),
             "new task form should use the shared slim scroll view"
         )
@@ -1047,8 +1057,8 @@ struct NotionFloatCoreSmokeTestsRunner {
         }
         let editSource = String(contentSource[editStart.lowerBound..<previewStart])
         try expect(
-            editSource.contains("SlimFormScrollView {"),
-            "edit task form should use the shared slim scroll view"
+            editSource.contains("SlimFormScrollView(usesContentHeight: true) {"),
+            "edit form should opt into content-driven height negotiation"
         )
     }
 
@@ -1131,7 +1141,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             "edit picker should reserve visible height for filtered options"
         )
         try expect(
-            editFormSource.contains("SlimFormScrollView {") &&
+            editFormSource.contains("SlimFormScrollView(usesContentHeight: true) {") &&
                 source.contains("maxHeight: NewTaskFormMetrics.cardMaxHeight"),
             "edit form should use the shared overflow-aware slim scroller"
         )

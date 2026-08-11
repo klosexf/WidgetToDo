@@ -8,14 +8,16 @@ private enum SlimFormScrollerMetrics {
 }
 
 struct SlimFormScrollView<Content: View>: NSViewRepresentable {
+    let usesContentHeight: Bool
     let content: Content
 
-    init(@ViewBuilder content: () -> Content) {
+    init(usesContentHeight: Bool = false, @ViewBuilder content: () -> Content) {
+        self.usesContentHeight = usesContentHeight
         self.content = content()
     }
 
     func makeNSView(context: Context) -> HostingScrollView<Content> {
-        HostingScrollView(rootView: content)
+        HostingScrollView(rootView: content, usesContentHeight: usesContentHeight)
     }
 
     func updateNSView(_ scrollView: HostingScrollView<Content>, context: Context) {
@@ -45,8 +47,11 @@ final class SlimVerticalScroller: NSScroller {
 
 final class HostingScrollView<Content: View>: NSScrollView {
     private let hostingView: NSHostingView<Content>
+    private let usesContentHeight: Bool
+    private var measuredContentHeight: CGFloat = 1
 
-    init(rootView: Content) {
+    init(rootView: Content, usesContentHeight: Bool) {
+        self.usesContentHeight = usesContentHeight
         hostingView = NSHostingView(rootView: rootView)
         super.init(frame: .zero)
 
@@ -59,6 +64,11 @@ final class HostingScrollView<Content: View>: NSScrollView {
         verticalScroller = SlimVerticalScroller()
 
         documentView = hostingView
+    }
+
+    override var intrinsicContentSize: NSSize {
+        guard usesContentHeight else { return super.intrinsicContentSize }
+        return NSSize(width: NSView.noIntrinsicMetric, height: measuredContentHeight)
     }
 
     @available(*, unavailable)
@@ -85,7 +95,18 @@ final class HostingScrollView<Content: View>: NSScrollView {
 
         hostingView.frame = NSRect(x: 0, y: 0, width: documentWidth, height: 1)
         hostingView.layoutSubtreeIfNeeded()
-        hostingView.frame.size.height = max(hostingView.fittingSize.height, 1)
+        let contentHeight = max(hostingView.fittingSize.height, 1)
+        hostingView.frame.size.height = contentHeight
+        updateMeasuredContentHeight(contentHeight)
         reflectScrolledClipView(contentView)
+    }
+
+    private func updateMeasuredContentHeight(_ contentHeight: CGFloat) {
+        guard usesContentHeight,
+              abs(measuredContentHeight - contentHeight) > 0.5
+        else { return }
+
+        measuredContentHeight = contentHeight
+        invalidateIntrinsicContentSize()
     }
 }

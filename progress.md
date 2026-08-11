@@ -1,5 +1,20 @@
 # Progress
 
+## 2026-08-11 - 编辑任务弹框内容自适应高度
+- 目标: 移除编辑任务弹框在类型列表关闭时、保存按钮下方的大块无效留白；内容超过安全上限时保留既有 5 pt 极细滚动条和完整表单可达性。
+- 方案: 用户在视觉对比中选择 A「内容自适应 + 最大高度」。编辑表单按实际内容高度收紧，仍由既有 `242...376 pt` 卡片约束处理最小高度、最大高度及溢出滚动；新建任务弹框不启用此模式。
+- 影响路径:
+  - `WidgetToDo/SlimFormScrollView.swift`: `SlimFormScrollView` 增加默认关闭的 `usesContentHeight` 配置；开启时，`HostingScrollView` 把按当前宽度测得的 `NSHostingView.fittingSize.height` 作为固有高度，并仅在变化超过 0.5 pt 时失效尺寸，防止布局循环。
+  - `WidgetToDo/ContentView.swift`: 仅 `EditTaskFormCard` 调用 `SlimFormScrollView(usesContentHeight: true)`；字段、Binding、取消/保存和 Notion 数据流不变。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`: 新增内容高度模式、固有高度和失效机制的回归合约。
+- 状态: 已完成代码与自动化验证；等待用户在已配置应用中确认实际弹框高度和类型列表滚动。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift run NotionFloatCoreSmokeTests` — 先红：`shared slim scroller should keep content-height negotiation opt-in`；共享能力完成后第二次按预期只剩 `edit form should opt into content-driven height negotiation`；启用编辑调用点后通过，`All smoke tests passed.`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift test` — 70 tests / 0 failures（仅有既有 `PomodoroSessionEngineTests` 未使用返回值警告）。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/widgettodo-edit-task-adaptive-height-build CODE_SIGNING_ALLOWED=NO build` — `BUILD SUCCEEDED`。
+- 手测: 尝试通过 Computer Use 启动隔离构建 `/private/tmp/widgettodo-edit-task-adaptive-height-build/Build/Products/Debug/WidgetToDo.app`，自动化通道返回 `timeoutReached`；为不读取、复制或输入用户现有 App 的 Notion 配置，未操作安装版。需用户验证普通编辑时无底部留白、展开类型后底部按钮可滚动到达、收起后再次收紧及取消不写入。
+- 风险/回滚点: 首次显示或类型列表收展时，AppKit 与 SwiftUI 之间可能有一次正常的重新布局；0.5 pt 阈值避免持续失效。回滚编辑调用点的 `usesContentHeight: true` 即恢复原固定高度策略，不影响任务数据。
+
 ## 2026-08-11 - 消除状态栏右键菜单 QoS priority inversion
 - 目标: 消除 Thread Performance Checker 在 `StatusBarController.swift:114` 报告的“User-interactive 线程等待 Default QoS 线程”风险；保留左键开关浮窗、右键菜单、设置和退出行为。
 - 根因: `NSEvent.addLocalMonitorForEvents(matching: .rightMouseUp)` 的 user-interactive 事件回调内同步调用 `NSMenu.popUpContextMenu`。该 API 进入 AppKit 菜单跟踪循环并等待较低 QoS 的内部工作，触发 priority inversion 诊断。不能改为长期设置 `NSStatusItem.menu`，因为 Apple 文档明确其非空时会停用状态项的单击 action。
