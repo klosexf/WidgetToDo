@@ -6,7 +6,7 @@
 - 影响路径:
   - `WidgetToDo/ContentView.swift`: `EditTaskFormCard` 以输入框、分区下箭头和筛选列表替换原生 `Menu`；表单增加共享最大高度与垂直 `ScrollView`。
   - `Tests/NotionFloatCoreSmokeTests/main.swift`: 新增编辑类型输入/下箭头/筛选/清空/选项可见高度/弹框滚动的源码契约；将既有日期标题契约限定到工具栏范围，避免其他组件的 28pt 行高造成误报。
-- 状态: 已完成隔离分支代码与验证，待合并回 `main`。
+- 状态: 已合并至本地主分支 `main`。
 - 最近验证:
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — 通过，`All smoke tests passed.`；新增契约先在原生 `Menu` 实现上按预期失败：`edit picker should keep local search text`。
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 70 tests / 0 failures；全新编译基线仅有既有 `PomodoroSessionEngineTests` 未使用返回值警告。
