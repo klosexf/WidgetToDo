@@ -762,8 +762,14 @@ struct NotionFloatCoreSmokeTestsRunner {
             "status bar item should handle right mouse click via local event monitor since NSStatusBarButton ignores sendAction for right click"
         )
         try expect(
-            source.contains("NSMenu.popUpContextMenu(menu, with: event, for: button)"),
-            "status bar item should pop the menu using NSMenu.popUpContextMenu with the triggering event"
+            source.contains("presentContextMenu(menu, with: event, for: button)"),
+            "status bar event monitor should defer contextual menu presentation instead of tracking it inline"
+        )
+        try expect(
+            source.contains("private func presentContextMenu")
+                && source.contains("DispatchQueue.main.async")
+                && source.contains("NSMenu.popUpContextMenu(menu, with: event, for: button)"),
+            "status bar item should present the contextual menu on the next main-queue turn"
         )
         try expect(
             source.contains("item.length = NSStatusItem.squareLength"),

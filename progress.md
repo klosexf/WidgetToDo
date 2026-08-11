@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-08-11 - 消除状态栏右键菜单 QoS priority inversion
+- 目标: 消除 Thread Performance Checker 在 `StatusBarController.swift:114` 报告的“User-interactive 线程等待 Default QoS 线程”风险；保留左键开关浮窗、右键菜单、设置和退出行为。
+- 根因: `NSEvent.addLocalMonitorForEvents(matching: .rightMouseUp)` 的 user-interactive 事件回调内同步调用 `NSMenu.popUpContextMenu`。该 API 进入 AppKit 菜单跟踪循环并等待较低 QoS 的内部工作，触发 priority inversion 诊断。不能改为长期设置 `NSStatusItem.menu`，因为 Apple 文档明确其非空时会停用状态项的单击 action。
+- 影响路径:
+  - `WidgetToDo/StatusBarController.swift`: 本地监视器只截获并消费右键事件；新增 `presentContextMenu`，使用 `DispatchQueue.main.async` 在下一主队列轮次展示同一菜单、事件和按钮，避免在 user-interactive 回调内同步等待。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`: 防回归契约要求右键处理转交给延迟展示函数，并要求该函数经由主队列调用 `NSMenu.popUpContextMenu`。
+- 状态: 已完成代码与自动化验证；桌面 UI 自动化启动隔离 Debug app 超时，需在 Xcode 开启 Thread Performance Checker 后人工右键状态栏图标确认菜单可打开且不再报告该行。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift run NotionFloatCoreSmokeTests` — 新契约先在旧同步实现上按预期失败：`status bar event monitor should defer contextual menu presentation instead of tracking it inline`；实现后通过，`All smoke tests passed.`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/widgettodo-statusbar-qos-build CODE_SIGNING_ALLOWED=NO build` — `BUILD SUCCEEDED`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift test` — 70 tests / 0 failures。
+- 手测: 已尝试通过 Computer Use 启动 `/private/tmp/widgettodo-statusbar-qos-build/Build/Products/Debug/WidgetToDo.app`，自动化通道返回 `timeoutReached`；为不读取或改写用户已安装 App 的 Notion 配置，未继续操作。需人工验证右键菜单位置及 Thread Performance Checker。
+- 风险/回滚点: 菜单展示推迟一个主队列轮次，视觉上最多增加极短调度延迟；回滚 `presentContextMenu` 调用即可恢复同步展示，但会重现 QoS 警告。
+
 ## 2026-08-11 - 修复编辑任务弹框空白
 - 目标: 修复编辑任务弹框显示为空白卡片的回归；保留共享 5 pt 极细滚动条、字段 Binding、类型筛选、保存/取消及 Notion 数据流。
 - 根因: 编辑表单保留了只适用于 SwiftUI `ScrollView` 的 `.fixedSize(horizontal: false, vertical: !isTypeOptionsPresented)`。改为 AppKit `NSScrollView` 后，该视图没有固有尺寸（本机查询为 `-1 × -1`），导致嵌入的表单内容无法获得有效布局高度。

@@ -111,8 +111,14 @@ final class StatusBarController: NSObject {
 
         let clickPoint = button.convert(event.locationInWindow, from: nil)
         guard button.bounds.contains(clickPoint), let menu else { return event }
-        NSMenu.popUpContextMenu(menu, with: event, for: button)
+        presentContextMenu(menu, with: event, for: button)
         return nil
+    }
+
+    private func presentContextMenu(_ menu: NSMenu, with event: NSEvent, for button: NSStatusBarButton) {
+        DispatchQueue.main.async {
+            NSMenu.popUpContextMenu(menu, with: event, for: button)
+        }
     }
 
     @objc
