@@ -7,7 +7,6 @@ final class TaskRowLayoutContractTests: XCTestCase {
 
         XCTAssertTrue(source.contains(".lineLimit(1)"))
         XCTAssertTrue(source.contains(".fixedSize(horizontal: true, vertical: false)"))
-        XCTAssertTrue(source.contains(".frame(minWidth: 0, maxWidth: 142)"))
         XCTAssertFalse(source.contains(".layoutPriority(-1)"))
         let taskTitleStart = try XCTUnwrap(source.range(of: "Text(task.title)"))
         let taskRowEnd = try XCTUnwrap(source[taskTitleStart.lowerBound...].range(of: "\n                Spacer()"))
@@ -27,6 +26,7 @@ final class TaskRowLayoutContractTests: XCTestCase {
         let choiceLabel = String(source[choiceLabelStart.lowerBound..<choiceLabelEnd.lowerBound])
         XCTAssertFalse(choiceLabel.contains("Circle().fill"))
         XCTAssertTrue(choiceLabel.contains("TaskChoicePalette.dot(for: choiceOption).opacity(0.14)"))
+        XCTAssertFalse(choiceLabel.contains(".frame(minWidth: 0, maxWidth: 142)"))
     }
 
     private func contentViewURL() -> URL {
