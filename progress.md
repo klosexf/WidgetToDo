@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-08-11 - 新建任务类型搜索下拉框与溢出滚动
+- 目标: 重做新建任务弹框的类型选择器：左侧可输入筛选，右侧固定下箭头展开；当类型列表使弹框内容超出承载高度时，可在弹框内纵向滚动查看全部内容。
+- 非目标: 不改 `NewTaskViewModel.priority`、Notion Select 选项来源、创建任务请求、编辑任务弹框或类型颜色映射。
+- 影响路径:
+  - `WidgetToDo/NewTaskFormCard.swift`：`TaskChoicePicker` 改为输入框 + 分区下箭头 + 可筛选选项列表；新建任务表单增加最大高度与纵向 `ScrollView`，避免内容裁切。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`：新增类型输入/下箭头/筛选/清空/选项可见高度/弹框滚动的源码契约。
+- 状态: 已合并至本地主分支 `main`。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — 通过，`All smoke tests passed.`；新增契约先后在旧 `Menu`、零高度列表、非滚动弹框实现上按预期失败。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 69 tests / 0 failures。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoTypePickerDerivedData build` — `BUILD SUCCEEDED`。
+- 手测: 启动隔离构建的 App，打开「+」后确认类型输入框与分隔下箭头出现；展开后显示 6 个 Notion 类型；输入筛选与选择“工作/创作”正常写回输入框；展开列表后弹框出现可用的垂直滚动区，滚动条从 0 到 1，取消关闭弹框且未创建任务。
+- 风险/回滚点: 选项较多时，类型列表与表单共享弹框纵向滚动区域；回滚 `TaskChoicePicker` 和表单 `ScrollView` 的本次改动即可恢复原生 `Menu`。
+
 ## 2026-08-11 - 任务元信息相邻元素间距统一为 4pt
 - 目标: 将任务列表中时间标签、选择标签、分隔点和同步状态之间的相邻元素间距由 6pt 统一调整为 4pt。
 - 非目标: 不改标签内部内边距、Notion 颜色映射、时长显示规则、右侧“计时/更多”操作区或其他页面布局。
