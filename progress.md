@@ -8,7 +8,7 @@
   - `WidgetToDo/SlimFormScrollView.swift`: 为内容高度模式增加可选上限，并只限制滚动容器的固有高度，保留完整文档高度。
   - `WidgetToDo/ContentView.swift`: 仅 `EditTaskFormCard` 传入既有卡片最大高度。
   - `Tests/NotionFloatCoreSmokeTests/main.swift`: 增加“固有高度受限、完整文档保留”的回归合约；调整与多行初始化器无关的脆弱文本匹配。
-- 状态: 已完成代码与自动化验证；待用户在已配置的应用中展开类型列表回测视觉边界与按钮可达性。
+- 状态: 已于 2026-08-12 合并至本地 `main`；自动化验证已通过，待用户在已配置的应用中展开类型列表回测视觉边界与按钮可达性。
 - 最近验证:
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift run NotionFloatCoreSmokeTests` — 新合约先在旧实现上按预期失败：`content-height scroller should cap its intrinsic height while preserving the full scroll document`；实现后通过，`All smoke tests passed.`。
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/widgettodo-edit-task-height-overflow-build CODE_SIGNING_ALLOWED=NO build` — `BUILD SUCCEEDED`。
