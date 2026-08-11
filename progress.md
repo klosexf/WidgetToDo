@@ -1,9 +1,10 @@
 # Progress
 
 ## 2026-08-11 - Task Select field
-- 状态: 已在隔离分支实现；待真实 Notion 数据库手测。
-- 验证: `swift test --disable-sandbox` 通过（64 tests / 0 failures）；Xcode Debug build 通过。
-- 手测: 待确认真实 select 选项颜色、创建/编辑/清空同步、长值 hover、零/多 Select 降级。
+- 状态: 已合并至本地主分支；待真实 Notion 数据库手测。
+- 行为: 仅在 Tasks 数据库恰好有一个包含选项的 Select 字段时显示创建/编辑控件与任务列表胶囊；颜色由该 Notion 选项颜色决定；长文本尾部截断并可悬停查看全文。
+- 验证: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` 通过（66 tests / 0 failures）；`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoTaskSelectDerivedData build` 通过。
+- 手测: 待确认真实数据库中的创建、编辑、清空同步及零/多 Select 降级。
 
 ## 2026-08-10 - README 补充 Notion 数据库搭建详细教程
 - 目标: 在「配置 Notion 集成」部分补充完整的数据库搭建教程，让用户清楚知道怎么创建数据库、需要哪些字段、如何关联。

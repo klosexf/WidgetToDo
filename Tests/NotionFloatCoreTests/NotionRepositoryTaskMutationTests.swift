@@ -61,6 +61,63 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
         XCTAssertEqual(cached.syncStatus, .synced)
     }
 
+    func testUpdateTaskTitleClearsConfiguredSelectField() async throws {
+        let task = makeTask()
+        let responseBody = """
+        {
+          "id": "\(task.id)",
+          "url": "https://www.notion.so/task-1",
+          "properties": {
+            "任务标题": { "title": [{ "plain_text": "原始任务标题" }] },
+            "计划日期": { "date": { "start": "2026-05-21" } },
+            "已完成": { "checkbox": false },
+            "任务优先级": { "select": null }
+          }
+        }
+        """
+        let harness = try await makeHarness(responseStatusCode: 200, responseBody: responseBody)
+        try harness.cache.upsert(task)
+
+        let updated = try await harness.repository.updateTaskTitle(
+            id: task.id,
+            title: "原始任务标题",
+            priority: nil,
+            estimatedMinutes: nil
+        )
+
+        XCTAssertNil(updated.priority)
+        let requestBody = try XCTUnwrap(MockURLProtocol.lastRequestBody)
+        XCTAssertTrue(requestBody.contains(#""任务优先级""#))
+        XCTAssertTrue(requestBody.contains(#""select":null"#))
+    }
+
+    func testUpdateTaskTitleOmitsSelectFieldWhenMappingHasNoOptions() async throws {
+        let task = makeTask()
+        let responseBody = """
+        {
+          "id": "\(task.id)",
+          "url": "https://www.notion.so/task-1",
+          "properties": {
+            "任务标题": { "title": [{ "plain_text": "原始任务标题" }] },
+            "计划日期": { "date": { "start": "2026-05-21" } },
+            "已完成": { "checkbox": false },
+            "任务优先级": { "select": { "name": "High" } }
+          }
+        }
+        """
+        let harness = try await makeHarness(
+            responseStatusCode: 200,
+            responseBody: responseBody,
+            priorityOptions: []
+        )
+        try harness.cache.upsert(task)
+
+        _ = try await harness.repository.updateTaskTitle(id: task.id, title: "原始任务标题", estimatedMinutes: nil)
+
+        let requestBody = try XCTUnwrap(MockURLProtocol.lastRequestBody)
+        XCTAssertFalse(requestBody.contains(#""任务优先级""#))
+    }
+
     func testUpdateTaskTitleOmitsEstimatedMinutesWhenMappingIsNil() async throws {
         let task = makeTask()
         let responseBody = """
@@ -293,7 +350,8 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
     private func makeHarness(
         responseStatusCode: Int,
         responseBody: String,
-        estimatedMinutesField: String? = "预计时长"
+        estimatedMinutesField: String? = "预计时长",
+        priorityOptions: [NotionSelectOption] = [NotionSelectOption(name: "High", color: .orange)]
     ) async throws -> RepositoryHarness {
         let tokenStore = InMemoryTokenStore()
 
@@ -320,6 +378,7 @@ final class NotionRepositoryTaskMutationTests: XCTestCase {
                     date: "计划日期",
                     done: "已完成",
                     priority: "任务优先级",
+                    priorityOptions: priorityOptions,
                     estimatedMinutes: estimatedMinutesField
                 ),
                 journalFieldMapping: JournalDatabaseFieldMapping(

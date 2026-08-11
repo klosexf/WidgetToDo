@@ -28,6 +28,25 @@ enum NewTaskFormPalette {
     static let secondaryButtonText = Color(red: 0.365, green: 0.333, blue: 0.306)
 }
 
+enum TaskChoicePalette {
+    static let unset = NewTaskFormPalette.meta
+
+    static func dot(for option: NotionSelectOption?) -> Color {
+        switch option?.color {
+        case .gray: return Color(red: 0.54, green: 0.54, blue: 0.52)
+        case .brown: return Color(red: 0.57, green: 0.42, blue: 0.32)
+        case .orange: return Color(red: 0.84, green: 0.43, blue: 0.10)
+        case .yellow: return Color(red: 0.76, green: 0.60, blue: 0.08)
+        case .green: return Color(red: 0.20, green: 0.55, blue: 0.31)
+        case .blue: return Color(red: 0.20, green: 0.48, blue: 0.78)
+        case .purple: return Color(red: 0.49, green: 0.32, blue: 0.74)
+        case .pink: return Color(red: 0.78, green: 0.30, blue: 0.53)
+        case .red: return Color(red: 0.78, green: 0.25, blue: 0.22)
+        case .default, .none: return unset
+        }
+    }
+}
+
 struct NewTaskPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -279,6 +298,10 @@ private struct TaskChoicePicker: View {
     let field: TaskChoiceField
     @Binding var selection: String?
 
+    private var selectedOption: NotionSelectOption? {
+        field.options.first { $0.name == selection }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             NewTaskFieldLabel(text: field.name)
@@ -289,7 +312,7 @@ private struct TaskChoicePicker: View {
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Circle().fill(Color.gray).frame(width: 8, height: 8)
+                    Circle().fill(TaskChoicePalette.dot(for: selectedOption)).frame(width: 8, height: 8)
                     Text(selection ?? "未选择").font(.system(size: 14)).foregroundStyle(NewTaskFormPalette.title)
                     Spacer()
                     Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(NewTaskFormPalette.meta)

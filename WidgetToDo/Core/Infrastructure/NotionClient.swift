@@ -76,7 +76,7 @@ public actor NotionClient {
                 "number": estimatedMinutes
             ]
         }
-        if let priorityField = fields.priority {
+        if let priorityField = fields.priority, !fields.priorityOptions.isEmpty {
             properties[priorityField] = priority.map { ["select": ["name": $0]] } ?? ["select": NSNull()]
         }
         let body: [String: Any] = ["properties": properties]

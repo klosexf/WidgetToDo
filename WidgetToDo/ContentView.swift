@@ -1556,24 +1556,32 @@ struct FloatingWidgetView: View {
                             )
                         }
 
-                        if task.estimatedMinutes != nil, task.priority != nil {
+                        let choiceOption = todoViewModel.choiceField.flatMap { field in
+                            task.priority.flatMap { priority in field.options.first { $0.name == priority } }
+                        }
+
+                        if task.estimatedMinutes != nil, choiceOption != nil {
                             Text("·")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(FloatingWidgetPalette.metaText)
                         }
 
-                        if let priority = task.priority {
+                        if let priority = task.priority, let choiceOption {
                             HStack(spacing: 4) {
-                                Circle().fill(FloatingWidgetPalette.durationText).frame(width: 6, height: 6)
-                                Text(priority).lineLimit(1).truncationMode(.tail).frame(maxWidth: 112).help(priority)
+                                Circle().fill(TaskChoicePalette.dot(for: choiceOption)).frame(width: 6, height: 6)
+                                Text(priority)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .frame(maxWidth: 142)
+                                    .help(priority)
                             }
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(FloatingWidgetPalette.durationText)
+                            .foregroundStyle(FloatingWidgetPalette.metaText)
                             .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Capsule().fill(FloatingWidgetPalette.durationBg))
+                            .background(Capsule().fill(Color.black.opacity(0.035)))
                         }
 
-                        if task.priority != nil {
+                        if choiceOption != nil {
                             Text("·").font(.system(size: 10, weight: .semibold)).foregroundStyle(FloatingWidgetPalette.metaText)
                         }
 
@@ -2127,6 +2135,7 @@ struct EditTaskFormCard: View {
             }
 
             if let choiceField = viewModel.choiceField {
+                let selectedOption = choiceField.options.first { $0.name == viewModel.editingPriority }
                 VStack(alignment: .leading, spacing: 6) {
                     Text(choiceField.name)
                         .font(.system(size: 13, weight: .semibold))
@@ -2138,7 +2147,7 @@ struct EditTaskFormCard: View {
                         }
                     } label: {
                         HStack(spacing: 8) {
-                            Circle().fill(FloatingWidgetPalette.durationText).frame(width: 8, height: 8)
+                            Circle().fill(TaskChoicePalette.dot(for: selectedOption)).frame(width: 8, height: 8)
                             Text(viewModel.editingPriority ?? "未选择")
                                 .font(.system(size: 14, weight: .regular))
                                 .foregroundStyle(NewTaskFormPalette.title)
