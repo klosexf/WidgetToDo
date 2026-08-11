@@ -1,5 +1,20 @@
 # Progress
 
+## 2026-08-11 - 新建与编辑任务弹框的极细滚动条
+- 目标: 将新建任务与编辑任务弹框右侧滚动条统一为 5 pt 极细自定义滑块，保留表单字段、Notion 数据流、表单尺寸及滚轮/触控板/键盘/滑块拖拽语义。
+- 非目标: 不调整标题、日期、时长、类型字段、创建/保存/取消动作或 Notion 配置。
+- 影响路径:
+  - `WidgetToDo/SlimFormScrollView.swift`: 新增共享 AppKit 容器与不绘制轨道的 `SlimVerticalScroller`；滑块宽度固定为 5 pt，保留 `NSScroller` 原生拖拽与自动隐藏；每次 SwiftUI 内容更新或容器布局后都显式重算文档宽高，以同步编辑任务类型列表收展后的可滚动范围与滑块比例。
+  - `WidgetToDo/NewTaskFormCard.swift`、`WidgetToDo/ContentView.swift`: 新建/编辑任务弹框仅替换外层滚动容器；字段 Binding、按钮与编辑任务类型下拉框收展逻辑不变。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`: 新增共享极细滚动组件与两个调用入口的合约；旧断言同步为同一“可溢出、不裁切”语义。
+- 状态: 已完成代码与自动化验证；桌面 UI 手测受隔离构建未配置 Tasks 数据库阻塞。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift run NotionFloatCoreSmokeTests` — 两次先红：先因 `SlimFormScrollView.swift` 缺失、后因缺少动态文档高度刷新而失败；实现后通过，`All smoke tests passed.`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift test` — 70 tests / 0 failures。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/widgettodo-slim-scroller-build CODE_SIGNING_ALLOWED=NO build` — `BUILD SUCCEEDED`。
+- 手测: 已启动隔离 Debug app，但当前只显示“欢迎使用 WidgetToDo / 开始配置”。该隔离环境没有已配置的 Tasks 数据库；为避免读取或输入 Notion token，未进入新建/编辑任务弹框。因此 5 pt 宽度、拖拽及类型列表动态高度仍需在已配置的 app runtime 中人工核对。
+- 风险/回滚点: 独立代码复核未发现 Critical 问题；动态高度刷新已由 `HostingScrollView.updateDocumentLayout()` 覆盖，但仍需真实表单手测验证。回滚共享组件与两处外层容器替换即可恢复系统滚动条，不影响任务或 Notion 数据。
+
 ## 2026-08-11 - 编辑任务弹框底部留白收紧
 - 目标: 移除编辑任务弹框在类型列表关闭时按钮下方的大块无效空白，同时保持类型列表展开后的最大高度与纵向滚动。
 - 非目标: 不改新建任务弹框、编辑字段尺寸、保存/取消交互、Notion 数据绑定或类型选择逻辑。

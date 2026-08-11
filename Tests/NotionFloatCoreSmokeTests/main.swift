@@ -40,6 +40,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try welcomeViewUsesDedicatedIllustrationAssetAndCallback()
             try configurationFormContainsSettingsHelpAndExtractionCopy()
             try newTaskFormKeepsCreateTaskContract()
+            try taskFormsUseSharedSlimScrollerContract()
             try newTaskTypePickerUsesSearchableDropdownContract()
             try editTaskTypePickerUsesSearchableDropdownContract()
             try todoTaskDurationMatchesHtmlReferenceContract()
@@ -989,6 +990,62 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
     }
 
+    static func taskFormsUseSharedSlimScrollerContract() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let appURL = rootURL.appendingPathComponent("WidgetToDo")
+        let scrollerSource = try String(
+            contentsOf: appURL.appendingPathComponent("SlimFormScrollView.swift"),
+            encoding: .utf8
+        )
+        let newTaskSource = try String(
+            contentsOf: appURL.appendingPathComponent("NewTaskFormCard.swift"),
+            encoding: .utf8
+        )
+        let contentSource = try String(
+            contentsOf: appURL.appendingPathComponent("ContentView.swift"),
+            encoding: .utf8
+        )
+
+        try expect(
+            scrollerSource.contains("struct SlimFormScrollView"),
+            "task forms should share a dedicated slim scroll view"
+        )
+        try expect(
+            scrollerSource.contains("static let thumbWidth: CGFloat = 5"),
+            "task form scrollbar thumb should be 5 pt wide"
+        )
+        try expect(
+            scrollerSource.contains("final class SlimVerticalScroller: NSScroller"),
+            "shared form scroller should keep native drag behavior"
+        )
+        try expect(
+            scrollerSource.contains("private func updateDocumentLayout()") &&
+                scrollerSource.contains("hostingView.frame = NSRect"),
+            "shared form scroller should recompute document height when SwiftUI content changes"
+        )
+        try expect(
+            newTaskSource.contains("SlimFormScrollView {"),
+            "new task form should use the shared slim scroll view"
+        )
+
+        guard let editStart = contentSource.range(of: "struct EditTaskFormCard: View"),
+              let previewStart = contentSource[editStart.upperBound...].range(
+                  of: "#Preview",
+                  options: [],
+                  range: editStart.upperBound..<contentSource.endIndex
+              )?.lowerBound else {
+            throw SmokeTestFailure(description: "edit task form scope should remain available")
+        }
+        let editSource = String(contentSource[editStart.lowerBound..<previewStart])
+        try expect(
+            editSource.contains("SlimFormScrollView {"),
+            "edit task form should use the shared slim scroll view"
+        )
+    }
+
     static func newTaskTypePickerUsesSearchableDropdownContract() throws {
         let rootURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -1032,9 +1089,9 @@ struct NotionFloatCoreSmokeTestsRunner {
             "type picker should reserve visible height for filtered options"
         )
         try expect(
-            source.contains("ScrollView(.vertical, showsIndicators: true)") &&
+            source.contains("SlimFormScrollView {") &&
                 source.contains("maxHeight: NewTaskFormMetrics.cardMaxHeight"),
-            "new task form should scroll overflow instead of clipping fields"
+            "new task form should use the shared overflow-aware slim scroller"
         )
     }
 
@@ -1068,9 +1125,9 @@ struct NotionFloatCoreSmokeTestsRunner {
             "edit picker should reserve visible height for filtered options"
         )
         try expect(
-            source.contains("ScrollView(.vertical, showsIndicators: true)") &&
+            editFormSource.contains("SlimFormScrollView {") &&
                 source.contains("maxHeight: NewTaskFormMetrics.cardMaxHeight"),
-            "edit form should scroll overflow instead of clipping fields"
+            "edit form should use the shared overflow-aware slim scroller"
         )
         try expect(
             editFormSource.contains(".fixedSize(horizontal: false, vertical: !isTypeOptionsPresented)"),
