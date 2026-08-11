@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-08-11 - 自动刷新任务 Select 映射与配置错误详情
+- 目标: 修复旧配置未保存 Select 选项时新建任务不显示选择器的问题，并保留配置失败的具体原因。
+- 影响路径:
+  - `NotionRepository`：仅当本地 Select 选项为空时读取一次 Tasks schema；成功后仅更新该可选字段映射和选项，失败时保留原设置。
+  - `ContentView`：启动、设置页与刷新入口均应用最新映射；不改任务数据和既有表单布局。
+  - `AppLocalizer`：字段映射失败提示保留 Notion 的可读错误详情。
+  - 测试：新增旧配置自动发现 Select 的回归测试，并覆盖详情错误本地化。
+- 状态: 已在隔离分支完成；待合并至本地主分支。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 68 tests / 0 failures。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoConfigurationRefreshDerivedData build` — `BUILD SUCCEEDED`。
+- 手测: 未直接操作用户现有 Notion 会话；合并后在 App 中点击刷新或重启，若数据库恰有一个带选项的 Select，应在新建任务“时长”下出现选择器。
+- 风险/回滚点: 首次发现缺失选项时多一次 Tasks schema 请求；请求失败不会阻塞启动或改写旧设置。回滚该条目的关联提交即可恢复旧行为。
+
 ## 2026-08-11 - Task Select field
 - 状态: 已合并至本地主分支；待真实 Notion 数据库手测。
 - 行为: 仅在 Tasks 数据库恰好有一个包含选项的 Select 字段时显示创建/编辑控件与任务列表胶囊；颜色由该 Notion 选项颜色决定；长文本尾部截断并可悬停查看全文。

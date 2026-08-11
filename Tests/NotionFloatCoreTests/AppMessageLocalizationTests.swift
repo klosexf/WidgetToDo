@@ -37,6 +37,14 @@ final class AppMessageLocalizationTests: XCTestCase {
         XCTAssertEqual(message.string(in: .french), "Échec de la mise à jour de la tâche : HTTP 401")
     }
 
+    func testFieldMappingFailureKeepsRawDetailWhileLocalizingItsWrapper() {
+        let message = AppMessage(.fieldMappingFailed, arguments: ["HTTP 403"])
+
+        XCTAssertEqual(message.string(in: .simplifiedChinese), "数据库字段映射解析失败：HTTP 403")
+        XCTAssertEqual(message.string(in: .english), "Could not resolve the database field mapping: HTTP 403")
+        XCTAssertEqual(message.string(in: .french), "Impossible de résoudre le mappage des champs de la base : HTTP 403")
+    }
+
     func testPomodoroAccumulationCopyRendersInAllLanguages() {
         let zh = AppText.string(.pomodoroRoundCompleteCopy, language: .simplifiedChinese, arguments: ["25"])
         let en = AppText.string(.pomodoroRoundCompleteCopy, language: .english, arguments: ["25"])
