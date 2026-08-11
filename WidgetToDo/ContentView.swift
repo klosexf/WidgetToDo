@@ -1577,18 +1577,18 @@ struct FloatingWidgetView: View {
                         }
 
                         if let priority = task.priority, let choiceOption {
-                            HStack(spacing: 4) {
-                                Circle().fill(TaskChoicePalette.dot(for: choiceOption)).frame(width: 6, height: 6)
-                                Text(priority)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                                    .frame(minWidth: 0, maxWidth: 142)
-                                    .help(priority)
-                            }
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(FloatingWidgetPalette.metaText)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Capsule().fill(Color.black.opacity(0.035)))
+                            Text(priority)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(TaskChoicePalette.dot(for: choiceOption))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .frame(minWidth: 0, maxWidth: 142)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule().fill(TaskChoicePalette.dot(for: choiceOption).opacity(0.14))
+                                )
+                                .help(priority)
                         }
 
                         if choiceOption != nil {

@@ -3,14 +3,14 @@
 ## 2026-08-11 - 修复任务时长徽章换行
 - 目标: 修复任务列表同时显示时长和 Select 选项时，时长文本（如“1 分钟”）被压缩为两行的问题。
 - 影响路径:
-  - `ContentView`：为时长徽章保留单行固有宽度；任务的左侧内容区域优先获得右侧操作按钮之外的可用宽度；Select 值仍限制单行，超长时尾部截断并可悬停查看全文。
-  - `TaskRowLayoutContractTests`：新增布局契约，防止时长再次被压缩换行，且确保任务内容区域优先分配宽度。
+  - `ContentView`：为时长徽章保留单行固有宽度；任务的左侧内容区域优先获得右侧操作按钮之外的可用宽度；Select 值仍限制单行，超长时尾部截断并可悬停查看全文。移除标签前圆点，改用对应 Notion 选项颜色的文字与浅色背景展示标签。
+  - `TaskRowLayoutContractTests`：新增布局契约，防止时长再次被压缩换行，且确保任务内容区域优先分配宽度、选择标签无独立圆点。
 - 状态: 已在隔离分支 `fix/task-meta-no-wrap` 完成，待合并至本地主分支。
 - 最近验证:
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter TaskRowLayoutContractTests` — 1 test / 0 failures。
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 69 tests / 0 failures。
-  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoTaskMetaPriorityDerivedData build` — `BUILD SUCCEEDED`。
-- 手测: 使用实际浮窗的“阅读”任务验证，元信息显示为“1 分钟 · 学习 · 已同步”，三项均在同一行；右侧“计时/更多”操作区位置保持不变。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoChoiceTagDerivedData build` — `BUILD SUCCEEDED`。
+- 手测: 使用实际浮窗的“阅读”任务验证，元信息显示为“1 分钟 · 学习 · 已同步”，三项均在同一行；“学习”以其 Notion 蓝色显示文字和浅蓝标签底色、没有圆点；右侧“计时/更多”操作区位置保持不变。
 - 风险/回滚点: 极窄窗口或极长选项名称下，Select 值将按既定策略尾部截断，时长与右侧操作按钮优先保留；回滚该分支提交即可恢复原布局。
 
 ## 2026-08-11 - 自动刷新任务 Select 映射与配置错误详情

@@ -18,6 +18,12 @@ final class TaskRowLayoutContractTests: XCTestCase {
         let trailingActionsStart = try XCTUnwrap(source[taskRowStart.lowerBound...].range(of: "HStack(spacing: FloatingWidgetMetrics.taskRowActionSpacing)"))
         let leadingTaskArea = String(source[taskRowStart.lowerBound..<trailingActionsStart.lowerBound])
         XCTAssertTrue(leadingTaskArea.contains(".contentShape(Rectangle())\n            .layoutPriority(1)"))
+
+        let choiceLabelStart = try XCTUnwrap(source.range(of: "if let priority = task.priority, let choiceOption"))
+        let choiceLabelEnd = try XCTUnwrap(source[choiceLabelStart.lowerBound...].range(of: "\n\n                        if choiceOption != nil"))
+        let choiceLabel = String(source[choiceLabelStart.lowerBound..<choiceLabelEnd.lowerBound])
+        XCTAssertFalse(choiceLabel.contains("Circle().fill"))
+        XCTAssertTrue(choiceLabel.contains("TaskChoicePalette.dot(for: choiceOption).opacity(0.14)"))
     }
 
     private func contentViewURL() -> URL {
