@@ -1047,8 +1047,15 @@ struct NotionFloatCoreSmokeTestsRunner {
             .appendingPathComponent("WidgetToDo")
             .appendingPathComponent("ContentView.swift")
         let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+        guard let editFormStart = source.range(of: "struct EditTaskFormCard: View") else {
+            throw SmokeTestFailure(description: "edit form should remain present")
+        }
+        guard let editFormEnd = source[editFormStart.upperBound...].range(of: "#Preview", options: [], range: editFormStart.upperBound..<source.endIndex)?.lowerBound else {
+            throw SmokeTestFailure(description: "edit form scope should end before previews")
+        }
+        let editFormSource = String(source[editFormStart.lowerBound..<editFormEnd])
 
-        try expect(source.contains("struct EditTaskFormCard"), "edit form should remain present")
+        try expect(editFormSource.contains("struct EditTaskFormCard"), "edit form should remain present")
         try expect(source.contains("@State private var typeSearchText"), "edit picker should keep local search text")
         try expect(source.contains("@State private var isTypeOptionsPresented"), "edit picker should keep local dropdown state")
         try expect(source.contains("TextField(\"搜索或选择类型\""), "edit picker should expose a search input")
@@ -1064,6 +1071,10 @@ struct NotionFloatCoreSmokeTestsRunner {
             source.contains("ScrollView(.vertical, showsIndicators: true)") &&
                 source.contains("maxHeight: NewTaskFormMetrics.cardMaxHeight"),
             "edit form should scroll overflow instead of clipping fields"
+        )
+        try expect(
+            editFormSource.contains(".fixedSize(horizontal: false, vertical: !isTypeOptionsPresented)"),
+            "edit form should shrink only while the type list is closed"
         )
     }
 
