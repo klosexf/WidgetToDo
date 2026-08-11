@@ -6,7 +6,7 @@
 - 影响路径:
   - `ContentView`：右侧操作容器保持固有横向宽度；左侧任务内容继续使用剩余空间。未改动计时交互、任务数据或 Notion 同步。
   - `TaskRowLayoutContractTests`：增加右侧操作容器不可横向压缩的回归约束。
-- 状态: 已在隔离分支 `fix/task-action-width` 完成，待合并至本地主分支。
+- 状态: 已合并至本地主分支 `main`。
 - 最近验证:
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter TaskRowLayoutContractTests` — 1 test / 0 failures。
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 69 tests / 0 failures（存在基线已有的 PomodoroSessionEngineTests 未使用返回值警告）。
