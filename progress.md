@@ -6,7 +6,7 @@
 - 影响路径:
   - `WidgetToDo/ContentView.swift`: 编辑表单仅在类型列表关闭时按内容高度收缩；列表展开时继续使用现有最大高度和外层滚动。
   - `Tests/NotionFloatCoreSmokeTests/main.swift`: 编辑表单源码契约限定到 `EditTaskFormCard` 区段，并断言高度收缩仅在类型列表关闭时启用。
-- 状态: 已完成隔离分支代码与验证，待合并回 `main`。
+- 状态: 已合并至本地主分支 `main`。
 - 最近验证:
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — 通过；新契约先在原实现上按预期失败：`edit form should shrink only while the type list is closed`。
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoEditCardHeightDerivedData build` — `BUILD SUCCEEDED`。
