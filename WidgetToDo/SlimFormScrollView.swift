@@ -9,15 +9,25 @@ private enum SlimFormScrollerMetrics {
 
 struct SlimFormScrollView<Content: View>: NSViewRepresentable {
     let usesContentHeight: Bool
+    let contentHeightLimit: CGFloat?
     let content: Content
 
-    init(usesContentHeight: Bool = false, @ViewBuilder content: () -> Content) {
+    init(
+        usesContentHeight: Bool = false,
+        contentHeightLimit: CGFloat? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
         self.usesContentHeight = usesContentHeight
+        self.contentHeightLimit = contentHeightLimit
         self.content = content()
     }
 
     func makeNSView(context: Context) -> HostingScrollView<Content> {
-        HostingScrollView(rootView: content, usesContentHeight: usesContentHeight)
+        HostingScrollView(
+            rootView: content,
+            usesContentHeight: usesContentHeight,
+            contentHeightLimit: contentHeightLimit
+        )
     }
 
     func updateNSView(_ scrollView: HostingScrollView<Content>, context: Context) {
@@ -48,10 +58,12 @@ final class SlimVerticalScroller: NSScroller {
 final class HostingScrollView<Content: View>: NSScrollView {
     private let hostingView: NSHostingView<Content>
     private let usesContentHeight: Bool
+    private let contentHeightLimit: CGFloat?
     private var measuredContentHeight: CGFloat = 1
 
-    init(rootView: Content, usesContentHeight: Bool) {
+    init(rootView: Content, usesContentHeight: Bool, contentHeightLimit: CGFloat?) {
         self.usesContentHeight = usesContentHeight
+        self.contentHeightLimit = contentHeightLimit
         hostingView = NSHostingView(rootView: rootView)
         super.init(frame: .zero)
 
@@ -68,7 +80,10 @@ final class HostingScrollView<Content: View>: NSScrollView {
 
     override var intrinsicContentSize: NSSize {
         guard usesContentHeight else { return super.intrinsicContentSize }
-        return NSSize(width: NSView.noIntrinsicMetric, height: measuredContentHeight)
+        return NSSize(
+            width: NSView.noIntrinsicMetric,
+            height: min(measuredContentHeight, contentHeightLimit ?? measuredContentHeight)
+        )
     }
 
     @available(*, unavailable)

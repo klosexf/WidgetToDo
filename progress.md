@@ -1,5 +1,21 @@
 # Progress
 
+## 2026-08-12 - 修复编辑任务类型展开越出弹框
+- 目标: 修复编辑任务弹框展开类型列表后，标题越出顶部、取消/保存按钮越出底部的问题；保留关闭列表时的紧凑自适应高度，以及超出上限后的表单滚动。
+- 根因: 自适应模式将完整表单内容高度作为 `NSScrollView` 的固有高度返回。外层 SwiftUI 的 `frame(maxHeight: 376)` 约束了卡片背景，却没有约束 AppKit 滚动容器本身，导致完整文档继续绘制到卡片之外。
+- 方案: `SlimFormScrollView` 新增可选 `contentHeightLimit`。编辑表单传入既有 `NewTaskFormMetrics.cardMaxHeight`（376 pt）；滚动容器固有高度取“内容实测高度”和该上限的较小值，但其文档视图仍保持完整高度，因此超过上限时由原有 5 pt 极细滚动条访问所有字段和按钮。新建任务弹框不传该配置，行为不变。
+- 影响路径:
+  - `WidgetToDo/SlimFormScrollView.swift`: 为内容高度模式增加可选上限，并只限制滚动容器的固有高度，保留完整文档高度。
+  - `WidgetToDo/ContentView.swift`: 仅 `EditTaskFormCard` 传入既有卡片最大高度。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`: 增加“固有高度受限、完整文档保留”的回归合约；调整与多行初始化器无关的脆弱文本匹配。
+- 状态: 已完成代码与自动化验证；待用户在已配置的应用中展开类型列表回测视觉边界与按钮可达性。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift run NotionFloatCoreSmokeTests` — 新合约先在旧实现上按预期失败：`content-height scroller should cap its intrinsic height while preserving the full scroll document`；实现后通过，`All smoke tests passed.`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/widgettodo-edit-task-height-overflow-build CODE_SIGNING_ALLOWED=NO build` — `BUILD SUCCEEDED`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift test` — 70 tests / 0 failures（仅有既有 `PomodoroSessionEngineTests` 未使用返回值警告）。
+- 手测: 隔离 Debug app 的桌面自动化启动此前多次返回 `timeoutReached`；为不读取、复制或输入用户现有 App 的 Notion 配置，未操作安装版。需用户回测：展开类型后标题与按钮均留在弹框内，列表过长时可滚动到取消/保存，收起后弹框仍保持紧凑。
+- 风险/回滚点: 上限只作用于编辑弹框的可视滚动容器，完整文档高度与可视高度在溢出时会有意不同；回滚 `contentHeightLimit` 配置可恢复此前策略，但会重现越界。
+
 ## 2026-08-11 - 编辑任务弹框内容自适应高度
 - 目标: 移除编辑任务弹框在类型列表关闭时、保存按钮下方的大块无效留白；内容超过安全上限时保留既有 5 pt 极细滚动条和完整表单可达性。
 - 方案: 用户在视觉对比中选择 A「内容自适应 + 最大高度」。编辑表单按实际内容高度收紧，仍由既有 `242...376 pt` 卡片约束处理最小高度、最大高度及溢出滚动；新建任务弹框不启用此模式。

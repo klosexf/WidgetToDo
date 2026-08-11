@@ -1034,13 +1034,23 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
         try expect(
             scrollerSource.contains("let usesContentHeight: Bool") &&
-                scrollerSource.contains("init(usesContentHeight: Bool = false"),
+                scrollerSource.contains("usesContentHeight: Bool = false"),
             "shared slim scroller should keep content-height negotiation opt-in"
         )
         try expect(
             scrollerSource.contains("override var intrinsicContentSize: NSSize") &&
                 scrollerSource.contains("invalidateIntrinsicContentSize()"),
             "content-height scroller should expose and invalidate measured intrinsic height"
+        )
+        try expect(
+            scrollerSource.contains("let contentHeightLimit: CGFloat?") &&
+                scrollerSource.contains("min(measuredContentHeight, contentHeightLimit ?? measuredContentHeight)"),
+            "content-height scroller should cap its intrinsic height"
+        )
+        try expect(
+            scrollerSource.contains("hostingView.frame.size.height = contentHeight") &&
+                !scrollerSource.contains("hostingView.frame.size.height = min(contentHeight"),
+            "content-height scroller should preserve the full document height for scrolling"
         )
         try expect(
             newTaskSource.contains("SlimFormScrollView {"),
@@ -1057,8 +1067,10 @@ struct NotionFloatCoreSmokeTestsRunner {
         }
         let editSource = String(contentSource[editStart.lowerBound..<previewStart])
         try expect(
-            editSource.contains("SlimFormScrollView(usesContentHeight: true) {"),
-            "edit form should opt into content-driven height negotiation"
+            editSource.contains("SlimFormScrollView(") &&
+                editSource.contains("usesContentHeight: true") &&
+                editSource.contains("contentHeightLimit: NewTaskFormMetrics.cardMaxHeight"),
+            "edit form should cap its content-driven height at the card maximum"
         )
     }
 
@@ -1141,7 +1153,8 @@ struct NotionFloatCoreSmokeTestsRunner {
             "edit picker should reserve visible height for filtered options"
         )
         try expect(
-            editFormSource.contains("SlimFormScrollView(usesContentHeight: true) {") &&
+            editFormSource.contains("usesContentHeight: true") &&
+                editFormSource.contains("contentHeightLimit: NewTaskFormMetrics.cardMaxHeight") &&
                 source.contains("maxHeight: NewTaskFormMetrics.cardMaxHeight"),
             "edit form should use the shared overflow-aware slim scroller"
         )
