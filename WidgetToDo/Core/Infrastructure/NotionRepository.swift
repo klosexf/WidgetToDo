@@ -21,7 +21,52 @@ public actor NotionRepository {
     public func loadConfigurationSnapshot() async throws -> ConfigurationSnapshot {
         let settings = try await settingsStore.load()
         let token = try tokenStore.loadToken()
-        return ConfigurationSnapshot(
+        guard let settings,
+              let token,
+              !token.isEmpty,
+              settings.tasksFieldMapping.priorityOptions.isEmpty
+        else {
+            return makeConfigurationSnapshot(settings: settings, token: token)
+        }
+
+        do {
+            let schema = try await notionClient.fetchDatabaseSchema(databaseID: settings.tasksDatabaseID, token: token)
+            guard case let .success(.tasks(discoveredMapping)) = FieldValidator.resolve(schema, for: .tasks) else {
+                return makeConfigurationSnapshot(settings: settings, token: token)
+            }
+
+            let refreshedMapping = TaskDatabaseFieldMapping(
+                title: settings.tasksFieldMapping.title,
+                date: settings.tasksFieldMapping.date,
+                done: settings.tasksFieldMapping.done,
+                priority: discoveredMapping.priority,
+                priorityOptions: discoveredMapping.priorityOptions,
+                estimatedMinutes: settings.tasksFieldMapping.estimatedMinutes
+            )
+            guard refreshedMapping != settings.tasksFieldMapping else {
+                return makeConfigurationSnapshot(settings: settings, token: token)
+            }
+
+            let updatedSettings = AppSettings(
+                tasksDatabaseID: settings.tasksDatabaseID,
+                journalDatabaseID: settings.journalDatabaseID,
+                tasksPageURL: settings.tasksPageURL,
+                journalPageURL: settings.journalPageURL,
+                lastValidatedAt: settings.lastValidatedAt,
+                hasPriorityField: refreshedMapping.priority != nil,
+                tasksFieldMapping: refreshedMapping,
+                journalFieldMapping: settings.journalFieldMapping,
+                miniModeState: settings.miniModeState
+            )
+            try await settingsStore.save(updatedSettings)
+            return makeConfigurationSnapshot(settings: updatedSettings, token: token)
+        } catch {
+            return makeConfigurationSnapshot(settings: settings, token: token)
+        }
+    }
+
+    private func makeConfigurationSnapshot(settings: AppSettings?, token: String?) -> ConfigurationSnapshot {
+        ConfigurationSnapshot(
             hasToken: token?.isEmpty == false,
             token: token,
             tasksDatabaseID: settings?.tasksDatabaseID,
@@ -109,7 +154,9 @@ public actor NotionRepository {
         }
 
         guard let tasksFieldMapping, let journalFieldMapping else {
-            throw NotionRepositoryError.validationFailed([ValidationIssue(.fieldMappingFailed)])
+            throw NotionRepositoryError.validationFailed([
+                ValidationIssue(.fieldMappingFailed, arguments: ["无法识别任务或日记数据库的字段结构。"])
+            ])
         }
 
         let hasPriorityField = tasksFieldMapping.priority != nil

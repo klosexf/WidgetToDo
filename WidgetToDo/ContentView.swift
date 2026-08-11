@@ -167,7 +167,11 @@ final class RootViewModel: ObservableObject {
             .store(in: &cancellables)
         onboardingViewModel.didFinishSetup = { [weak self] in
             Task { @MainActor [weak self] in
-                await self?.refreshWorkspace()
+                guard let self else { return }
+                if let snapshot = try? await self.onboardingViewModel.loadSnapshot() {
+                    self.todoListViewModel.configure(choiceField: snapshot.choiceField)
+                }
+                await self.refreshWorkspace()
             }
         }
     }
@@ -235,6 +239,9 @@ final class RootViewModel: ObservableObject {
 
     func refreshWorkspace() async {
         screen = .widget
+        if let snapshot = try? await onboardingViewModel.loadSnapshot() {
+            todoListViewModel.configure(choiceField: snapshot.choiceField)
+        }
         await todoListViewModel.load()
         await journalViewModel.load()
         if todoListViewModel.errorMessage == nil, journalViewModel.errorMessage == nil {
