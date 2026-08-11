@@ -6,7 +6,7 @@
 - 影响路径:
   - `ContentView`：仅调整任务元信息行的共享间距常量。
   - `TaskRowLayoutContractTests`：新增 4pt 间距回归契约。
-- 状态: 已在隔离分支 `fix/task-meta-spacing-4` 完成，待合并至本地主分支 `main`。
+- 状态: 已合并至本地主分支 `main`。
 - 最近验证:
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter TaskRowLayoutContractTests` — 2 tests / 0 failures。
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 70 tests / 0 failures（存在基线已有的 PomodoroSessionEngineTests 未使用返回值警告）。
