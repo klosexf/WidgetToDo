@@ -2085,7 +2085,7 @@ struct EditTaskFormCard: View {
     }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: true) {
+        SlimFormScrollView {
             VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
             Text(languageStore.text(.editTask))
                 .font(.system(size: 14, weight: .semibold))

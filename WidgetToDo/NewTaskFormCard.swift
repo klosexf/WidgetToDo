@@ -135,7 +135,7 @@ struct NewTaskFormCard: View {
     @FocusState private var isEstimatedMinutesFocused: Bool
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: true) {
+        SlimFormScrollView {
             VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
             Text(languageStore.text(.newTask))
                 .font(.system(size: 14, weight: .semibold))
