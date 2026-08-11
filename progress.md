@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-08-11 - 修复编辑任务弹框空白
+- 目标: 修复编辑任务弹框显示为空白卡片的回归；保留共享 5 pt 极细滚动条、字段 Binding、类型筛选、保存/取消及 Notion 数据流。
+- 根因: 编辑表单保留了只适用于 SwiftUI `ScrollView` 的 `.fixedSize(horizontal: false, vertical: !isTypeOptionsPresented)`。改为 AppKit `NSScrollView` 后，该视图没有固有尺寸（本机查询为 `-1 × -1`），导致嵌入的表单内容无法获得有效布局高度。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift`: 仅移除编辑表单外层的上述固定尺寸修饰符；原有卡片宽度、最小/最大高度和类型列表滚动逻辑保留。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`: 将旧的固定尺寸约束改为反向合约，防止 AppKit 容器重新引入不兼容修饰符。
+- 状态: 已完成代码与自动化验证；等待用户在已配置 app runtime 中重新打开编辑任务确认表单内容可见。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift run NotionFloatCoreSmokeTests` — 先红：`AppKit-backed edit form should not use the incompatible fixed-size modifier`；移除修饰符后通过，`All smoke tests passed.`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift test` — 70 tests / 0 failures。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/widgettodo-edit-form-empty-build CODE_SIGNING_ALLOWED=NO build` — `BUILD SUCCEEDED`。
+- 手测: 原问题由用户截图确认；当前修复构建未配置 Tasks 数据库，无法在不读取或输入 Notion 凭据的情况下打开编辑表单。需用户回测确认标题、时长、类型及取消/保存按钮均恢复显示。
+- 风险/回滚点: 移除固定尺寸后，编辑弹框会由现有 `frame(minHeight:maxHeight:)` 决定可视高度，可能比关闭类型列表时稍高；回滚这一处修饰符即可恢复旧尺寸策略，但会重现空白卡片。
+
 ## 2026-08-11 - 新建与编辑任务弹框的极细滚动条
 - 目标: 将新建任务与编辑任务弹框右侧滚动条统一为 5 pt 极细自定义滑块，保留表单字段、Notion 数据流、表单尺寸及滚轮/触控板/键盘/滑块拖拽语义。
 - 非目标: 不调整标题、日期、时长、类型字段、创建/保存/取消动作或 Notion 配置。

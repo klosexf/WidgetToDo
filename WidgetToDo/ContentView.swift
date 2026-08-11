@@ -2250,7 +2250,6 @@ struct EditTaskFormCard: View {
             }
             .padding(NewTaskFormMetrics.contentPadding)
         }
-        .fixedSize(horizontal: false, vertical: !isTypeOptionsPresented)
         .frame(width: NewTaskFormMetrics.cardWidth)
         .frame(minHeight: NewTaskFormMetrics.cardMinHeight, maxHeight: NewTaskFormMetrics.cardMaxHeight)
         .background(
