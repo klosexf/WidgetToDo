@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-08-11 - 编辑任务类型搜索下拉框与溢出滚动
+- 目标: 让编辑任务弹框的类型选择与新建任务一致：左侧可输入筛选，右侧固定下箭头展开；当类型列表使弹框内容超过承载高度时可纵向滚动。
+- 非目标: 不改 `TodoListViewModel.editingPriority` 的数据绑定、Notion Select 选项来源、`saveTaskEdit()` 请求、标题/时长校验、新建任务弹框或类型颜色映射。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift`: `EditTaskFormCard` 以输入框、分区下箭头和筛选列表替换原生 `Menu`；表单增加共享最大高度与垂直 `ScrollView`。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`: 新增编辑类型输入/下箭头/筛选/清空/选项可见高度/弹框滚动的源码契约；将既有日期标题契约限定到工具栏范围，避免其他组件的 28pt 行高造成误报。
+- 状态: 已完成隔离分支代码与验证，待合并回 `main`。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` — 通过，`All smoke tests passed.`；新增契约先在原生 `Menu` 实现上按预期失败：`edit picker should keep local search text`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 70 tests / 0 failures；全新编译基线仅有既有 `PomodoroSessionEngineTests` 未使用返回值警告。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoEditTaskTypePickerDerivedData build` — `BUILD SUCCEEDED`；仅有 Xcode 多个 macOS destination 与 AppIntents metadata 跳过的环境警告。
+- 手测: 使用隔离 Debug app 打开现有任务「但是发生的」的编辑弹框。点击下箭头显示 6 个 Notion 类型；输入“生活”仅显示“生活杂事”，选择后输入框回显“生活杂事”；再次展开并点击“未选择”可清空。展开全量列表时编辑卡片的滚动条可从 0 滚到 1，底部取消/保存按钮仍可达；点击取消后弹框关闭，任务列表仍显示原“工作/创作”，未执行 Notion 写入。
+- 风险/回滚点: 选项较多时，类型列表与表单共享编辑弹框纵向滚动区域；回滚 `EditTaskFormCard` 的类型选择与 `ScrollView` 改动即可恢复原生 `Menu`。
+
 ## 2026-08-11 - 新建任务类型搜索下拉框与溢出滚动
 - 目标: 重做新建任务弹框的类型选择器：左侧可输入筛选，右侧固定下箭头展开；当类型列表使弹框内容超出承载高度时，可在弹框内纵向滚动查看全部内容。
 - 非目标: 不改 `NewTaskViewModel.priority`、Notion Select 选项来源、创建任务请求、编辑任务弹框或类型颜色映射。

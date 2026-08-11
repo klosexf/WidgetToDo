@@ -2064,9 +2064,29 @@ struct EditTaskFormCard: View {
     @EnvironmentObject private var languageStore: LanguageStore
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isEstimatedMinutesFocused: Bool
+    @FocusState private var isTypeSearchFocused: Bool
+    @State private var typeSearchText = ""
+    @State private var isTypeOptionsPresented = false
+
+    private var selectedTypeOption: NotionSelectOption? {
+        viewModel.choiceField?.options.first { $0.name == viewModel.editingPriority }
+    }
+
+    private var filteredTypeOptions: [NotionSelectOption] {
+        let query = typeSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return viewModel.choiceField?.options ?? [] }
+        return (viewModel.choiceField?.options ?? []).filter {
+            $0.name.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var typeOptionsListHeight: CGFloat {
+        min(CGFloat(filteredTypeOptions.count) * 30, 120)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
             Text(languageStore.text(.editTask))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(NewTaskFormPalette.title)
@@ -2147,35 +2167,67 @@ struct EditTaskFormCard: View {
             }
 
             if let choiceField = viewModel.choiceField {
-                let selectedOption = choiceField.options.first { $0.name == viewModel.editingPriority }
                 VStack(alignment: .leading, spacing: 6) {
                     Text(choiceField.name)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(NewTaskFormPalette.title)
-                    Menu {
-                        Button("未选择") { viewModel.editingPriority = nil }
-                        ForEach(choiceField.options, id: \.name) { option in
-                            Button(option.name) { viewModel.editingPriority = option.name }
+
+                    HStack(spacing: 0) {
+                        Group {
+                            if let selectedTypeOption, !isTypeOptionsPresented {
+                                Circle()
+                                    .fill(TaskChoicePalette.dot(for: selectedTypeOption))
+                                    .frame(width: 8, height: 8)
+                            } else {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(NewTaskFormPalette.meta)
+                            }
                         }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Circle().fill(TaskChoicePalette.dot(for: selectedOption)).frame(width: 8, height: 8)
-                            Text(viewModel.editingPriority ?? "未选择")
-                                .font(.system(size: 14, weight: .regular))
-                                .foregroundStyle(NewTaskFormPalette.title)
-                            Spacer()
-                            Image(systemName: "chevron.up.chevron.down")
+                        .frame(width: 32)
+
+                        TextField("搜索或选择类型", text: $typeSearchText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundStyle(NewTaskFormPalette.title)
+                            .focused($isTypeSearchFocused)
+                            .simultaneousGesture(TapGesture().onEnded {
+                                presentTypeOptions()
+                            })
+
+                        Button {
+                            toggleTypeOptions()
+                        } label: {
+                            Image(systemName: "chevron.down")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(NewTaskFormPalette.meta)
+                                .frame(width: 34, height: NewTaskFormMetrics.fieldHeight)
+                                .contentShape(Rectangle())
                         }
-                        .padding(.horizontal, 12)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: NewTaskFormMetrics.fieldHeight)
-                        .background(RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous).fill(NewTaskFormPalette.fieldFill))
-                        .overlay(RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous).stroke(NewTaskFormPalette.fieldBorder, lineWidth: 1))
+                        .buttonStyle(.plain)
+                        .overlay(alignment: .leading) {
+                            Rectangle()
+                                .fill(NewTaskFormPalette.fieldBorder)
+                                .frame(width: 1)
+                                .padding(.vertical, 7)
+                        }
                     }
-                    .menuStyle(.borderlessButton)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: NewTaskFormMetrics.fieldHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
+                            .fill(NewTaskFormPalette.fieldFill)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
+                            .stroke(typePickerBorderColor(), lineWidth: 1)
+                    )
                     .disabled(viewModel.isSavingTaskEdit)
+
+                    if isTypeOptionsPresented {
+                        typeOptionsMenu
+                            .disabled(viewModel.isSavingTaskEdit)
+                    }
                 }
             }
 
@@ -2195,9 +2247,11 @@ struct EditTaskFormCard: View {
                 .disabled(viewModel.isSavingTaskEdit)
             }
             .padding(.top, 4)
+            }
+            .padding(NewTaskFormMetrics.contentPadding)
         }
-        .padding(NewTaskFormMetrics.contentPadding)
         .frame(width: NewTaskFormMetrics.cardWidth)
+        .frame(minHeight: NewTaskFormMetrics.cardMinHeight, maxHeight: NewTaskFormMetrics.cardMaxHeight)
         .background(
             RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
                 .fill(NewTaskFormPalette.cardFill)
@@ -2207,6 +2261,124 @@ struct EditTaskFormCard: View {
                 .stroke(NewTaskFormPalette.cardBorder, lineWidth: 1)
         )
         .shadow(color: NewTaskFormPalette.cardShadow, radius: 18, y: 10)
+        .onAppear {
+            typeSearchText = viewModel.editingPriority ?? ""
+        }
+        .onChange(of: viewModel.editingPriority) { _, newSelection in
+            guard !isTypeOptionsPresented else { return }
+            typeSearchText = newSelection ?? ""
+        }
+    }
+
+    private var typeOptionsMenu: some View {
+        VStack(spacing: 2) {
+            Button {
+                clearEditingType()
+            } label: {
+                typeOptionRow(title: "未选择", option: nil)
+            }
+            .buttonStyle(.plain)
+
+            if filteredTypeOptions.isEmpty {
+                Text("没有匹配的类型")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(NewTaskFormPalette.meta)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 2) {
+                        ForEach(filteredTypeOptions, id: \.name) { option in
+                            Button {
+                                selectEditingType(option)
+                            } label: {
+                                typeOptionRow(title: option.name, option: option)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .frame(height: typeOptionsListHeight)
+            }
+        }
+        .padding(4)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
+                .fill(NewTaskFormPalette.fieldFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous)
+                .stroke(NewTaskFormPalette.fieldBorder, lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private func typeOptionRow(title: String, option: NotionSelectOption?) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(TaskChoicePalette.dot(for: option))
+                .frame(width: 8, height: 8)
+            Text(title)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(NewTaskFormPalette.title)
+            Spacer()
+            if viewModel.editingPriority == option?.name {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(NewTaskFormPalette.focusBorder)
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity)
+        .frame(height: 28)
+        .contentShape(Rectangle())
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(viewModel.editingPriority == option?.name ? NewTaskFormPalette.focusBorder.opacity(0.10) : Color.clear)
+        )
+    }
+
+    private func presentTypeOptions() {
+        guard !isTypeOptionsPresented else { return }
+        typeSearchText = ""
+        isTypeOptionsPresented = true
+    }
+
+    private func toggleTypeOptions() {
+        if isTypeOptionsPresented {
+            dismissTypeOptions()
+        } else {
+            presentTypeOptions()
+            isTypeSearchFocused = true
+        }
+    }
+
+    private func dismissTypeOptions() {
+        isTypeOptionsPresented = false
+        isTypeSearchFocused = false
+        typeSearchText = viewModel.editingPriority ?? ""
+    }
+
+    private func clearEditingType() {
+        viewModel.editingPriority = nil
+        typeSearchText = ""
+        isTypeOptionsPresented = false
+        isTypeSearchFocused = false
+    }
+
+    private func selectEditingType(_ option: NotionSelectOption) {
+        viewModel.editingPriority = option.name
+        typeSearchText = option.name
+        isTypeOptionsPresented = false
+        isTypeSearchFocused = false
+    }
+
+    private func typePickerBorderColor() -> Color {
+        isTypeSearchFocused || isTypeOptionsPresented
+            ? NewTaskFormPalette.focusBorder
+            : NewTaskFormPalette.fieldBorder
     }
 
     private func titleBorderColor() -> Color {

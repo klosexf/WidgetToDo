@@ -41,6 +41,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try configurationFormContainsSettingsHelpAndExtractionCopy()
             try newTaskFormKeepsCreateTaskContract()
             try newTaskTypePickerUsesSearchableDropdownContract()
+            try editTaskTypePickerUsesSearchableDropdownContract()
             try todoTaskDurationMatchesHtmlReferenceContract()
             try newTaskFormDoesNotDimTodoPanel()
             try onboardingVisualAlignmentKeepsExistingBehaviorContract()
@@ -352,7 +353,6 @@ struct NotionFloatCoreSmokeTestsRunner {
             .appendingPathComponent("WidgetToDo")
             .appendingPathComponent("ContentView.swift")
         let source = try String(contentsOf: contentViewURL, encoding: .utf8)
-
         try expect(
             source.contains("headerActionIcon(systemName: \"arrow.triangle.2.circlepath\")"),
             "journal header should expose the same sync icon used by the todo header"
@@ -592,6 +592,13 @@ struct NotionFloatCoreSmokeTestsRunner {
             .appendingPathComponent("WidgetToDo")
             .appendingPathComponent("ContentView.swift")
         let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+        guard let toolbarStart = source.range(of: "private var todoToolbar: some View") else {
+            throw SmokeTestFailure(description: "todo toolbar should remain present")
+        }
+        guard let toolbarEnd = source[toolbarStart.upperBound...].range(of: "private var syncBanner", options: [], range: toolbarStart.upperBound..<source.endIndex)?.lowerBound else {
+            throw SmokeTestFailure(description: "todo toolbar scope should end before the sync banner")
+        }
+        let toolbarSource = String(source[toolbarStart.lowerBound..<toolbarEnd])
 
         try expect(
             source.contains("static let todoDateTitleWidth: CGFloat = 60"),
@@ -626,7 +633,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             "todo date title should tighten glyph spacing before truncation"
         )
         try expect(
-            !source.contains(".frame(height: 28)"),
+            !toolbarSource.contains(".frame(height: 28)"),
             "todo date title should not force a taller vertical slot"
         )
         try expect(
@@ -1028,6 +1035,35 @@ struct NotionFloatCoreSmokeTestsRunner {
             source.contains("ScrollView(.vertical, showsIndicators: true)") &&
                 source.contains("maxHeight: NewTaskFormMetrics.cardMaxHeight"),
             "new task form should scroll overflow instead of clipping fields"
+        )
+    }
+
+    static func editTaskTypePickerUsesSearchableDropdownContract() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+
+        try expect(source.contains("struct EditTaskFormCard"), "edit form should remain present")
+        try expect(source.contains("@State private var typeSearchText"), "edit picker should keep local search text")
+        try expect(source.contains("@State private var isTypeOptionsPresented"), "edit picker should keep local dropdown state")
+        try expect(source.contains("TextField(\"搜索或选择类型\""), "edit picker should expose a search input")
+        try expect(source.contains("Image(systemName: \"chevron.down\")"), "edit picker should use a down arrow")
+        try expect(source.contains("filteredTypeOptions"), "edit picker should filter Notion options")
+        try expect(source.contains("viewModel.editingPriority = option.name"), "edit picker should preserve the editing binding")
+        try expect(source.contains("viewModel.editingPriority = nil"), "edit picker should keep a clear choice")
+        try expect(
+            source.contains("typeOptionsListHeight") && source.contains(".frame(height: typeOptionsListHeight)"),
+            "edit picker should reserve visible height for filtered options"
+        )
+        try expect(
+            source.contains("ScrollView(.vertical, showsIndicators: true)") &&
+                source.contains("maxHeight: NewTaskFormMetrics.cardMaxHeight"),
+            "edit form should scroll overflow instead of clipping fields"
         )
     }
 
