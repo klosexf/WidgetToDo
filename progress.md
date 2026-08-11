@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-08-11 - 选择标签按文本自适应宽度
+- 目标: 修复短选择项（如“工作/创作”）被拉伸为固定长胶囊的问题。
+- 根因: 标签文字设置了 `maxWidth: 142`，在任务行存在剩余空间时会扩展到该宽度，而不是采用文字的固有宽度。
+- 影响路径:
+  - `ContentView`：移除选择标签的固定宽度约束；标签现在按选项文字加原有内边距确定宽度，空间不足时仍保持单行尾部截断。
+  - `TaskRowLayoutContractTests`：禁止选择标签恢复固定宽度约束。
+- 状态: 已在隔离分支 `fix/adaptive-choice-tag-width` 完成，待合并至本地主分支。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter TaskRowLayoutContractTests` — 1 test / 0 failures。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 69 tests / 0 failures（存在基线已有的 PomodoroSessionEngineTests 未使用返回值警告）。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoAdaptiveChoiceTagDerivedData build` — `BUILD SUCCEEDED`。
+- 手测: 实际浮窗的“工作/创作”和“学习”标签均已收紧到文字与内边距的宽度；右侧“计时/更多”完整显示。
+- 风险/回滚点: 特别长的选项值会占用可用空间并按既有单行截断策略缩短；回滚该分支提交即可恢复原行为。
+
 ## 2026-08-11 - 修复任务行计时按钮文本被压缩
 - 目标: 修复任务列表在显示 Select 标签后，“计时”按钮只剩边框、文字不可见的问题。
 - 根因: 任务行左侧内容区域的优先级提高后，右侧操作容器仍允许横向压缩，导致“计时”和失败任务的“重试”文本被压到零宽或换行。

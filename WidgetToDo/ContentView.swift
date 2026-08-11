@@ -1582,7 +1582,6 @@ struct FloatingWidgetView: View {
                                 .foregroundStyle(TaskChoicePalette.dot(for: choiceOption))
                                 .lineLimit(1)
                                 .truncationMode(.tail)
-                                .frame(minWidth: 0, maxWidth: 142)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(
