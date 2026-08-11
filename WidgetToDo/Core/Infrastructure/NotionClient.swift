@@ -14,7 +14,7 @@ public actor NotionClient {
     public func fetchDatabaseSchema(databaseID: String, token: String) async throws -> [NotionPropertySchema] {
         let request = try makeRequest(path: "databases/\(databaseID)", method: "GET", token: token)
         let response: DatabaseResponse = try await perform(request)
-        return response.properties.map { NotionPropertySchema(name: $0.key, type: $0.value.type) }
+        return response.properties.map { NotionPropertySchema(name: $0.key, type: $0.value.type, selectOptions: $0.value.select?.options ?? []) }
     }
 
     public func queryTasks(on date: Date, databaseID: String, fields: TaskDatabaseFieldMapping, token: String) async throws -> [TaskItem] {
@@ -54,6 +54,7 @@ public actor NotionClient {
     public func updateTaskTitle(
         pageID: String,
         title: String,
+        priority: String?,
         estimatedMinutes: Int?,
         fields: TaskDatabaseFieldMapping,
         token: String
@@ -74,6 +75,9 @@ public actor NotionClient {
             properties[estimatedMinutesField] = [
                 "number": estimatedMinutes
             ]
+        }
+        if let priorityField = fields.priority {
+            properties[priorityField] = priority.map { ["select": ["name": $0]] } ?? ["select": NSNull()]
         }
         let body: [String: Any] = ["properties": properties]
         let request = try makeRequest(path: "pages/\(pageID)", method: "PATCH", token: token, body: body)
@@ -398,7 +402,10 @@ private struct DatabaseResponse: Decodable {
 
 private struct DatabaseProperty: Decodable {
     let type: String
+    let select: SelectConfiguration?
 }
+
+private struct SelectConfiguration: Decodable { let options: [NotionSelectOption] }
 
 private struct QueryResponse: Decodable {
     let results: [PageResponse]

@@ -44,13 +44,14 @@ public enum FieldValidator {
             return .failure(issues)
         }
 
-        let priorityCandidates = propertyNames(in: properties, matching: "select")
+        let priorityCandidates = properties.filter { $0.type == "select" }
         let estimatedMinutesCandidates = propertyNames(in: properties, matching: "number")
         let mapping = TaskDatabaseFieldMapping(
             title: title,
             date: date,
             done: done,
-            priority: priorityCandidates.count == 1 ? priorityCandidates[0] : nil,
+            priority: priorityCandidates.count == 1 ? priorityCandidates[0].name : nil,
+            priorityOptions: priorityCandidates.count == 1 ? priorityCandidates[0].selectOptions : [],
             estimatedMinutes: estimatedMinutesCandidates.count == 1 ? estimatedMinutesCandidates[0] : nil
         )
         return .success(.tasks(mapping))

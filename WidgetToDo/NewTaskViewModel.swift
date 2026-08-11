@@ -13,7 +13,7 @@ enum NewTaskFormState: Equatable {
 final class NewTaskViewModel: ObservableObject {
     @Published var title: String = ""
     @Published var taskDate: Date = Date()
-    @Published var priority: String = "Medium"
+    @Published var priority: String?
     @Published var estimatedMinutesText: String = ""
     @Published var estimatedMinutesError: AppMessage?
     @Published var formState: NewTaskFormState = .idle
@@ -24,6 +24,7 @@ final class NewTaskViewModel: ObservableObject {
 
     private let repository: NotionRepository
     @Published var hasPriorityField: Bool
+    @Published var choiceField: TaskChoiceField?
 
     var onSubmit: ((PendingTaskItem) -> Void)?
     var onCreateSuccess: ((TaskItem) -> Void)?
@@ -37,7 +38,7 @@ final class NewTaskViewModel: ObservableObject {
     func openForm(defaultDate: Date) {
         title = ""
         taskDate = defaultDate
-        priority = "Medium"
+        priority = nil
         estimatedMinutesText = ""
         formState = .idle
         estimatedMinutesError = nil
@@ -70,7 +71,7 @@ final class NewTaskViewModel: ObservableObject {
         let pendingItem = PendingTaskItem(
             title: trimmedTitle,
             date: taskDate,
-            priority: nil,
+            priority: priority,
             estimatedMinutes: estimatedMinutes
         )
         dismissForm()
@@ -81,9 +82,9 @@ final class NewTaskViewModel: ObservableObject {
                 let task = try await repository.createTask(
                     title: trimmedTitle,
                     date: taskDate,
-                    priority: nil,
+                    priority: priority,
                     estimatedMinutes: estimatedMinutes,
-                    hasPriorityField: false
+                    hasPriorityField: choiceField != nil
                 )
                 onCreateSuccess?(task)
             } catch {

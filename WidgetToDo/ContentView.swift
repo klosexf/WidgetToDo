@@ -219,7 +219,7 @@ final class RootViewModel: ObservableObject {
         }
         do {
             let snapshot = try await onboardingViewModel.loadSnapshot()
-            todoListViewModel.newTaskViewModel.hasPriorityField = snapshot.hasPriorityField
+            todoListViewModel.configure(choiceField: snapshot.choiceField)
             if snapshot.hasToken, snapshot.tasksDatabaseID != nil, snapshot.journalDatabaseID != nil {
                 screen = .widget
                 await refreshWorkspace()
@@ -260,7 +260,7 @@ final class RootViewModel: ObservableObject {
             do {
                 let snapshot = try await self?.onboardingViewModel.loadSnapshot()
                 if let snapshot {
-                    self?.todoListViewModel.newTaskViewModel.hasPriorityField = snapshot.hasPriorityField
+                    self?.todoListViewModel.configure(choiceField: snapshot.choiceField)
                 }
             } catch {
                 self?.onboardingViewModel.statusMessageKey = nil
@@ -1556,10 +1556,25 @@ struct FloatingWidgetView: View {
                             )
                         }
 
-                        if task.estimatedMinutes != nil {
+                        if task.estimatedMinutes != nil, task.priority != nil {
                             Text("·")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(FloatingWidgetPalette.metaText)
+                        }
+
+                        if let priority = task.priority {
+                            HStack(spacing: 4) {
+                                Circle().fill(FloatingWidgetPalette.durationText).frame(width: 6, height: 6)
+                                Text(priority).lineLimit(1).truncationMode(.tail).frame(maxWidth: 112).help(priority)
+                            }
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(FloatingWidgetPalette.durationText)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Capsule().fill(FloatingWidgetPalette.durationBg))
+                        }
+
+                        if task.priority != nil {
+                            Text("·").font(.system(size: 10, weight: .semibold)).foregroundStyle(FloatingWidgetPalette.metaText)
                         }
 
                         Text(syncText(for: task.syncStatus))
@@ -2108,6 +2123,38 @@ struct EditTaskFormCard: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            if let choiceField = viewModel.choiceField {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(choiceField.name)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(NewTaskFormPalette.title)
+                    Menu {
+                        Button("未选择") { viewModel.editingPriority = nil }
+                        ForEach(choiceField.options, id: \.name) { option in
+                            Button(option.name) { viewModel.editingPriority = option.name }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Circle().fill(FloatingWidgetPalette.durationText).frame(width: 8, height: 8)
+                            Text(viewModel.editingPriority ?? "未选择")
+                                .font(.system(size: 14, weight: .regular))
+                                .foregroundStyle(NewTaskFormPalette.title)
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(NewTaskFormPalette.meta)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: NewTaskFormMetrics.fieldHeight)
+                        .background(RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous).fill(NewTaskFormPalette.fieldFill))
+                        .overlay(RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous).stroke(NewTaskFormPalette.fieldBorder, lineWidth: 1))
+                    }
+                    .menuStyle(.borderlessButton)
+                    .disabled(viewModel.isSavingTaskEdit)
                 }
             }
 
