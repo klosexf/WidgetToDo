@@ -26,7 +26,11 @@ public actor NotionRepository {
             token: token,
             tasksDatabaseID: settings?.tasksDatabaseID,
             journalDatabaseID: settings?.journalDatabaseID,
-            hasPriorityField: settings?.hasPriorityField ?? true
+            hasPriorityField: settings?.hasPriorityField ?? true,
+            choiceField: settings.flatMap { settings in
+                guard let name = settings.tasksFieldMapping.priority, !settings.tasksFieldMapping.priorityOptions.isEmpty else { return nil }
+                return TaskChoiceField(name: name, options: settings.tasksFieldMapping.priorityOptions)
+            }
         )
     }
 
@@ -201,13 +205,14 @@ public actor NotionRepository {
         return try await toggleTask(id: id, isDone: task.isDone)
     }
 
-    public func updateTaskTitle(id: String, title: String, estimatedMinutes: Int?) async throws -> TaskItem {
+    public func updateTaskTitle(id: String, title: String, priority: String?, estimatedMinutes: Int?) async throws -> TaskItem {
         guard var task = try cache.task(id: id) else {
             throw NotionRepositoryError.missingCacheRecord("任务缓存记录不存在。")
         }
 
         task.title = title
         task.estimatedMinutes = estimatedMinutes
+        task.priority = priority
         task.syncStatus = .localPending
         try cache.upsert(task)
 
@@ -216,6 +221,7 @@ public actor NotionRepository {
             let updated = try await notionClient.updateTaskTitle(
                 pageID: id,
                 title: title,
+                priority: priority,
                 estimatedMinutes: estimatedMinutes,
                 fields: context.settings.tasksFieldMapping,
                 token: context.token
@@ -231,6 +237,13 @@ public actor NotionRepository {
             try cache.upsert(task)
             throw error
         }
+    }
+
+    public func updateTaskTitle(id: String, title: String, estimatedMinutes: Int?) async throws -> TaskItem {
+        guard let task = try cache.task(id: id) else {
+            throw NotionRepositoryError.missingCacheRecord("任务缓存记录不存在。")
+        }
+        return try await updateTaskTitle(id: id, title: title, priority: task.priority, estimatedMinutes: estimatedMinutes)
     }
 
     public func deleteTask(id: String) async throws {
@@ -350,13 +363,15 @@ public struct ConfigurationSnapshot: Sendable {
     public let tasksDatabaseID: String?
     public let journalDatabaseID: String?
     public let hasPriorityField: Bool
+    public let choiceField: TaskChoiceField?
 
-    public init(hasToken: Bool, token: String? = nil, tasksDatabaseID: String?, journalDatabaseID: String?, hasPriorityField: Bool = true) {
+    public init(hasToken: Bool, token: String? = nil, tasksDatabaseID: String?, journalDatabaseID: String?, hasPriorityField: Bool = true, choiceField: TaskChoiceField? = nil) {
         self.hasToken = hasToken
         self.token = token
         self.tasksDatabaseID = tasksDatabaseID
         self.journalDatabaseID = journalDatabaseID
         self.hasPriorityField = hasPriorityField
+        self.choiceField = choiceField
     }
 }
 

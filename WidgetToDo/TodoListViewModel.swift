@@ -33,6 +33,8 @@ final class TodoListViewModel: ObservableObject {
     @Published var editingTitle = ""
     @Published var editingEstimatedMinutesText = ""
     @Published var editingEstimatedMinutesError: AppMessage?
+    @Published var editingPriority: String?
+    @Published var choiceField: TaskChoiceField?
     @Published var isSavingTaskEdit = false
     @Published var deletingTaskID: String?
 
@@ -164,6 +166,7 @@ final class TodoListViewModel: ObservableObject {
         editingTitle = task.title
         editingEstimatedMinutesText = task.estimatedMinutes.map(String.init) ?? ""
         editingEstimatedMinutesError = nil
+        editingPriority = task.priority
         errorMessage = nil
     }
 
@@ -172,6 +175,7 @@ final class TodoListViewModel: ObservableObject {
         editingTitle = ""
         editingEstimatedMinutesText = ""
         editingEstimatedMinutesError = nil
+        editingPriority = nil
         isSavingTaskEdit = false
     }
 
@@ -199,6 +203,7 @@ final class TodoListViewModel: ObservableObject {
             let updated = try await repository.updateTaskTitle(
                 id: task.id,
                 title: trimmedTitle,
+                priority: editingPriority,
                 estimatedMinutes: parsedEstimatedMinutes
             )
             tasks = TaskSorting.sort(tasks.map { $0.id == updated.id ? updated : $0 })
@@ -208,6 +213,12 @@ final class TodoListViewModel: ObservableObject {
         } catch {
             errorMessage = AppMessage(.taskUpdateFailed, arguments: [error.localizedDescription])
         }
+    }
+
+    func configure(choiceField: TaskChoiceField?) {
+        self.choiceField = choiceField
+        newTaskViewModel.choiceField = choiceField
+        newTaskViewModel.hasPriorityField = choiceField != nil
     }
 
     private func parseEditingEstimatedMinutes() -> Int? {

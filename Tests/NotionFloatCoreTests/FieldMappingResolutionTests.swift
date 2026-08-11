@@ -30,6 +30,25 @@ final class FieldMappingResolutionTests: XCTestCase {
         }
     }
 
+    func testResolveTaskFieldMappingPreservesUniqueSelectOptions() {
+        let options = [
+            NotionSelectOption(name: "高", color: .orange),
+            NotionSelectOption(name: "中", color: .yellow)
+        ]
+        let result = FieldValidator.resolve([
+            NotionPropertySchema(name: "任务标题", type: "title"),
+            NotionPropertySchema(name: "计划日期", type: "date"),
+            NotionPropertySchema(name: "已完成", type: "checkbox"),
+            NotionPropertySchema(name: "优先级", type: "select", selectOptions: options)
+        ], for: .tasks)
+
+        guard case let .success(.tasks(mapping)) = result else {
+            return XCTFail("Expected a task field mapping")
+        }
+        XCTAssertEqual(mapping.priority, "优先级")
+        XCTAssertEqual(mapping.priorityOptions, options)
+    }
+
     func testResolveTaskFieldMappingReportsMissingRequiredType() {
         let result = FieldValidator.resolve(
             [

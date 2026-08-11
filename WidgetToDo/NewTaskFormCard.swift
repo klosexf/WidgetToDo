@@ -220,6 +220,10 @@ struct NewTaskFormCard: View {
                 }
             }
 
+            if let choiceField = viewModel.choiceField {
+                TaskChoicePicker(field: choiceField, selection: $viewModel.priority)
+            }
+
             HStack(spacing: 8) {
                 Button(languageStore.text(.cancel)) {
                     viewModel.dismissForm()
@@ -268,5 +272,33 @@ struct NewTaskFormCard: View {
             return NewTaskFormPalette.focusBorder
         }
         return NewTaskFormPalette.fieldBorder
+    }
+}
+
+private struct TaskChoicePicker: View {
+    let field: TaskChoiceField
+    @Binding var selection: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            NewTaskFieldLabel(text: field.name)
+            Menu {
+                Button("未选择") { selection = nil }
+                ForEach(field.options, id: \.name) { option in
+                    Button(option.name) { selection = option.name }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Circle().fill(Color.gray).frame(width: 8, height: 8)
+                    Text(selection ?? "未选择").font(.system(size: 14)).foregroundStyle(NewTaskFormPalette.title)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(NewTaskFormPalette.meta)
+                }
+                .padding(.horizontal, 12).frame(maxWidth: .infinity).frame(height: NewTaskFormMetrics.fieldHeight)
+                .background(RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous).fill(NewTaskFormPalette.fieldFill))
+                .overlay(RoundedRectangle(cornerRadius: NewTaskFormMetrics.fieldCornerRadius, style: .continuous).stroke(NewTaskFormPalette.fieldBorder, lineWidth: 1))
+            }
+            .menuStyle(.borderlessButton)
+        }
     }
 }

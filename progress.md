@@ -1,5 +1,10 @@
 # Progress
 
+## 2026-08-11 - Task Select field
+- 状态: 已在隔离分支实现；待真实 Notion 数据库手测。
+- 验证: `swift test --disable-sandbox` 通过（64 tests / 0 failures）；Xcode Debug build 通过。
+- 手测: 待确认真实 select 选项颜色、创建/编辑/清空同步、长值 hover、零/多 Select 降级。
+
 ## 2026-08-10 - README 补充 Notion 数据库搭建详细教程
 - 目标: 在「配置 Notion 集成」部分补充完整的数据库搭建教程，让用户清楚知道怎么创建数据库、需要哪些字段、如何关联。
 - 依据: 读取 FieldValidator.swift / NotionClient.swift / NotionRepository.swift / AppSettings.swift 代码，确认实际字段校验逻辑。
