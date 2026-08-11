@@ -5,7 +5,7 @@
 - 影响路径:
   - `ContentView`：为时长徽章保留单行固有宽度；任务的左侧内容区域优先获得右侧操作按钮之外的可用宽度；Select 值仍限制单行，超长时尾部截断并可悬停查看全文。移除标签前圆点，改用对应 Notion 选项颜色的文字与浅色背景展示标签。
   - `TaskRowLayoutContractTests`：新增布局契约，防止时长再次被压缩换行，且确保任务内容区域优先分配宽度、选择标签无独立圆点。
-- 状态: 已在隔离分支 `fix/task-meta-no-wrap` 完成，待合并至本地主分支。
+- 状态: 已合并至本地主分支 `main`。
 - 最近验证:
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter TaskRowLayoutContractTests` — 1 test / 0 failures。
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 69 tests / 0 failures。
