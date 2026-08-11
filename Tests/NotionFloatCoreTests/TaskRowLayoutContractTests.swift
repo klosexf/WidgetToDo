@@ -19,6 +19,9 @@ final class TaskRowLayoutContractTests: XCTestCase {
         let leadingTaskArea = String(source[taskRowStart.lowerBound..<trailingActionsStart.lowerBound])
         XCTAssertTrue(leadingTaskArea.contains(".contentShape(Rectangle())\n            .layoutPriority(1)"))
 
+        let trailingTaskArea = String(source[trailingActionsStart.lowerBound...])
+        XCTAssertTrue(trailingTaskArea.contains(".fixedSize(horizontal: true, vertical: false)"))
+
         let choiceLabelStart = try XCTUnwrap(source.range(of: "if let priority = task.priority, let choiceOption"))
         let choiceLabelEnd = try XCTUnwrap(source[choiceLabelStart.lowerBound...].range(of: "\n\n                        if choiceOption != nil"))
         let choiceLabel = String(source[choiceLabelStart.lowerBound..<choiceLabelEnd.lowerBound])

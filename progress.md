@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-08-11 - 修复任务行计时按钮文本被压缩
+- 目标: 修复任务列表在显示 Select 标签后，“计时”按钮只剩边框、文字不可见的问题。
+- 根因: 任务行左侧内容区域的优先级提高后，右侧操作容器仍允许横向压缩，导致“计时”和失败任务的“重试”文本被压到零宽或换行。
+- 影响路径:
+  - `ContentView`：右侧操作容器保持固有横向宽度；左侧任务内容继续使用剩余空间。未改动计时交互、任务数据或 Notion 同步。
+  - `TaskRowLayoutContractTests`：增加右侧操作容器不可横向压缩的回归约束。
+- 状态: 已在隔离分支 `fix/task-action-width` 完成，待合并至本地主分支。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter TaskRowLayoutContractTests` — 1 test / 0 failures。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 69 tests / 0 failures（存在基线已有的 PomodoroSessionEngineTests 未使用返回值警告）。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoTaskActionWidthDerivedData build` — `BUILD SUCCEEDED`。
+- 手测: 实际浮窗中的“阅读”任务已显示完整“计时”按钮；时长、选择标签、同步状态与“更多”按钮仍在同一行。
+- 风险/回滚点: 右侧操作区现在优先保留完整内容；极窄窗口会先压缩左侧可截断内容。回滚该分支提交即可恢复原布局。
+
 ## 2026-08-11 - 修复任务时长徽章换行
 - 目标: 修复任务列表同时显示时长和 Select 选项时，时长文本（如“1 分钟”）被压缩为两行的问题。
 - 影响路径:

@@ -1649,6 +1649,7 @@ struct FloatingWidgetView: View {
                         .stroke(FloatingWidgetPalette.moreBtnBorder, lineWidth: 1)
                 )
             }
+            .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.top, FloatingWidgetMetrics.taskRowTopPadding)
         .padding(.bottom, FloatingWidgetMetrics.taskRowBottomPadding)
