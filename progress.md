@@ -6,7 +6,7 @@
 - 影响路径:
   - `ContentView`：移除选择标签的固定宽度约束；标签现在按选项文字加原有内边距确定宽度，空间不足时仍保持单行尾部截断。
   - `TaskRowLayoutContractTests`：禁止选择标签恢复固定宽度约束。
-- 状态: 已在隔离分支 `fix/adaptive-choice-tag-width` 完成，待合并至本地主分支。
+- 状态: 已合并至本地主分支 `main`。
 - 最近验证:
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox --filter TaskRowLayoutContractTests` — 1 test / 0 failures。
   - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 69 tests / 0 failures（存在基线已有的 PomodoroSessionEngineTests 未使用返回值警告）。
