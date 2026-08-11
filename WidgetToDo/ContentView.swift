@@ -1561,6 +1561,9 @@ struct FloatingWidgetView: View {
                                 Capsule()
                                     .fill(FloatingWidgetPalette.durationBg)
                             )
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .layoutPriority(1)
                         }
 
                         let choiceOption = todoViewModel.choiceField.flatMap { field in
@@ -1579,7 +1582,7 @@ struct FloatingWidgetView: View {
                                 Text(priority)
                                     .lineLimit(1)
                                     .truncationMode(.tail)
-                                    .frame(maxWidth: 142)
+                                    .frame(minWidth: 0, maxWidth: 142)
                                     .help(priority)
                             }
                             .font(.system(size: 10, weight: .bold))
@@ -1597,11 +1600,13 @@ struct FloatingWidgetView: View {
                             .foregroundStyle(syncColor(for: task.syncStatus))
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 Spacer()
             }
             .padding(.trailing, FloatingWidgetMetrics.taskRowHorizontalSpacing)
             .contentShape(Rectangle())
+            .layoutPriority(1)
             .onTapGesture {
                 Task { await todoViewModel.toggleTask(task) }
             }
