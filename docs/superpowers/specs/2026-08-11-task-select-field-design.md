@@ -73,6 +73,16 @@ The repository remains the sole route between ViewModel and Notion client.
 - The menu is anchored to the field, lists Notion-defined options, and includes a `未选择` item so edits can clear a prior value.
 - When the property is unavailable, the card is visually and behaviorally identical to today's form.
 
+### Option colors
+
+Notion is the sole color source of truth. Each select option's schema contains a `color` enum, and WidgetToDo reads that value with the option name.
+
+- the option dot in the form menu and task-list capsule uses the corresponding WidgetToDo display color for Notion's `gray`, `brown`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, and `red` values
+- the app uses only a restrained tint behind the list capsule so the row retains its existing visual hierarchy; it does not invent a semantic color or overwrite the Notion choice
+- `default` (and any future/unrecognized Notion value) uses the existing neutral gray treatment
+- changing an option color in Notion is reflected after the user re-saves database configuration, which refreshes the stored schema metadata
+- WidgetToDo never sends a schema update for select-option colors
+
 ### Task-list metadata
 
 Show a selected value as a small inline metadata capsule below the task title:
