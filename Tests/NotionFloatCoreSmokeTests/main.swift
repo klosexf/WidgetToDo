@@ -1001,9 +1001,10 @@ struct NotionFloatCoreSmokeTestsRunner {
             "new task form should split fixed header and footer from its scrollable content"
         )
         try expect(
-            formSource.contains("contentHeightLimit: scrollableContentHeightLimit") &&
+            formSource.contains("usesContentHeight: true") &&
+                formSource.contains("contentHeightLimit: scrollableContentHeightLimit") &&
                 formSource.contains("NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight"),
-            "new task form should reserve fixed regions from its scrollable height limit"
+            "new task form should use content-driven height while reserving fixed regions from its scrollable height limit"
         )
         try expect(
             formSource.contains(".animation(.easeInOut(duration: 0.22), value: isTypeOptionsPresented)"),
