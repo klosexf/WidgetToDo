@@ -994,6 +994,21 @@ struct NotionFloatCoreSmokeTestsRunner {
             !normalized.contains("regularMaterial"),
             "new task form should no longer use regularMaterial in the bounded form source"
         )
+        try expect(
+            formSource.contains("private var newTaskHeader: some View") &&
+                formSource.contains("private var newTaskFooter: some View") &&
+                formSource.contains("private var newTaskScrollableContent: some View"),
+            "new task form should split fixed header and footer from its scrollable content"
+        )
+        try expect(
+            formSource.contains("contentHeightLimit: scrollableContentHeightLimit") &&
+                formSource.contains("NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight"),
+            "new task form should reserve fixed regions from its scrollable height limit"
+        )
+        try expect(
+            formSource.contains(".animation(.easeInOut(duration: 0.22), value: isTypeOptionsPresented)"),
+            "new task form should animate type-list height changes"
+        )
     }
 
     static func taskFormsUseSharedSlimScrollerContract() throws {
@@ -1053,7 +1068,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             "content-height scroller should preserve the full document height for scrolling"
         )
         try expect(
-            newTaskSource.contains("SlimFormScrollView {"),
+            newTaskSource.contains("SlimFormScrollView("),
             "new task form should use the shared slim scroll view"
         )
 
@@ -1121,9 +1136,19 @@ struct NotionFloatCoreSmokeTestsRunner {
             "type picker should reserve visible height for filtered options"
         )
         try expect(
-            source.contains("SlimFormScrollView {") &&
+            source.contains("SlimFormScrollView(") &&
                 source.contains("maxHeight: NewTaskFormMetrics.cardMaxHeight"),
             "new task form should use the shared overflow-aware slim scroller"
+        )
+        try expect(
+            source.contains("let onOptionsPresentedChange: (Bool) -> Void") &&
+                source.contains("onOptionsPresentedChange(isOptionsPresented)"),
+            "new task type picker should report expanded state to its parent"
+        )
+        try expect(
+            source.contains("TaskChoicePicker(") &&
+                source.contains("onOptionsPresentedChange: { isTypeOptionsPresented = $0 }"),
+            "new task form should use picker state to drive its height"
         )
     }
 

@@ -1,5 +1,20 @@
 # Progress
 
+## 2026-08-12 - 新建任务弹框固定头尾与自适应中部滚动
+- 目标: 新建任务弹框在类型列表关闭时按必要内容收紧，消除创建按钮下方留白；展开类型或内容过高时，仅中部字段与选项滚动，标题和取消/创建固定可见，并以平滑动画完成收展。
+- 根因: 原实现把标题、字段、类型列表和取消/创建都放入同一个受最大高度约束的 `NSScrollView` 文档中，导致操作区既参与滚动，也无法按“固定头尾”划分可视高度。
+- 影响路径:
+  - `WidgetToDo/NewTaskFormCard.swift`: `NewTaskFormCard` 改为固定标题（35 pt）、自适应高度的中部 `SlimFormScrollView`、固定操作区（58 pt，保留 38 pt 按钮与原有上下内边距）。中部上限为卡片 376 pt 上限扣除固定头尾；字段 Binding、校验、取消/创建和 Notion 数据流未变。`TaskChoicePicker` 通过展开状态回调驱动父视图的 0.22 秒 `easeInOut` 高度动画。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`: 新增新建表单固定头尾、中部高度上限、收展动画和类型选择器状态传递的回归契约；既有共享滚动容器契约兼容多行初始化。
+  - `WidgetToDo/SlimFormScrollView.swift`: 未改动；复用既有“固有高度受限、完整文档高度保留”的实现，以支持中部滚动到底。
+- 状态: 已在隔离分支 `fix/new-task-fixed-regions` 完成代码、自动化验证与无写入桌面手测；待独立审查后合并到本地 `main`。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift run NotionFloatCoreSmokeTests` — 新契约先在旧单一滚动文档上按预期失败：`new task form should split fixed header and footer from its scrollable content`；实现后通过，`All smoke tests passed.`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift test` — 70 tests / 0 failures（仅既有 `PomodoroSessionEngineTests` 未使用返回值警告）。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/widgettodo-new-task-fixed-regions-build CODE_SIGNING_ALLOWED=NO build` — `BUILD SUCCEEDED`。
+- 手测: 运行隔离 Debug app，点击「+」打开新建任务。默认态辅助功能树显示独立标题、内容滚动区和取消/创建，截图确认创建按钮下方无额外留白；展开 6 个类型时中部出现独立滚动条，标题与取消/创建仍同层可见且卡片保持在最大高度内。未输入数据，未点击创建；随后的自动滚动指令因系统关闭测试窗口而中断。
+- 风险/回滚点: 固定区高度目前为 35 + 58 pt；将来若按钮或标题尺寸变化，需同步调整其常量以保持中部上限正确。回滚 `NewTaskFormCard` 的三段重组和 smoke 契约即可恢复旧单一滚动策略，不影响任务数据或 Notion 配置。
+
 ## 2026-08-12 - 编辑任务弹框固定头尾与自适应中部滚动
 - 目标: 消除类型列表关闭时取消/保存下方的无效空白；展开类型或内容过高时，仅让中部字段与选项滚动，标题和取消/保存始终固定可见，并以平滑动画完成收展。
 - 根因: 上一版将标题、字段、类型列表和按钮全部置于同一个 `NSScrollView` 文档。即使可视高度已限制，底部操作区仍属于滚动内容，无法满足“头尾固定”的交互边界。

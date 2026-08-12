@@ -133,15 +133,55 @@ struct NewTaskFormCard: View {
     @EnvironmentObject private var languageStore: LanguageStore
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isEstimatedMinutesFocused: Bool
+    @State private var isTypeOptionsPresented = false
+
+    private let headerHeight: CGFloat = 35
+    private let footerHeight: CGFloat = 58
+
+    private var scrollableContentHeightLimit: CGFloat {
+        NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight
+    }
 
     var body: some View {
-        SlimFormScrollView {
-            VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
-            Text(languageStore.text(.newTask))
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(NewTaskFormPalette.title)
-                .frame(maxWidth: .infinity, alignment: .center)
+        VStack(spacing: 0) {
+            newTaskHeader
 
+            SlimFormScrollView(
+                usesContentHeight: true,
+                contentHeightLimit: scrollableContentHeightLimit
+            ) {
+                newTaskScrollableContent
+            }
+
+            newTaskFooter
+        }
+        .frame(width: NewTaskFormMetrics.cardWidth)
+        .frame(minHeight: NewTaskFormMetrics.cardMinHeight, maxHeight: NewTaskFormMetrics.cardMaxHeight)
+        .background(
+            RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
+                .fill(NewTaskFormPalette.cardFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
+                .stroke(NewTaskFormPalette.cardBorder, lineWidth: 1)
+        )
+        .shadow(color: NewTaskFormPalette.cardShadow, radius: 18, y: 10)
+        .animation(.easeInOut(duration: 0.22), value: isTypeOptionsPresented)
+        .onSubmit {
+            viewModel.submit()
+        }
+    }
+
+    private var newTaskHeader: some View {
+        Text(languageStore.text(.newTask))
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(NewTaskFormPalette.title)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .frame(height: headerHeight)
+    }
+
+    private var newTaskScrollableContent: some View {
+        VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
             VStack(alignment: .leading, spacing: 6) {
                 NewTaskFieldLabel(text: languageStore.text(.taskLabel))
 
@@ -242,38 +282,33 @@ struct NewTaskFormCard: View {
             }
 
             if let choiceField = viewModel.choiceField {
-                TaskChoicePicker(field: choiceField, selection: $viewModel.priority)
+                TaskChoicePicker(
+                    field: choiceField,
+                    selection: $viewModel.priority,
+                    onOptionsPresentedChange: { isTypeOptionsPresented = $0 }
+                )
             }
+        }
+        .padding(.horizontal, NewTaskFormMetrics.contentPadding.leading)
+        .padding(.bottom, NewTaskFormMetrics.contentPadding.bottom)
+    }
 
-                HStack(spacing: 8) {
-                    Button(languageStore.text(.cancel)) {
-                        viewModel.dismissForm()
-                    }
-                    .buttonStyle(NewTaskSecondaryButtonStyle())
-
-                    Button(languageStore.text(.create)) {
-                        viewModel.submit()
-                    }
-                    .buttonStyle(NewTaskPrimaryButtonStyle())
-                }
-                .padding(.top, 4)
+    private var newTaskFooter: some View {
+        HStack(spacing: 8) {
+            Button(languageStore.text(.cancel)) {
+                viewModel.dismissForm()
             }
-            .padding(NewTaskFormMetrics.contentPadding)
+            .buttonStyle(NewTaskSecondaryButtonStyle())
+
+            Button(languageStore.text(.create)) {
+                viewModel.submit()
+            }
+            .buttonStyle(NewTaskPrimaryButtonStyle())
         }
-        .frame(width: NewTaskFormMetrics.cardWidth)
-        .frame(minHeight: NewTaskFormMetrics.cardMinHeight, maxHeight: NewTaskFormMetrics.cardMaxHeight)
-        .background(
-            RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
-                .fill(NewTaskFormPalette.cardFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
-                .stroke(NewTaskFormPalette.cardBorder, lineWidth: 1)
-        )
-        .shadow(color: NewTaskFormPalette.cardShadow, radius: 18, y: 10)
-        .onSubmit {
-            viewModel.submit()
-        }
+        .padding(.top, 4)
+        .padding(.horizontal, NewTaskFormMetrics.contentPadding.leading)
+        .padding(.bottom, NewTaskFormMetrics.contentPadding.bottom)
+        .frame(height: footerHeight, alignment: .bottom)
     }
 
     private func titleBorderColor() -> Color {
@@ -300,6 +335,7 @@ struct NewTaskFormCard: View {
 private struct TaskChoicePicker: View {
     let field: TaskChoiceField
     @Binding var selection: String?
+    let onOptionsPresentedChange: (Bool) -> Void
     @State private var searchText = ""
     @State private var isOptionsPresented = false
     @FocusState private var isSearchFocused: Bool
@@ -379,6 +415,7 @@ private struct TaskChoicePicker: View {
         }
         .onAppear {
             searchText = selection ?? ""
+            onOptionsPresentedChange(isOptionsPresented)
         }
         .onChange(of: selection) { _, newSelection in
             guard !isOptionsPresented else { return }
@@ -459,7 +496,7 @@ private struct TaskChoicePicker: View {
     private func presentOptions() {
         guard !isOptionsPresented else { return }
         searchText = ""
-        isOptionsPresented = true
+        setOptionsPresented(true)
     }
 
     private func toggleOptions() {
@@ -472,7 +509,7 @@ private struct TaskChoicePicker: View {
     }
 
     private func dismissOptions() {
-        isOptionsPresented = false
+        setOptionsPresented(false)
         isSearchFocused = false
         searchText = selection ?? ""
     }
@@ -480,15 +517,20 @@ private struct TaskChoicePicker: View {
     private func clearSelection() {
         selection = nil
         searchText = ""
-        isOptionsPresented = false
+        setOptionsPresented(false)
         isSearchFocused = false
     }
 
     private func select(_ option: NotionSelectOption) {
         selection = option.name
         searchText = option.name
-        isOptionsPresented = false
+        setOptionsPresented(false)
         isSearchFocused = false
+    }
+
+    private func setOptionsPresented(_ isPresented: Bool) {
+        isOptionsPresented = isPresented
+        onOptionsPresentedChange(isOptionsPresented)
     }
 
     private func typePickerBorderColor() -> Color {
