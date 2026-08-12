@@ -1072,6 +1072,10 @@ struct NotionFloatCoreSmokeTestsRunner {
                 editSource.contains("contentHeightLimit: scrollableContentHeightLimit"),
             "edit form should cap its content-driven height at the card maximum"
         )
+        try expect(
+            editSource.contains("NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight"),
+            "edit form should reserve its fixed header and footer from the scrollable height limit"
+        )
     }
 
     static func newTaskTypePickerUsesSearchableDropdownContract() throws {
@@ -1167,6 +1171,10 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             editFormSource.contains("contentHeightLimit: scrollableContentHeightLimit"),
             "edit form should bound only its scrollable content"
+        )
+        try expect(
+            editFormSource.contains("NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight"),
+            "edit form should reserve fixed regions when calculating its scrollable height"
         )
         try expect(
             editFormSource.contains(".animation(.easeInOut(duration: 0.22), value: isTypeOptionsPresented)"),
