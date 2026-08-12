@@ -2084,17 +2084,57 @@ struct EditTaskFormCard: View {
         min(CGFloat(filteredTypeOptions.count) * 30, 120)
     }
 
-    var body: some View {
-        SlimFormScrollView(
-            usesContentHeight: true,
-            contentHeightLimit: NewTaskFormMetrics.cardMaxHeight
-        ) {
-            VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
-            Text(languageStore.text(.editTask))
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(NewTaskFormPalette.title)
-                .frame(maxWidth: .infinity, alignment: .center)
+    private let headerHeight: CGFloat = 35
+    private let footerHeight: CGFloat = 58
 
+    private var scrollableContentHeightLimit: CGFloat {
+        NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            editTaskHeader
+
+            SlimFormScrollView(
+                usesContentHeight: true,
+                contentHeightLimit: scrollableContentHeightLimit
+            ) {
+                editTaskScrollableContent
+            }
+
+            editTaskFooter
+        }
+        .frame(width: NewTaskFormMetrics.cardWidth)
+        .frame(minHeight: NewTaskFormMetrics.cardMinHeight, maxHeight: NewTaskFormMetrics.cardMaxHeight)
+        .background(
+            RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
+                .fill(NewTaskFormPalette.cardFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
+                .stroke(NewTaskFormPalette.cardBorder, lineWidth: 1)
+        )
+        .shadow(color: NewTaskFormPalette.cardShadow, radius: 18, y: 10)
+        .animation(.easeInOut(duration: 0.22), value: isTypeOptionsPresented)
+        .onAppear {
+            typeSearchText = viewModel.editingPriority ?? ""
+        }
+        .onChange(of: viewModel.editingPriority) { _, newSelection in
+            guard !isTypeOptionsPresented else { return }
+            typeSearchText = newSelection ?? ""
+        }
+    }
+
+    private var editTaskHeader: some View {
+        Text(languageStore.text(.editTask))
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(NewTaskFormPalette.title)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .frame(height: headerHeight)
+    }
+
+    private var editTaskScrollableContent: some View {
+        VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(languageStore.text(.taskLabel))
                     .font(.system(size: 13, weight: .semibold))
@@ -2233,44 +2273,31 @@ struct EditTaskFormCard: View {
                     }
                 }
             }
+        }
+        .padding(.horizontal, NewTaskFormMetrics.contentPadding.leading)
+        .padding(.bottom, NewTaskFormMetrics.contentPadding.bottom)
+    }
 
-            HStack(spacing: 8) {
-                Button(languageStore.text(.cancel)) {
-                    viewModel.cancelEditing()
-                }
-                .buttonStyle(NewTaskSecondaryButtonStyle())
-                .disabled(viewModel.isSavingTaskEdit)
+    private var editTaskFooter: some View {
+        HStack(spacing: 8) {
+            Button(languageStore.text(.cancel)) {
+                viewModel.cancelEditing()
+            }
+            .buttonStyle(NewTaskSecondaryButtonStyle())
+            .disabled(viewModel.isSavingTaskEdit)
 
-                Button(languageStore.text(.save)) {
-                    Task {
-                        await viewModel.saveTaskEdit()
-                    }
+            Button(languageStore.text(.save)) {
+                Task {
+                    await viewModel.saveTaskEdit()
                 }
-                .buttonStyle(NewTaskPrimaryButtonStyle())
-                .disabled(viewModel.isSavingTaskEdit)
             }
-            .padding(.top, 4)
-            }
-            .padding(NewTaskFormMetrics.contentPadding)
+            .buttonStyle(NewTaskPrimaryButtonStyle())
+            .disabled(viewModel.isSavingTaskEdit)
         }
-        .frame(width: NewTaskFormMetrics.cardWidth)
-        .frame(minHeight: NewTaskFormMetrics.cardMinHeight, maxHeight: NewTaskFormMetrics.cardMaxHeight)
-        .background(
-            RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
-                .fill(NewTaskFormPalette.cardFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
-                .stroke(NewTaskFormPalette.cardBorder, lineWidth: 1)
-        )
-        .shadow(color: NewTaskFormPalette.cardShadow, radius: 18, y: 10)
-        .onAppear {
-            typeSearchText = viewModel.editingPriority ?? ""
-        }
-        .onChange(of: viewModel.editingPriority) { _, newSelection in
-            guard !isTypeOptionsPresented else { return }
-            typeSearchText = newSelection ?? ""
-        }
+        .padding(.horizontal, NewTaskFormMetrics.contentPadding.leading)
+        .padding(.top, 4)
+        .padding(.bottom, NewTaskFormMetrics.contentPadding.bottom)
+        .frame(height: footerHeight)
     }
 
     private var typeOptionsMenu: some View {

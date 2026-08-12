@@ -1069,7 +1069,7 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             editSource.contains("SlimFormScrollView(") &&
                 editSource.contains("usesContentHeight: true") &&
-                editSource.contains("contentHeightLimit: NewTaskFormMetrics.cardMaxHeight"),
+                editSource.contains("contentHeightLimit: scrollableContentHeightLimit"),
             "edit form should cap its content-driven height at the card maximum"
         )
     }
@@ -1154,9 +1154,23 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
         try expect(
             editFormSource.contains("usesContentHeight: true") &&
-                editFormSource.contains("contentHeightLimit: NewTaskFormMetrics.cardMaxHeight") &&
+                editFormSource.contains("contentHeightLimit: scrollableContentHeightLimit") &&
                 source.contains("maxHeight: NewTaskFormMetrics.cardMaxHeight"),
             "edit form should use the shared overflow-aware slim scroller"
+        )
+        try expect(
+            editFormSource.contains("private var editTaskHeader: some View") &&
+                editFormSource.contains("private var editTaskFooter: some View") &&
+                editFormSource.contains("private var editTaskScrollableContent: some View"),
+            "edit form should split fixed header and footer from its scrollable content"
+        )
+        try expect(
+            editFormSource.contains("contentHeightLimit: scrollableContentHeightLimit"),
+            "edit form should bound only its scrollable content"
+        )
+        try expect(
+            editFormSource.contains(".animation(.easeInOut(duration: 0.22), value: isTypeOptionsPresented)"),
+            "edit form should animate type-list height changes"
         )
         try expect(
             !editFormSource.contains(".fixedSize(horizontal: false, vertical: !isTypeOptionsPresented)"),

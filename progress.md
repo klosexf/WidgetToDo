@@ -1,5 +1,20 @@
 # Progress
 
+## 2026-08-12 - 编辑任务弹框固定头尾与自适应中部滚动
+- 目标: 消除类型列表关闭时取消/保存下方的无效空白；展开类型或内容过高时，仅让中部字段与选项滚动，标题和取消/保存始终固定可见，并以平滑动画完成收展。
+- 根因: 上一版将标题、字段、类型列表和按钮全部置于同一个 `NSScrollView` 文档。即使可视高度已限制，底部操作区仍属于滚动内容，无法满足“头尾固定”的交互边界。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift`: `EditTaskFormCard` 改为固定标题（35 pt）、内容自适应的中部 `SlimFormScrollView`、固定操作区（58 pt，恰好容纳 38 pt 按钮及原有上下内边距）。中部上限为卡片 376 pt 扣除固定区域；字段 Binding、错误提示、类型筛选、取消/保存和 Notion 数据流未变。`isTypeOptionsPresented` 以 0.22 秒 `easeInOut` 动画驱动高度过渡。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`: 编辑表单回归契约要求固定头尾、中部专用上限和收展动画；既有上限契约同步为中部高度上限。
+  - `WidgetToDo/SlimFormScrollView.swift`: 未改动；复用既有“固有高度受限、完整文档高度保留”的实现，确保中部内容仍可滚动到底。
+- 状态: 已在隔离分支 `fix/edit-task-fixed-regions` 完成代码、自动化验证与无写入桌面手测；待合并到本地 `main`。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift run NotionFloatCoreSmokeTests` — 新契约先在旧单一滚动文档上按预期失败：`edit form should split fixed header and footer from its scrollable content`；实现并更新旧上限契约后通过，`All smoke tests passed.`。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift test` — 70 tests / 0 failures（仅既有 `PomodoroSessionEngineTests` 未使用返回值警告）。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/widgettodo-edit-task-fixed-regions-build CODE_SIGNING_ALLOWED=NO build` — `BUILD SUCCEEDED`。
+- 手测: 运行隔离 Debug app，打开任务「但是发生的」编辑弹框。折叠时辅助功能树显示独立的标题、中部滚动区和取消/保存；展开 6 个类型时中部出现独立滚动条，而标题与取消/保存仍同层可见；再次收起后中部滚动条消失；点击取消后表单关闭，未执行保存。
+- 风险/回滚点: 固定区高度目前为 35 + 58 pt；将来若按钮或标题尺寸变化，需同步调整其常量以保持中部上限正确。回滚 `EditTaskFormCard` 的三段重组和 smoke 契约即可恢复旧单一滚动策略，不影响任务数据或 Notion 配置。
+
 ## 2026-08-12 - 修复编辑任务类型展开越出弹框
 - 目标: 修复编辑任务弹框展开类型列表后，标题越出顶部、取消/保存按钮越出底部的问题；保留关闭列表时的紧凑自适应高度，以及超出上限后的表单滚动。
 - 根因: 自适应模式将完整表单内容高度作为 `NSScrollView` 的固有高度返回。外层 SwiftUI 的 `frame(maxHeight: 376)` 约束了卡片背景，却没有约束 AppKit 滚动容器本身，导致完整文档继续绘制到卡片之外。
