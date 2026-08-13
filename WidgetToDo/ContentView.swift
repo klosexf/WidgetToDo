@@ -1541,10 +1541,12 @@ struct FloatingWidgetView: View {
 
                 VStack(alignment: .leading, spacing: FloatingWidgetMetrics.taskRowTextStackSpacing) {
                     Text(task.title)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(task.isDone ? FloatingWidgetPalette.taskTitleCompleted : FloatingWidgetPalette.taskTitle)
                         .strikethrough(task.isDone)
                         .modifier(TrackingModifier(value: -0.24))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
                     HStack(spacing: FloatingWidgetMetrics.taskRowMetaSpacing) {
                         if let estimatedMinutes = task.estimatedMinutes {

@@ -32,8 +32,10 @@ struct PendingTodoRowView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(item.title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(PendingPalette.titleColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 HStack(spacing: 6) {
                     if let estimatedMinutes = item.estimatedMinutes {

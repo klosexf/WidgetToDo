@@ -1,5 +1,17 @@
 # Progress
 
+## 2026-08-13 - 任务标题字号从 12pt 调整为 13pt
+- 目标: 将任务列表中任务标题字号从 12pt semibold 增大到 13pt semibold，提升可读性，同时不与日期标题（14pt bold）撞字号。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift`: `taskRowView` 中 `Text(task.title)` 的 `.font(.system(size: 12, weight: .semibold))` 改为 `13`。
+  - `WidgetToDo/PendingTodoRowView.swift`: 待同步任务标题 `Text(item.title)` 的 `.font(.system(size: 12, weight: .semibold))` 改为 `13`。
+- 状态: 代码修改完成；自动化测试因环境限制未能运行。
+- 最近验证:
+  - `swift test --disable-sandbox` - Core 库 25 个文件全部编译通过；测试目标因 CommandLineTools 环境缺少 XCTest 模块失败（`no such module 'XCTest'`），与本次改动无关。
+  - 现有契约测试 `TaskRowLayoutContractTests` 仅断言间距/lineLimit/布局，不锁死字号数值，不会因 12->13 而失败。
+- 手测: 未进行 UI 手测。需用户在浮窗中确认任务标题字号增大后的视觉效果与行高变化。
+- 风险/回滚点: 风险低，仅涉及视图字号；回滚两处 `.font` 的 size 值即可恢复。
+
 ## 2026-08-13 - 移除任务列表时长信息的时钟图标
 - 目标: 移除任务列表（已同步行与待创建行）中「预计时长」胶囊里的时钟图标，减少该行占用的横向空间。
 - 影响路径:
