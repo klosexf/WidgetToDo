@@ -134,6 +134,7 @@ struct NewTaskFormCard: View {
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isEstimatedMinutesFocused: Bool
     @State private var isTypeOptionsPresented = false
+    @State private var scrollTrigger = 0
 
     private let headerHeight: CGFloat = 35
     private let footerHeight: CGFloat = 58
@@ -148,7 +149,8 @@ struct NewTaskFormCard: View {
 
             SlimFormScrollView(
                 usesContentHeight: true,
-                contentHeightLimit: scrollableContentHeightLimit
+                contentHeightLimit: scrollableContentHeightLimit,
+                scrollToBottomTrigger: scrollTrigger
             ) {
                 newTaskScrollableContent
             }
@@ -167,6 +169,11 @@ struct NewTaskFormCard: View {
         )
         .shadow(color: NewTaskFormPalette.cardShadow, radius: 18, y: 10)
         .animation(.easeInOut(duration: 0.22), value: isTypeOptionsPresented)
+        .onChange(of: isTypeOptionsPresented) { _, presented in
+            if presented {
+                scrollTrigger += 1
+            }
+        }
         .onSubmit {
             viewModel.submit()
         }
@@ -351,7 +358,7 @@ private struct TaskChoicePicker: View {
     }
 
     private var optionsListHeight: CGFloat {
-        min(CGFloat(filteredOptions.count) * 30, 120)
+        min(CGFloat(filteredOptions.count) * 30, 180)
     }
 
     var body: some View {
@@ -440,19 +447,16 @@ private struct TaskChoicePicker: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
             } else {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 2) {
-                        ForEach(filteredOptions, id: \.name) { option in
-                            Button {
-                                select(option)
-                            } label: {
-                                typeOptionRow(title: option.name, option: option)
-                            }
-                            .buttonStyle(.plain)
+                VStack(spacing: 2) {
+                    ForEach(filteredOptions, id: \.name) { option in
+                        Button {
+                            select(option)
+                        } label: {
+                            typeOptionRow(title: option.name, option: option)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
-                .frame(height: optionsListHeight)
             }
         }
         .padding(4)

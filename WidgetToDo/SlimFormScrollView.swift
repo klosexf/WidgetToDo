@@ -10,16 +10,23 @@ private enum SlimFormScrollerMetrics {
 struct SlimFormScrollView<Content: View>: NSViewRepresentable {
     let usesContentHeight: Bool
     let contentHeightLimit: CGFloat?
+    let scrollToBottomTrigger: Int
     let content: Content
 
     init(
         usesContentHeight: Bool = false,
         contentHeightLimit: CGFloat? = nil,
+        scrollToBottomTrigger: Int = 0,
         @ViewBuilder content: () -> Content
     ) {
         self.usesContentHeight = usesContentHeight
         self.contentHeightLimit = contentHeightLimit
+        self.scrollToBottomTrigger = scrollToBottomTrigger
         self.content = content()
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
     }
 
     func makeNSView(context: Context) -> HostingScrollView<Content> {
@@ -32,6 +39,17 @@ struct SlimFormScrollView<Content: View>: NSViewRepresentable {
 
     func updateNSView(_ scrollView: HostingScrollView<Content>, context: Context) {
         scrollView.update(rootView: content)
+
+        if scrollToBottomTrigger != context.coordinator.lastScrollTrigger {
+            context.coordinator.lastScrollTrigger = scrollToBottomTrigger
+            DispatchQueue.main.async {
+                scrollView.scrollToBottom()
+            }
+        }
+    }
+
+    final class Coordinator {
+        var lastScrollTrigger: Int = 0
     }
 }
 
@@ -123,5 +141,19 @@ final class HostingScrollView<Content: View>: NSScrollView {
 
         measuredContentHeight = contentHeight
         invalidateIntrinsicContentSize()
+    }
+
+    func scrollToBottom() {
+        let contentHeight = hostingView.frame.height
+        let visibleHeight = bounds.height
+        guard contentHeight > visibleHeight else { return }
+        let bottomPoint = NSPoint(x: 0, y: contentHeight - visibleHeight)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.allowsImplicitAnimation = true
+            contentView.animator().setBoundsOrigin(bottomPoint)
+        }
+        reflectScrolledClipView(contentView)
     }
 }

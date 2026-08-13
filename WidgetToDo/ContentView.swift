@@ -2067,6 +2067,7 @@ struct EditTaskFormCard: View {
     @FocusState private var isTypeSearchFocused: Bool
     @State private var typeSearchText = ""
     @State private var isTypeOptionsPresented = false
+    @State private var scrollTrigger = 0
 
     private var selectedTypeOption: NotionSelectOption? {
         viewModel.choiceField?.options.first { $0.name == viewModel.editingPriority }
@@ -2081,7 +2082,7 @@ struct EditTaskFormCard: View {
     }
 
     private var typeOptionsListHeight: CGFloat {
-        min(CGFloat(filteredTypeOptions.count) * 30, 120)
+        min(CGFloat(filteredTypeOptions.count) * 30, 180)
     }
 
     private let headerHeight: CGFloat = 35
@@ -2097,7 +2098,8 @@ struct EditTaskFormCard: View {
 
             SlimFormScrollView(
                 usesContentHeight: true,
-                contentHeightLimit: scrollableContentHeightLimit
+                contentHeightLimit: scrollableContentHeightLimit,
+                scrollToBottomTrigger: scrollTrigger
             ) {
                 editTaskScrollableContent
             }
@@ -2116,6 +2118,11 @@ struct EditTaskFormCard: View {
         )
         .shadow(color: NewTaskFormPalette.cardShadow, radius: 18, y: 10)
         .animation(.easeInOut(duration: 0.22), value: isTypeOptionsPresented)
+        .onChange(of: isTypeOptionsPresented) { _, presented in
+            if presented {
+                scrollTrigger += 1
+            }
+        }
         .onAppear {
             typeSearchText = viewModel.editingPriority ?? ""
         }
@@ -2317,19 +2324,16 @@ struct EditTaskFormCard: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
             } else {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 2) {
-                        ForEach(filteredTypeOptions, id: \.name) { option in
-                            Button {
-                                selectEditingType(option)
-                            } label: {
-                                typeOptionRow(title: option.name, option: option)
-                            }
-                            .buttonStyle(.plain)
+                VStack(spacing: 2) {
+                    ForEach(filteredTypeOptions, id: \.name) { option in
+                        Button {
+                            selectEditingType(option)
+                        } label: {
+                            typeOptionRow(title: option.name, option: option)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
-                .frame(height: typeOptionsListHeight)
             }
         }
         .padding(4)
