@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-08-13 - 移除任务列表时长信息的时钟图标
+- 目标: 移除任务列表（已同步行与待创建行）中「预计时长」胶囊里的时钟图标，减少该行占用的横向空间。
+- 影响路径:
+  - `WidgetToDo/ContentView.swift`: `taskRowView` 的时长胶囊由 `HStack{clock + 文本}` 改为仅文本，保留原有颜色、内边距、胶囊背景、`.lineLimit(1)`、`.fixedSize(horizontal: true, vertical: false)`、`.layoutPriority(1)`。
+  - `WidgetToDo/PendingTodoRowView.swift`: 待创建行的时长胶囊同样移除时钟图标，仅保留时长文本。
+  - `Tests/NotionFloatCoreSmokeTests/main.swift`: `todoTaskDurationMatchesHtmlReferenceContract` 的断言由「包含 clock 图标」改为「不包含 clock 图标且仍含分钟后缀」。
+- 状态: 代码与单元测试已完成；smoke 契约被一项既有无关失败阻断（见下），未在本任务修复。
+- 最近验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift test --disable-sandbox` — 70 tests / 0 failures。
+  - `git diff --check -- Tests/NotionFloatCoreSmokeTests/main.swift WidgetToDo/ContentView.swift WidgetToDo/PendingTodoRowView.swift` — 通过，无空白格式问题。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-clang-cache swift run --disable-sandbox NotionFloatCoreSmokeTests` — 在无关的既有断言 `type picker should reserve visible height for filtered options` 处失败（`NewTaskFormCard.swift` 已不再使用 `.frame(height: optionsListHeight)`），未执行到本次改动的 `todoTaskDurationMatchesHtmlReferenceContract`；该失败与本次图标移除无关。
+- 手测: 未进行 UI 手测（仅移除图标，且本环境无法稳定启动隔离 Debug app）。需用户在已配置应用中确认时长胶囊不再显示时钟图标。
+- 风险/回滚点: 仅涉及视图展示层与对应 smoke 契约，不影响数据模型或 Notion 交互。回滚三个文件改动即可恢复时钟图标。
+
 ## 2026-08-12 - 新建任务弹框固定头尾与自适应中部滚动
 - 目标: 新建任务弹框在类型列表关闭时按必要内容收紧，消除创建按钮下方留白；展开类型或内容过高时，仅中部字段与选项滚动，标题和取消/创建固定可见，并以平滑动画完成收展。
 - 根因: 原实现把标题、字段、类型列表和取消/创建都放入同一个受最大高度约束的 `NSScrollView` 文档中，导致操作区既参与滚动，也无法按“固定头尾”划分可视高度。

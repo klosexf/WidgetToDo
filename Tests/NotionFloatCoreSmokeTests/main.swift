@@ -1267,15 +1267,15 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
         try expect(
             pendingRowSource.contains("estimatedMinutes") &&
-                pendingRowSource.contains(#"Image(systemName: "clock")"#) &&
+                !pendingRowSource.contains(#"Image(systemName: "clock")"#) &&
                 pendingRowSource.contains("min"),
-            "pending todo rows should render duration with a clock icon and minute suffix"
+            "pending todo rows should render duration with a minute suffix and no clock icon"
         )
         try expect(
             contentViewSource.contains("estimatedMinutes") &&
-                contentViewSource.contains(#"Image(systemName: "clock")"#) &&
+                !contentViewSource.contains(#"Image(systemName: "clock")"#) &&
                 contentViewSource.contains("min"),
-            "synced todo rows should render duration with a clock icon and minute suffix"
+            "synced todo rows should render duration with a minute suffix and no clock icon"
         )
     }
 

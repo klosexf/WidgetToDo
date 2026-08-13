@@ -1548,22 +1548,18 @@ struct FloatingWidgetView: View {
 
                     HStack(spacing: FloatingWidgetMetrics.taskRowMetaSpacing) {
                         if let estimatedMinutes = task.estimatedMinutes {
-                            HStack(spacing: 3) {
-                                Image(systemName: "clock")
-                                    .font(.system(size: 9, weight: .bold))
-                                Text(languageStore.text(.minutesValue, estimatedMinutes))
-                                    .font(.system(size: 10, weight: .bold))
-                            }
-                            .foregroundStyle(FloatingWidgetPalette.durationText)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(FloatingWidgetPalette.durationBg)
-                            )
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .layoutPriority(1)
+                            Text(languageStore.text(.minutesValue, estimatedMinutes))
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(FloatingWidgetPalette.durationText)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(FloatingWidgetPalette.durationBg)
+                                )
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                                .layoutPriority(1)
                         }
 
                         let choiceOption = todoViewModel.choiceField.flatMap { field in

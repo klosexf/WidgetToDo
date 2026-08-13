@@ -37,19 +37,15 @@ struct PendingTodoRowView: View {
 
                 HStack(spacing: 6) {
                     if let estimatedMinutes = item.estimatedMinutes {
-                        HStack(spacing: 3) {
-                            Image(systemName: "clock")
-                                .font(.system(size: 9, weight: .bold))
-                            Text(languageStore.text(.minutesValue, estimatedMinutes))
-                                .font(.system(size: 10, weight: .bold))
-                        }
-                        .foregroundStyle(PendingPalette.durationText)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            Capsule()
-                                .fill(PendingPalette.durationBg)
-                        )
+                        Text(languageStore.text(.minutesValue, estimatedMinutes))
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(PendingPalette.durationText)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(PendingPalette.durationBg)
+                            )
                     }
 
                     if item.estimatedMinutes != nil {
