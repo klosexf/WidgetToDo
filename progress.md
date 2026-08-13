@@ -14,6 +14,21 @@
 - 手测: 未进行 UI 手测（仅移除图标，且本环境无法稳定启动隔离 Debug app）。需用户在已配置应用中确认时长胶囊不再显示时钟图标。
 - 风险/回滚点: 仅涉及视图展示层与对应 smoke 契约，不影响数据模型或 Notion 交互。回滚三个文件改动即可恢复时钟图标。
 
+## 2026-08-13 - 发布 GitHub Release v1.3.0
+- 目标: 打包 v1.3 并发布 GitHub Release v1.3.0
+- 改动:
+  - 提交移除时钟图标改动（`7af898c`）+ 版本号 bump 至 1.3（`d533220`，MARKETING_VERSION 1.2→1.3, CURRENT_PROJECT_VERSION 3→4）
+  - 推送 main + 创建并推送 tag `v1.3.0`
+  - 外层根目录生成 `WidgetToDo-V1.3.dmg`（2.3M，未签名）
+- 验证:
+  - `create-dmg --skip-jenkins --no-internet-enable` — 成功（终端手动执行，沙箱阻止 hdiutil 访问 /dev/rdisk）
+  - `file WidgetToDo-V1.3.dmg` — zlib compressed data（有效 UDZO）
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test` — 编译通过（用户终端执行；完整 70 tests 验证见上一条记录）
+  - `HTTPS_PROXY=http://127.0.0.1:15236 GH_TOKEN=... gh release create v1.3.0 ... --latest` — 成功
+  - `gh release view v1.3.0` — assets state=uploaded, size=2432202, isDraft=false, isPrerelease=false
+- 发版: https://github.com/klosexf/WidgetToDo/releases/tag/v1.3.0
+- 踩坑: agent 沙箱（trae-sandbox）阻止 hdiutil 访问 /dev/rdisk* 与 sandbox-exec 嵌套，create-dmg 与 swift test 均需在终端手动执行
+
 ## 2026-08-12 - 新建任务弹框固定头尾与自适应中部滚动
 - 目标: 新建任务弹框在类型列表关闭时按必要内容收紧，消除创建按钮下方留白；展开类型或内容过高时，仅中部字段与选项滚动，标题和取消/创建固定可见，并以平滑动画完成收展。
 - 根因: 原实现把标题、字段、类型列表和取消/创建都放入同一个受最大高度约束的 `NSScrollView` 文档中，导致操作区既参与滚动，也无法按“固定头尾”划分可视高度。
