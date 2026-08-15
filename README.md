@@ -13,7 +13,12 @@
   <a href="#下载与安装"><img alt="version" src="https://img.shields.io/badge/version-v1.1.0-lightgrey"></a>
 </p>
 
-> 把 Notion 今日任务和当日日记，装进一块常驻桌面的悬浮面板——不开浏览器，不切 Notion 客户端。
+> 把 Notion 今日任务和当日日记，装进一块常驻桌面的悬浮面板--不开浏览器，不切 Notion 客户端。
+
+<p align="center">
+  <img src="./assets/readme/demo-interaction.gif" width="640" alt="WidgetToDo 交互动画演示：勾选今日待办并同步 Notion、编辑当日日记、新建任务、开始番茄钟专注">
+</p>
+<p align="center"><sub>勾选待办 → 同步 Notion → 写当日日记 → 新建任务 → 番茄钟专注</sub></p>
 
 ## 这是什么
 

@@ -1,5 +1,25 @@
 # Progress
 
+## 2026-08-15 - Add interaction demo GIF to README
+- 目标: 把官网落地页（仓库外 `index.html`）的交互动画录制为 GIF，嵌入 README 中英文版的 tagline 下方，展示「勾选待办 -> 同步 Notion -> 写日记 -> 新建任务 -> 番茄钟」完整交互。
+- 非目标: 不改 Swift 源码、测试、构建配置；不改 README 其他章节；不提交 git（等用户确认后再 commit）。
+- 影响路径:
+  - 新增 `WidgetToDo/assets/readme/demo-interaction.gif`（640×747、280 帧、11fps、无限循环、9.9MB，GitHub README 渲染安全范围内）。
+  - 修改 `WidgetToDo/README.md`：tagline 之后插入居中 GIF + 流程小字说明。
+  - 修改 `WidgetToDo/README.en.md`：同步插入英文版。
+- 状态: 已完成；GIF 已生成并嵌入两版 README（2026-08-15 二次迭代提升清晰度：2 倍分辨率源重录）。
+- 录制方式（外部工具链，不入仓库）:
+  - Playwright headless Chromium（deviceScaleFactor=2）+ CDP `Page.captureScreenshot`（clip + scale=2，JPEG q92，约 32ms/帧、~30fps 真实采样），Python Pillow 按时间戳重采样到 11fps、LANCZOS 缩到 640px、轻柔去噪 + 全局调色板合成 GIF；录制 URL 带 `?plain=1` 隐藏氛围动画层。
+  - 踩坑记录：① 本机 Trae 内置 ffmpeg 仅支持 mp4/libx264（无 GIF/PNG 输出）；② CDP `Page.startScreencast` 只出 CSS 像素帧（忽略 DPR）；③ `body.style.zoom` 会破坏页面布局（舞台被挤压变形），不可用于超采样；④ playwright 的 `pg.screenshot()` 太慢（全视口 2x PNG 约 667ms/帧）；⑤ CDP clip 截图默认 scale=1 出 CSS 分辨率，需显式 `scale:2`。
+- 最近验证:
+  - 命令: `python3 -c "from PIL import Image, ImageStat; ..."`（读取 demo-interaction.gif）- 通过：size 640×747、280 帧、loop=0，抽样多帧均有正常内容（暖色均值/标准差合理）。
+  - 命令: `ls -lh assets/readme/demo-interaction.gif` - 通过，9.9M。
+  - 命令: `grep -n "demo-interaction.gif" README.md README.en.md` - 通过，两处引用路径一致。
+  - 无 `swift test`：本次仅新增资源与文档，不涉及代码或测试变更。
+- 风险/回滚点:
+  - 纯资源+文档改动；回滚 `git checkout -- README.md README.en.md progress.md` 并删除 `assets/readme/demo-interaction.gif` 即可。
+  - GIF 9.9MB 接近 GitHub README 渲染安全线（<10MB）；如需更小可将 `record_gif.py` 中 OUT_W 降到 600 或 FPS 降到 10 重录（外层工作目录保留可复用）。
+
 ## 2026-08-10 - Add "What Is This" product positioning section to README
 - 目标: 在 README 中补充产品定位描述——明确 WidgetToDo 是一款什么样的 APP（原生 macOS 桌面应用、Notion 的轻量入口、聚焦三件事），中英文版同步。
 - 非目标: 不改 Swift 源码、测试、构建配置；不改动 README 其他章节。

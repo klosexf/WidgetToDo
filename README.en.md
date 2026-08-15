@@ -13,7 +13,12 @@
   <a href="#download--installation"><img alt="version" src="https://img.shields.io/badge/version-v1.1.0-lightgrey"></a>
 </p>
 
-> Put your Notion today's tasks and daily journal into an always-on desktop floating panel — no browser, no switching to the Notion app.
+> Put your Notion today's tasks and daily journal into an always-on desktop floating panel - no browser, no switching to the Notion app.
+
+<p align="center">
+  <img src="./assets/readme/demo-interaction.gif" width="640" alt="WidgetToDo interaction demo: check off today's task and sync to Notion, edit daily journal, create a task, start a pomodoro focus session">
+</p>
+<p align="center"><sub>Check off a to-do -> sync to Notion -> write daily journal -> create a task -> pomodoro focus</sub></p>
 
 ## What Is This
 
