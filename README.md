@@ -15,11 +15,6 @@
 
 > 把 Notion 今日任务和当日日记，装进一块常驻桌面的悬浮面板--不开浏览器，不切 Notion 客户端。
 
-<p align="center">
-  <img src="./assets/readme/demo-interaction.gif" width="640" alt="WidgetToDo 交互动画演示：勾选今日待办并同步 Notion、编辑当日日记、新建任务、开始番茄钟专注">
-</p>
-<p align="center"><sub>勾选待办 → 同步 Notion → 写当日日记 → 新建任务 → 番茄钟专注</sub></p>
-
 ## 这是什么
 
 WidgetToDo 是一款**原生 macOS 桌面应用**，用 SwiftUI + AppKit 构建。它把 Notion 数据库变成一块常驻桌面的悬浮面板，让你在不离开当前工作流的情况下，随时查看今日待办、勾选完成任务、编辑当日日记——所有改动实时同步回 Notion。
@@ -41,8 +36,9 @@ WidgetToDo 是一款**原生 macOS 桌面应用**，用 SwiftUI + AppKit 构建�
 - **原生 macOS**：SwiftUI + AppKit 构建，菜单栏常驻图标，简中 / 英 / 法三语本地化。
 
 <p align="center">
-  <img src="./docs/screenshots/app-main-light.png" width="60%" alt="WidgetToDo 主界面：待办/日记 tab、日期导航、番茄钟卡片、任务行与时长徽章">
+  <img src="./assets/readme/demo-interaction.gif" width="640" alt="WidgetToDo 交互动画演示：勾选今日待办并同步 Notion、编辑当日日记、新建任务、开始番茄钟专注">
 </p>
+<p align="center"><sub>勾选待办 -> 同步 Notion -> 写当日日记 -> 新建任务 -> 番茄钟专注</sub></p>
 
 <p align="center">
   <img src="./assets/readme/section-features.svg" width="100%" alt="功能特性">

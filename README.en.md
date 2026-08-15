@@ -15,11 +15,6 @@
 
 > Put your Notion today's tasks and daily journal into an always-on desktop floating panel - no browser, no switching to the Notion app.
 
-<p align="center">
-  <img src="./assets/readme/demo-interaction.gif" width="640" alt="WidgetToDo interaction demo: check off today's task and sync to Notion, edit daily journal, create a task, start a pomodoro focus session">
-</p>
-<p align="center"><sub>Check off a to-do -> sync to Notion -> write daily journal -> create a task -> pomodoro focus</sub></p>
-
 ## What Is This
 
 WidgetToDo is a **native macOS desktop app** built with SwiftUI + AppKit. It turns your Notion databases into an always-on desktop floating panel, letting you glance at today's to-dos, check off completed tasks, and edit your daily journal — all without leaving your current workflow. Every change syncs back to Notion in real time.
@@ -41,8 +36,9 @@ If you manage tasks in Notion, every time you want to glance at today's to-dos, 
 - **Native macOS**: Built with SwiftUI + AppKit, menu bar icon, localized in Simplified Chinese / English / French.
 
 <p align="center">
-  <img src="./docs/screenshots/app-main-light.png" width="60%" alt="WidgetToDo main interface: Todo/Journal tabs, date navigation, pomodoro card, task rows with duration badges">
+  <img src="./assets/readme/demo-interaction.gif" width="640" alt="WidgetToDo interaction demo: check off today's task and sync to Notion, edit daily journal, create a task, start a pomodoro focus session">
 </p>
+<p align="center"><sub>Check off a to-do -> sync to Notion -> write daily journal -> create a task -> pomodoro focus</sub></p>
 
 ## Features
 

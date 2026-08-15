@@ -5,9 +5,9 @@
 - 非目标: 不改 Swift 源码、测试、构建配置；不改 README 其他章节；不提交 git（等用户确认后再 commit）。
 - 影响路径:
   - 新增 `WidgetToDo/assets/readme/demo-interaction.gif`（640×747、280 帧、11fps、无限循环、9.9MB，GitHub README 渲染安全范围内）。
-  - 修改 `WidgetToDo/README.md`：tagline 之后插入居中 GIF + 流程小字说明。
-  - 修改 `WidgetToDo/README.en.md`：同步插入英文版。
-- 状态: 已完成；GIF 已生成并嵌入两版 README（2026-08-15 二次迭代提升清晰度：2 倍分辨率源重录）。
+  - 修改 `WidgetToDo/README.md`：GIF 定位语下方 -> 后移至「它解决什么」与「功能特性」模块之间（替换原 `docs/screenshots/app-main-light.png` 应用截图位，截图引用已移除、文件保留）。
+  - 修改 `WidgetToDo/README.en.md`：同步英文版（GIF 移至 The Problem It Solves 与 Features 之间，移除截图引用）。
+- 状态: 已完成；GIF 已生成并嵌入两版 README，位置按用户要求调整至功能特性模块上方（2026-08-15 二次迭代提升清晰度：2 倍分辨率源重录）。
 - 录制方式（外部工具链，不入仓库）:
   - Playwright headless Chromium（deviceScaleFactor=2）+ CDP `Page.captureScreenshot`（clip + scale=2，JPEG q92，约 32ms/帧、~30fps 真实采样），Python Pillow 按时间戳重采样到 11fps、LANCZOS 缩到 640px、轻柔去噪 + 全局调色板合成 GIF；录制 URL 带 `?plain=1` 隐藏氛围动画层。
   - 踩坑记录：① 本机 Trae 内置 ffmpeg 仅支持 mp4/libx264（无 GIF/PNG 输出）；② CDP `Page.startScreencast` 只出 CSS 像素帧（忽略 DPR）；③ `body.style.zoom` 会破坏页面布局（舞台被挤压变形），不可用于超采样；④ playwright 的 `pg.screenshot()` 太慢（全视口 2x PNG 约 667ms/帧）；⑤ CDP clip 截图默认 scale=1 出 CSS 分辨率，需显式 `scale:2`。
