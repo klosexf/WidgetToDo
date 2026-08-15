@@ -1,5 +1,40 @@
 # Progress
 
+## 2026-08-15 - Enter key triggers begin focus in pomodoro start dialog
+- 目标: 在「开始进行专注」弹框中按回车触发与点击「确定」完全相同的专注启动逻辑；弹框关闭时回车不产生任何影响；自定义分钟输入框聚焦时按回车也能启动专注。
+- 非目标: 不改其他番茄钟弹框（暂停/放弃/结束等）的键盘行为、不改 ViewModel 业务逻辑、不动 Notion API / 持久化 / 工程配置。
+- 影响路径:
+  - 修改 `WidgetToDo/PomodoroViews.swift`：`PomodoroStartCard` 确定按钮追加 `.keyboardShortcut(.defaultAction)`（窗口默认回车动作，仅在弹框挂载时存在，disabled 时回车不触发）；`PomodoroDurationPicker` 自定义输入框追加 `.onSubmit`，经 `validatePomodoroCustomMinutes()` 门控后复用 `viewModel.beginPomodoro()`。
+  - 增量改动 `Tests/NotionFloatCoreSmokeTests/main.swift`：`pomodoroViewsKeepContract()` 新增 3 条源码守卫（defaultAction 存在、全文件仅 1 处绑定防止波及其他弹框、onSubmit 门控复用 beginPomodoro）。
+- 设计要点:
+  - 快捷键加在 `PomodoroStartCard` 调用点而非共享组件 `PomodoroPrimaryButton`（6 处弹框共用），确保只有开始弹框响应回车。
+  - 双路径防重: `beginPomodoro()` 自带 `guard pomodoroSession == nil, let task = pomodoroStartTask` 幂等保护，回车与点击即使极端情况下同时触发也不会双重启动。
+  - 非法自定义分钟时确定按钮禁用，onSubmit 同步门控，回车行为与点击禁用按钮完全一致（不触发）。
+- 状态: 代码完成；自动化验证通过（全量 XCTest 70 过 + smoke 新守卫真实执行通过 + xcodebuild BUILD SUCCEEDED）。UI 手测（弹框打开按回车、弹框关闭按回车、输入框聚焦按回车三场景）待用户在运行中的 App 回测确认。
+- 验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` -> 70 XCTests 全过，exit 0。
+  - 临时注释 2 条存量失败守卫（沿用上一条记录的验证惯例）后运行 `.build/debug/NotionFloatCoreSmokeTests` -> `All smoke tests passed.`（含新增 3 条回车守卫真实执行）；守卫已恢复原样，`git diff` 确认无残留。
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -destination 'platform=macOS' -configuration Debug build` -> BUILD SUCCEEDED。
+- 已知遗留: `type/edit picker should reserve visible height` 两条 smoke 存量失败（`215aa87` 移除固定高度所致，上一条记录已确认与代码改动无关），与本次无关；修复需更新守卫以匹配现行设计，待单独任务处理。
+
+## 2026-08-15 - Auto-focus custom duration input in pomodoro start dialog
+- 目标: 在「开始进行专注」弹窗中，用户点击「自定义」时长选项后 0.5 秒内自动聚焦下方的分钟输入框；聚焦时展示视觉反馈（原生光标闪烁 + 边框高亮/光圈）；不影响其他交互、不引发滚动异常。
+- 非目标: 不改时长选项布局与文案、不改番茄钟业务逻辑（ViewModel 状态流不变）、不动 Notion API / 持久化 / 工程配置。
+- 影响路径:
+  - 修改 `WidgetToDo/PomodoroViews.swift`：`PomodoroPalette` 新增 `customFocusedBorder`(#b9ab9c) 与 `customFocusRing`(rgba(161,124,89,.12))，镜像 HTML 原型 `.custom-duration:focus-within` 样式；`PomodoroDurationPicker` 新增 `@FocusState isCustomMinutesFocused`，TextField 绑定 `.focused($isCustomMinutesFocused)`，`customInput` 插入时（即选中自定义那一刻）通过 `onAppear + DispatchQueue.main.async` 置焦（下一 runloop tick，毫秒级完成，满足 0.5s 要求，且避开视图刚插入时的 first responder 竞态）；聚焦时边框切换 `customFocusedBorder` 并叠加外圈 `customFocusRing` 光圈，0.15s easeInOut 过渡。
+  - 增量改动 `Tests/NotionFloatCoreSmokeTests/main.swift`：`pomodoroViewsKeepContract()` 新增 3 条源码守卫（FocusState 声明、`.focused` 绑定、置焦语句）。
+- 设计要点:
+  - 弹窗悬浮于 `todoPanel` ZStack 顶层、不在任何 ScrollView 内，聚焦不会触发列表滚动；未使用 `ScrollViewReader/scrollTo`，无滚动跳动风险。
+  - 沿用仓库既有 `@FocusState` 惯例（同 `NewTaskFormCard` 标题自动聚焦）；弹窗每次打开会重置选中为 25 分钟（`presentPomodoroStart`），因此 `onAppear` 仅在用户真正点击「自定义」时触发，不会在弹窗打开时误聚焦。
+- 状态: 代码完成；自动化验证通过（构建 + 全量 XCTest + smoke 新守卫）。UI 手测（点击自定义后光标聚焦、闪烁与边框反馈、切回 25/45 后焦点自然释放、无滚动异常）待用户在运行中的 App 回测确认。
+- 最近验证:
+  - 构建: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/WidgetToDoFocusDerivedData build` - `** BUILD SUCCEEDED **`。
+  - 全量: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` - `Executed 70 tests, with 0 failures`。
+  - smoke: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift run --disable-sandbox NotionFloatCoreSmokeTests` - 临时注释 2 条存量失败守卫后 `All smoke tests passed.`（含新增 3 条 pomodoro 聚焦守卫）；守卫已恢复原样（diff 仅剩 +13 行新守卫）。
+- 风险/回滚点:
+  - 存量问题（与本次改动无关，已在干净 HEAD 复现）：smoke 的 `type picker should reserve visible height for filtered options` 与 `edit picker should reserve visible height for filtered options` 两条守卫失败，因 `NewTaskFormCard.swift` 中 `optionsListHeight`/`typeOptionsListHeight` 已无 `.frame(height:)` 用法（某次提交改实现未同步守卫）；未在本任务中处理，待后续单独修复（改回 frame 用法或更新守卫）。
+  - 回滚：还原 `PomodoroViews.swift` 改动并删除 smoke 中 3 条新守卫即可，无数据/契约影响。
+
 ## 2026-08-15 - Add interaction demo GIF to README
 - 目标: 把官网落地页（仓库外 `index.html`）的交互动画录制为 GIF，嵌入 README 中英文版的 tagline 下方，展示「勾选待办 -> 同步 Notion -> 写日记 -> 新建任务 -> 番茄钟」完整交互。
 - 非目标: 不改 Swift 源码、测试、构建配置；不改 README 其他章节；不提交 git（等用户确认后再 commit）。

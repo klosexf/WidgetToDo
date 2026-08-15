@@ -1675,6 +1675,34 @@ struct NotionFloatCoreSmokeTestsRunner {
             source.contains("optionButton(minutes: -1"),
             "Start card should offer a custom duration preset"
         )
+        // Selecting the custom preset auto-focuses the minutes input (start dialog spec).
+        try expect(
+            source.contains("@FocusState private var isCustomMinutesFocused: Bool"),
+            "Duration picker should declare focus state for the custom minutes input"
+        )
+        try expect(
+            source.contains(".focused($isCustomMinutesFocused)"),
+            "Custom minutes input should bind the focus state"
+        )
+        try expect(
+            source.contains("isCustomMinutesFocused = true"),
+            "Selecting the custom preset should auto-focus the minutes input"
+        )
+        // Enter triggers the same begin logic as the primary button (keyboard spec).
+        try expect(
+            source.contains(".keyboardShortcut(.defaultAction)"),
+            "Start dialog primary button should act as the Return default action"
+        )
+        try expect(
+            source.components(separatedBy: ".keyboardShortcut(.defaultAction)").count - 1 == 1,
+            "Only the start dialog primary button should bind the Return default action"
+        )
+        try expect(
+            source.contains(".onSubmit {")
+                && source.contains("if viewModel.validatePomodoroCustomMinutes() != nil {")
+                && source.contains("viewModel.beginPomodoro()"),
+            "Custom minutes Return submit should gate on validation and reuse beginPomodoro"
+        )
         try expect(
             !source.contains("completionToggle") || source.contains("private var completionToggle"),
             "completionToggle should only appear in the prompt card, not in the start card"

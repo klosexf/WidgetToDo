@@ -51,6 +51,8 @@ private enum PomodoroPalette {
     static let customPlaceholder = Color(red: 0.604, green: 0.573, blue: 0.537)   // #9a9289
     static let customDivider = Color(red: 0.914, green: 0.894, blue: 0.867)       // #e9e4dd
     static let customUnitText = Color(red: 0.412, green: 0.381, blue: 0.349)     // #696159
+    static let customFocusedBorder = Color(red: 0.725, green: 0.671, blue: 0.612) // #b9ab9c
+    static let customFocusRing = Color(red: 0.631, green: 0.486, blue: 0.349).opacity(0.12) // rgba(161,124,89,.12)
     static let durationErrorText = Color(red: 0.753, green: 0.353, blue: 0.318)   // #c05a51
 
     // Buttons
@@ -503,6 +505,7 @@ struct PomodoroDialogActions: View {
 struct PomodoroDurationPicker: View {
     @ObservedObject var viewModel: TodoListViewModel
     @EnvironmentObject private var languageStore: LanguageStore
+    @FocusState private var isCustomMinutesFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -520,6 +523,11 @@ struct PomodoroDurationPicker: View {
             if viewModel.pomodoroSelectedMinutes == -1 {
                 customInput
                     .padding(.top, PomodoroMetrics.customTopSpacing)
+                    .onAppear {
+                        DispatchQueue.main.async {
+                            isCustomMinutesFocused = true
+                        }
+                    }
             }
 
             // error slot
@@ -567,6 +575,12 @@ struct PomodoroDurationPicker: View {
             .font(.system(size: PomodoroMetrics.customInputSize, weight: .bold))
             .foregroundStyle(PomodoroPalette.customInputText)
             .textFieldStyle(.plain)
+            .focused($isCustomMinutesFocused)
+            .onSubmit {
+                if viewModel.validatePomodoroCustomMinutes() != nil {
+                    viewModel.beginPomodoro()
+                }
+            }
 
             Spacer(minLength: 10)
 
@@ -590,8 +604,18 @@ struct PomodoroDurationPicker: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(PomodoroPalette.customBorder, lineWidth: 1)
+                .stroke(
+                    isCustomMinutesFocused ? PomodoroPalette.customFocusedBorder : PomodoroPalette.customBorder,
+                    lineWidth: 1
+                )
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .stroke(PomodoroPalette.customFocusRing, lineWidth: 2)
+                .padding(-2)
+                .opacity(isCustomMinutesFocused ? 1 : 0)
+        )
+        .animation(.easeInOut(duration: 0.15), value: isCustomMinutesFocused)
     }
 }
 
@@ -710,6 +734,7 @@ struct PomodoroStartCard: View {
                                     viewModel.beginPomodoro()
                                 }
                                 .disabled(effectiveMinutes == nil)
+                                .keyboardShortcut(.defaultAction)
                             }
                         )
                     }
