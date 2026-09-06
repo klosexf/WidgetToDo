@@ -39,6 +39,41 @@ public actor NotionClient {
         return try response.results.map { try Self.mapTask(page: $0, fields: fields) }
     }
 
+    /// 月历印记用：按日期范围（本地自然日，`from` 含当天、`to` 不含）一次查询整月任务。
+    /// 任务标题即页面属性，无逐页请求。
+    public func queryTasks(
+        from start: Date,
+        to endExclusive: Date,
+        databaseID: String,
+        fields: TaskDatabaseFieldMapping,
+        token: String
+    ) async throws -> [TaskItem] {
+        let body: [String: Any] = [
+            "filter": [
+                "and": [
+                    [
+                        "property": fields.date,
+                        "date": ["on_or_after": Self.dayFormatter.string(from: start)]
+                    ],
+                    [
+                        "property": fields.date,
+                        "date": ["before": Self.dayFormatter.string(from: endExclusive)]
+                    ]
+                ]
+            ],
+            "page_size": 100
+        ]
+
+        let request = try makeRequest(
+            path: "databases/\(databaseID)/query",
+            method: "POST",
+            token: token,
+            body: body
+        )
+        let response: QueryResponse = try await perform(request)
+        return try response.results.map { try Self.mapTask(page: $0, fields: fields) }
+    }
+
     public func updateTaskCheckbox(pageID: String, isDone: Bool, fields: TaskDatabaseFieldMapping, token: String) async throws {
         let body: [String: Any] = [
             "properties": [
@@ -173,6 +208,48 @@ public actor NotionClient {
         return entry
     }
 
+    /// 月历印记用：按日期范围（本地自然日，`from` 含当天、`to` 不含）查询日记页面，
+    /// 并逐页拉取正文填充 contentText。只读——不创建缺失的页面。
+    public func findJournalEntries(
+        databaseID: String,
+        fields: JournalDatabaseFieldMapping,
+        token: String,
+        from start: Date,
+        to endExclusive: Date
+    ) async throws -> [JournalEntry] {
+        let body: [String: Any] = [
+            "filter": [
+                "and": [
+                    [
+                        "property": fields.date,
+                        "date": ["on_or_after": Self.dayFormatter.string(from: start)]
+                    ],
+                    [
+                        "property": fields.date,
+                        "date": ["before": Self.dayFormatter.string(from: endExclusive)]
+                    ]
+                ]
+            ],
+            "page_size": 100
+        ]
+
+        let request = try makeRequest(
+            path: "databases/\(databaseID)/query",
+            method: "POST",
+            token: token,
+            body: body
+        )
+        let response: QueryResponse = try await perform(request)
+
+        var entries: [JournalEntry] = []
+        for page in response.results {
+            var entry = try Self.mapJournal(page: page, fields: fields, fallbackDate: start)
+            entry.contentText = try await fetchJournalText(pageID: entry.id, token: token)
+            entries.append(entry)
+        }
+        return entries
+    }
+
     public func createJournalPage(databaseID: String, fields: JournalDatabaseFieldMapping, token: String, date: Date) async throws -> JournalEntry {
         let dateString = Self.dayFormatter.string(from: date)
         let journalTitle = "日记 \(Self.journalTitleDateFormatter.string(from: date))"
@@ -212,9 +289,11 @@ public actor NotionClient {
             queryItems: [URLQueryItem(name: "page_size", value: "100")]
         )
         let response: BlockChildrenResponse = try await perform(request)
+        // 取所有文本类 block 的正文（保持段落顺序，空行保留以维持往返保真）；
+        // 非文本 block（divider/image 等）跳过。
         let lines = response.results.compactMap { block -> String? in
-            guard block.type == "paragraph" else { return nil }
-            return block.paragraph?.richText.map(\.plainText).joined()
+            guard let richText = block.richText else { return nil }
+            return richText.map(\.plainText).joined()
         }
         return lines.joined(separator: "\n")
     }
@@ -445,17 +524,43 @@ private struct BlockChildrenResponse: Decodable {
     let results: [BlockResponse]
 }
 
+/// 文本类 block（paragraph / heading_1…3 / bulleted_list_item / numbered_list_item /
+/// quote / to_do / toggle / callout / code …）的正文结构一致：`type` 同名 key 下挂
+/// `rich_text` 数组。按 `type` 动态解码取文，不逐类型罗列——在 Notion 客户端用
+/// 标题/列表/引用写的日记也能取到正文（月历印记的「有内容」判断依赖此逻辑）。
 private struct BlockResponse: Decodable {
     let id: String
     let type: String
-    let paragraph: ParagraphBlock?
+    let richText: [NotionRichText]?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: AnyCodingKey.self)
+        id = try container.decode(String.self, forKey: AnyCodingKey("id"))
+        type = try container.decode(String.self, forKey: AnyCodingKey("type"))
+        if
+            let payload = try? container.nestedContainer(keyedBy: AnyCodingKey.self, forKey: AnyCodingKey(type)),
+            let richText = try? payload.decode([NotionRichText].self, forKey: AnyCodingKey("rich_text"))
+        {
+            self.richText = richText
+        } else {
+            self.richText = nil
+        }
+    }
 }
 
-private struct ParagraphBlock: Decodable {
-    let richText: [NotionRichText]
+/// 以任意字符串为 key 的 CodingKey（用于按 block type 动态取字段）。
+private struct AnyCodingKey: CodingKey {
+    var stringValue: String
+    var intValue: Int? { nil }
 
-    enum CodingKeys: String, CodingKey {
-        case richText = "rich_text"
+    init?(intValue: Int) { nil }
+
+    init?(stringValue: String) {
+        self.stringValue = stringValue
+    }
+
+    init(_ string: String) {
+        self.stringValue = string
     }
 }
 

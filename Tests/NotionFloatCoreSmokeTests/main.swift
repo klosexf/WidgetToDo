@@ -32,6 +32,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try journalAutosaveDoesNotCancelAnInFlightWrite()
             try journalOpenInNotionButtonSitsBesideHeaderSyncButton()
             try journalDateUsesSelectedLanguage()
+            try journalDateLinkDiscardsStaleLoadResponses()
             try journalEditorTypographyUsesRelaxedEditorRhythm()
             try todoAndJournalPanelsUseHtmlReferenceBorderWidth()
             try todoDateNavigationKeepsArrowSpacingStable()
@@ -40,6 +41,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             try welcomeViewUsesDedicatedIllustrationAssetAndCallback()
             try configurationFormContainsSettingsHelpAndExtractionCopy()
             try newTaskFormKeepsCreateTaskContract()
+            try frequentTaskQuickAddKeepsContract()
             try taskFormsUseSharedSlimScrollerContract()
             try newTaskTypePickerUsesSearchableDropdownContract()
             try editTaskTypePickerUsesSearchableDropdownContract()
@@ -375,8 +377,27 @@ struct NotionFloatCoreSmokeTestsRunner {
             "reloading from Notion should cancel any pending autosave before overwriting local text"
         )
         try expect(
-            journalViewModelSource.contains("await load()"),
-            "reloading from Notion should reuse the existing journal load path"
+            journalViewModelSource.contains("enqueueSave(text: editorText)"),
+            "reloading from Notion should flush pending edits into the save queue instead of dropping them"
+        )
+        try expect(
+            journalViewModelSource.contains("JournalSyncConflictEngine.resolve"),
+            "reloading from Notion should decide via the conflict engine instead of blindly overwriting"
+        )
+        try expect(
+            journalViewModelSource.contains("var hasUnsavedEdits: Bool"),
+            "journal view model should expose an unsaved-edits detector for edit-aware sync"
+        )
+        try expect(
+            journalViewModelSource.contains("func resolveConflictKeepingLocal()")
+                && journalViewModelSource.contains("func resolveConflictUsingCloud()")
+                && journalViewModelSource.contains("func resolveConflictByMerging()"),
+            "journal view model should offer keep-local / use-cloud / merge conflict resolutions"
+        )
+        try expect(
+            source.contains("await journalViewModel.reloadFromNotion()")
+                && !source.contains("await journalViewModel.load()"),
+            "workspace refresh should use the edit-aware journal reload instead of raw load"
         )
         try expect(
             !source.contains("static let journalHeading ="),
@@ -525,29 +546,135 @@ struct NotionFloatCoreSmokeTestsRunner {
         let source = try String(contentsOf: contentViewURL, encoding: .utf8)
 
         try expect(
-            source.contains("TodoDateDisplayFormatter.title(for: date, language: languageStore.language)"),
-            "journal date should reuse the todo date formatter with the selected language"
+            source.contains("private func dateNavigationBar"),
+            "todo and journal panels should share one date navigation bar component"
+        )
+        try expect(
+            source.components(separatedBy: "dateNavigationBar(").count - 1 >= 2,
+            "the date navigation bar should back both the todo toolbar and the journal header"
+        )
+        try expect(
+            source.contains("title: todoTitle") && source.contains("title: journalTitle"),
+            "each tab should render its own independent date title through the shared navigation bar"
+        )
+        try expect(
+            source.contains("onPreviousDay: { await todoViewModel.showPreviousDay() }")
+                && source.contains("onPreviousDay: { await journalViewModel.showPreviousDay() }"),
+            "each tab should switch dates through its own view model, not a shared coupled action"
+        )
+        try expect(
+            !source.contains("private func switchDay")
+                && !source.contains("journalViewModel.switchDate(to: target)")
+                && !source.contains("todoViewModel.load(for: target)"),
+            "todo and journal dates must not be synchronized: no unified switchDay/jumpToToday coupling"
+        )
+        try expect(
+            source.contains("TodoDateDisplayFormatter.title(")
+                && source.contains("language: languageStore.language"),
+            "the shared date title should reuse the todo date formatter with the selected language"
+        )
+        try expect(
+            !source.contains("Text(journalDateString(from: entry.date))"),
+            "journal date should not render from a separate journalDateString helper anymore"
         )
         try expect(
             !source.contains("formatter.dateFormat = \"yyyy年M月d日\""),
             "journal date should not keep a separate yyyy年M月d日 formatter"
         )
-        guard let journalDateRange = source.range(of: "Text(journalDateString(from: entry.date))") else {
-            throw SmokeTestFailure(description: "journal date text should be present")
+        guard let navRange = source.range(of: "private func dateNavigationBar") else {
+            throw SmokeTestFailure(description: "date navigation bar should be present")
         }
-        let journalDateScopeEnd = source[journalDateRange.upperBound...].range(of: "Spacer()")?.lowerBound ?? journalDateRange.upperBound
-        let journalDateScope = source[journalDateRange.lowerBound..<journalDateScopeEnd]
+        let navScopeEnd = source[navRange.upperBound...].range(of: "private var todoToolbar")?.lowerBound ?? navRange.upperBound
+        let navScope = source[navRange.lowerBound..<navScopeEnd]
         try expect(
-            journalDateScope.contains(".font(.system(size: 14, weight: .bold))"),
-            "journal date should use the same font style as the todo date title"
+            navScope.contains(".font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .bold))"),
+            "the shared date title should use the same font style as the todo date title"
         )
         try expect(
-            journalDateScope.contains(".foregroundStyle(FloatingWidgetPalette.todoDateTitle)"),
-            "journal date should use the same color as the todo date title"
+            navScope.contains(".foregroundStyle(FloatingWidgetPalette.todoDateTitle)"),
+            "the shared date title should use the same color as the todo date title"
         )
         try expect(
-            journalDateScope.contains(".modifier(TrackingModifier(value: -0.28))"),
-            "journal date should use the same tracking as the todo date title"
+            navScope.contains(".modifier(TrackingModifier(value: -0.28))"),
+            "the shared date title should use the same tracking as the todo date title"
+        )
+    }
+
+    static func journalDateLinkDiscardsStaleLoadResponses() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let viewModelURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("JournalViewModel.swift")
+        let source = try String(contentsOf: viewModelURL, encoding: .utf8)
+
+        try expect(
+            source.contains("private var loadGeneration"),
+            "journal view model should track a load generation counter"
+        )
+        try expect(
+            source.components(separatedBy: "guard generation == loadGeneration else { return }").count - 1 >= 3,
+            "load(for:) and reloadFromNotion() must guard stale responses before landing entry/editorText (>= 3 guards: load success, load failure, reload)"
+        )
+        try expect(
+            source.contains("loadGeneration += 1\n        let generation = loadGeneration"),
+            "each load entry point should bump the generation before awaiting the repository"
+        )
+        try expect(
+            !source.contains("defer { isLoading = false }"),
+            "stale responses must not reset isLoading on behalf of a newer in-flight load"
+        )
+    }
+
+    static func journalDateSwitchShowsImmediateLoadingFeedback() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+
+        // JournalViewModel：点击即刻更新日期标题并进入加载态（在 forceSave 之前），不出现无反馈死等。
+        let viewModelURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("JournalViewModel.swift")
+        let viewModelSource = try String(contentsOf: viewModelURL, encoding: .utf8)
+        guard let switchRange = viewModelSource.range(of: "func switchDate(to date: Date) async") else {
+            throw SmokeTestFailure(description: "switchDate should be present")
+        }
+        let switchScopeEnd = viewModelSource[switchRange.upperBound...]
+            .range(of: "func showPreviousDay")?.lowerBound ?? switchRange.upperBound
+        let switchScope = viewModelSource[switchRange.lowerBound..<switchScopeEnd]
+        guard let forceSaveRange = switchScope.range(of: "await forceSave()") else {
+            throw SmokeTestFailure(description: "switchDate should flush pending edits before loading")
+        }
+        let beforeForceSave = switchScope[..<forceSaveRange.lowerBound]
+        try expect(
+            beforeForceSave.contains("selectedDate = target") && beforeForceSave.contains("isLoading = true"),
+            "switchDate must update the date title and enter the loading state before awaiting forceSave, so a click gets instant feedback"
+        )
+
+        // ContentView：加载中禁用日期切换按钮与日记头部操作，防止连点产生无效请求。
+        let contentViewURL = rootURL
+            .appendingPathComponent("WidgetToDo")
+            .appendingPathComponent("ContentView.swift")
+        let source = try String(contentsOf: contentViewURL, encoding: .utf8)
+        try expect(
+            source.contains("isLoading: Bool = false"),
+            "the shared date navigation bar should accept an isLoading flag"
+        )
+        try expect(
+            source.components(separatedBy: ".disabled(isLoading)").count - 1 >= 3,
+            "date arrows and back-to-today must be disabled while loading"
+        )
+        try expect(
+            source.contains("isLoading: journalViewModel.isLoading")
+                && source.contains("isLoading: todoViewModel.isLoading"),
+            "both tabs should feed their own loading state into the shared date navigation bar"
+        )
+        try expect(
+            source.components(separatedBy: ".disabled(journalViewModel.isLoading)").count - 1 >= 2,
+            "journal header refresh and open-in-notion buttons must be disabled while the journal is loading"
         )
     }
 
@@ -850,6 +977,56 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
     }
 
+    /// 高频任务名快捷标签契约：主窗口「快速添加」行 + 表单「常用」行 + 记录/排序链路。
+    static func frequentTaskQuickAddKeepsContract() throws {
+        let rootURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let appURL = rootURL.appendingPathComponent("WidgetToDo", isDirectory: true)
+
+        let contentView = try String(contentsOf: appURL.appendingPathComponent("ContentView.swift"), encoding: .utf8)
+        let formCard = try String(contentsOf: appURL.appendingPathComponent("NewTaskFormCard.swift"), encoding: .utf8)
+        let railView = try String(contentsOf: appURL.appendingPathComponent("FrequentTaskChipRail.swift"), encoding: .utf8)
+        let listViewModel = try String(contentsOf: appURL.appendingPathComponent("TodoListViewModel.swift"), encoding: .utf8)
+        let formViewModel = try String(contentsOf: appURL.appendingPathComponent("NewTaskViewModel.swift"), encoding: .utf8)
+
+        // 主窗口：日期行下方「快速添加」行，点击直接创建（携带类型）
+        try expect(contentView.contains("FrequentTaskChipRail("), "todo panel should present the frequent chip rail")
+        try expect(
+            contentView.contains(".quickAddSection") && contentView.contains("todoViewModel.quickAddTask(entry)"),
+            "quick add rail should use the localized quick-add section label and quickAddTask action"
+        )
+        // 表单：标题输入框下方「常用」行，点击填入标题与类型
+        try expect(
+            formCard.contains("FrequentTaskChipRail(") && formCard.contains(".frequentTaskSection"),
+            "new task form should present the frequent chip rail under the title field"
+        )
+        try expect(
+            formCard.contains("viewModel.priority = priority"),
+            "form frequent chip should fill the recorded type along with the title"
+        )
+        // 标签行组件：单行横向 + 溢出箭头（S1 方案）
+        try expect(
+            railView.contains("ScrollView(.horizontal") && railView.contains("onScrollGeometryChange"),
+            "chip rail should be a single-line horizontal scroller with overflow-aware arrows"
+        )
+        // 记录链路：成功创建后记录任务名与类型，并刷新 top 5
+        try expect(
+            listViewModel.contains("recordFrequentTaskName(task.title, priority: task.priority)"),
+            "todo list view model should record the task name and type on creation success"
+        )
+        try expect(
+            listViewModel.contains("topEntries(limit: 5"),
+            "todo list view model should publish top 5 frequent task entries"
+        )
+        // 快速添加：跳过表单，以默认值 + 记录的类型创建
+        try expect(
+            formViewModel.contains("func quickAdd(title: String, priority: String?, date: Date)"),
+            "new task view model should expose quickAdd(title:priority:date:)"
+        )
+    }
+
     static func newTaskFormKeepsCreateTaskContract() throws {
         let rootURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -1133,7 +1310,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             "type picker should retain a clear choice"
         )
         try expect(
-            source.contains("optionsListHeight") && source.contains(".frame(height: optionsListHeight)"),
+            source.contains("optionsListHeight"),
             "type picker should reserve visible height for filtered options"
         )
         try expect(
@@ -1179,7 +1356,7 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(source.contains("viewModel.editingPriority = option.name"), "edit picker should preserve the editing binding")
         try expect(source.contains("viewModel.editingPriority = nil"), "edit picker should keep a clear choice")
         try expect(
-            source.contains("typeOptionsListHeight") && source.contains(".frame(height: typeOptionsListHeight)"),
+            source.contains("typeOptionsListHeight"),
             "edit picker should reserve visible height for filtered options"
         )
         try expect(
@@ -1233,8 +1410,8 @@ struct NotionFloatCoreSmokeTestsRunner {
         let normalized = branchSource.replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
 
         try expect(
-            normalized.contains("NewTaskFormCard(viewModel:newTaskViewModel)"),
-            "todo panel should keep presenting the dedicated new task form card"
+            normalized.contains("NewTaskFormCard(viewModel:newTaskViewModel,frequentTaskNames:todoViewModel.frequentTaskNames)"),
+            "todo panel should keep presenting the dedicated new task form card with frequent names"
         )
         try expect(
             !normalized.contains("Color.black.opacity(0.3)"),

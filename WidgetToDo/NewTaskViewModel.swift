@@ -51,6 +51,36 @@ final class NewTaskViewModel: ObservableObject {
         estimatedMinutesError = nil
     }
 
+    /// 一键快速添加：不打开表单，以默认值（指定日期、最近使用的类型、无时长）直接创建，
+    /// 复用 submit 的 pending → 成功/失败回调链路。
+    func quickAdd(title: String, priority: String?, date: Date) {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmedTitle.isEmpty else { return }
+
+        let pendingItem = PendingTaskItem(
+            title: trimmedTitle,
+            date: date,
+            priority: priority,
+            estimatedMinutes: nil
+        )
+        onSubmit?(pendingItem)
+
+        Task {
+            do {
+                let task = try await repository.createTask(
+                    title: trimmedTitle,
+                    date: date,
+                    priority: priority,
+                    estimatedMinutes: nil,
+                    hasPriorityField: choiceField != nil
+                )
+                onCreateSuccess?(task)
+            } catch {
+                onCreateFailure?(pendingItem, error.localizedDescription)
+            }
+        }
+    }
+
     func submit() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
         guard !trimmedTitle.isEmpty else {

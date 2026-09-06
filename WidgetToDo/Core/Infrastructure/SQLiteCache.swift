@@ -153,8 +153,12 @@ public final class SQLiteCache: @unchecked Sendable {
     }
 
     public func journalEntry(for date: Date) throws -> JournalEntry? {
-        let sql = "SELECT id, title, notion_date, content_text, url, sync_status FROM journal_entries WHERE notion_date = ? LIMIT 1;"
-        let rows = try query(sql, bindings: [iso8601.string(from: date)]) { statement in
+        // 按本地自然日范围匹配，而非完整时间戳等值：历史数据的 notion_date 存在
+        // 「本地午夜」（如 2026-08-10T16:00:00Z，东八区）与「UTC 午夜」（2026-05-22T00:00:00Z）
+        // 两种格式，等值匹配会让其中一种永远查不到（印记丢失的根因之一）；范围匹配两者都能命中。
+        let bounds = try dayBounds(for: date)
+        let sql = "SELECT id, title, notion_date, content_text, url, sync_status FROM journal_entries WHERE notion_date >= ? AND notion_date < ? LIMIT 1;"
+        let rows = try query(sql, bindings: [bounds.start, bounds.end]) { statement in
             try readJournalEntry(from: statement)
         }
         return rows.first
@@ -217,10 +221,39 @@ public final class SQLiteCache: @unchecked Sendable {
         )
     }
 
+    /// 读取待重放的待定变更（默认 queued + failed），按创建时间升序返回。
+    public func pendingMutations(statuses: [PendingMutationStatus] = [.queued, .failed]) throws -> [PendingMutation] {
+        guard !statuses.isEmpty else { return [] }
+        let placeholders = statuses.map { _ in "?" }.joined(separator: ", ")
+        let sql = """
+        SELECT id, target_type, target_id, mutation_type, payload, retry_count, status, last_error, created_at
+        FROM pending_mutations
+        WHERE status IN (\(placeholders))
+        ORDER BY created_at ASC, rowid ASC;
+        """
+        return try query(sql, bindings: statuses.map { $0.rawValue }) { statement in
+            try readPendingMutation(from: statement)
+        }
+    }
+
     public func markMutation(id: String, status: PendingMutationStatus, lastError: String?) throws {
         try execute(
             "UPDATE pending_mutations SET status = ?, last_error = ?, retry_count = retry_count + 1 WHERE id = ?;",
             bindings: [status.rawValue, lastError ?? NSNull(), id]
+        )
+    }
+
+    private func readPendingMutation(from statement: OpaquePointer) throws -> PendingMutation {
+        PendingMutation(
+            id: Self.readString(from: statement, at: 0),
+            target: PendingMutationTarget(rawValue: Self.readString(from: statement, at: 1)) ?? .task,
+            targetID: Self.readString(from: statement, at: 2),
+            type: PendingMutationType(rawValue: Self.readString(from: statement, at: 3)) ?? .toggleCheckbox,
+            payload: Self.readString(from: statement, at: 4),
+            retryCount: Int(sqlite3_column_int64(statement, 5)),
+            status: PendingMutationStatus(rawValue: Self.readString(from: statement, at: 6)) ?? .failed,
+            lastError: Self.readOptionalString(from: statement, at: 7),
+            createdAt: try parseDate(Self.readString(from: statement, at: 8))
         )
     }
 

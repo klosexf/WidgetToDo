@@ -21,6 +21,7 @@ struct ToastHostView: View {
                 Text(languageStore.text(toast.message))
                     .font(.system(size: 13))
                     .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .frame(width: 280)

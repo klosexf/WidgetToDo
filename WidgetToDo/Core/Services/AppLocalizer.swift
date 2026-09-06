@@ -42,6 +42,11 @@ public enum AppText {
         case journalSavingSoon
         case journalSavedToNotion
         case journalAutosaveHint
+        case journalEditsKeptDuringSync
+        case journalConflictNotice
+        case journalConflictKeepLocal
+        case journalConflictUseCloud
+        case journalConflictMerge
         case noTasksToday
         case noTasksOnDate
         case workspaceSynced
@@ -82,8 +87,12 @@ public enum AppText {
         case deleteTaskConfirmation
         case deleteTaskArchiveMessage
         case backToToday
+        case calendarDaysWithTasks
+        case calendarDaysWithJournal
         case loadingTasks
         case loadingJournal
+        case quickAddSection
+        case frequentTaskSection
         case retry
         case editTask
         case newTask
@@ -209,6 +218,11 @@ public enum AppText {
             .journalSavingSoon: "即将保存...",
             .journalSavedToNotion: "已保存到 Notion",
             .journalAutosaveHint: "2 秒后自动保存",
+            .journalEditsKeptDuringSync: "正在编辑，已保留本地内容",
+            .journalConflictNotice: "云端有不同版本，请选择保留方式",
+            .journalConflictKeepLocal: "保留本地",
+            .journalConflictUseCloud: "使用云端",
+            .journalConflictMerge: "合并内容",
             .noTasksToday: "今天没有任务",
             .noTasksOnDate: "%@ 没有任务",
             .workspaceSynced: "刚刚同步完成",
@@ -249,8 +263,12 @@ public enum AppText {
             .deleteTaskConfirmation: "删除这个任务？",
             .deleteTaskArchiveMessage: "删除后会在 Notion 中归档该任务，无法在这里直接恢复。",
             .backToToday: "回到今天",
+            .calendarDaysWithTasks: "%@ 天有任务",
+            .calendarDaysWithJournal: "%@ 天有日记",
             .loadingTasks: "正在加载任务...",
             .loadingJournal: "正在加载日记...",
+            .quickAddSection: "快速添加",
+            .frequentTaskSection: "常用",
             .retry: "重试",
             .editTask: "编辑任务",
             .newTask: "新建任务",
@@ -374,6 +392,11 @@ public enum AppText {
             .journalSavingSoon: "Saving soon...",
             .journalSavedToNotion: "Saved to Notion",
             .journalAutosaveHint: "Auto-saves in 2 seconds",
+            .journalEditsKeptDuringSync: "Editing — local text kept",
+            .journalConflictNotice: "Cloud has a different version — choose one",
+            .journalConflictKeepLocal: "Keep Local",
+            .journalConflictUseCloud: "Use Cloud",
+            .journalConflictMerge: "Merge",
             .noTasksToday: "No tasks today",
             .noTasksOnDate: "No tasks on %@",
             .workspaceSynced: "Just synced",
@@ -414,8 +437,12 @@ public enum AppText {
             .deleteTaskConfirmation: "Delete this task?",
             .deleteTaskArchiveMessage: "This archives the task in Notion and it cannot be restored here.",
             .backToToday: "Today",
+            .calendarDaysWithTasks: "%@ days with tasks",
+            .calendarDaysWithJournal: "%@ days with journals",
             .loadingTasks: "Loading tasks...",
             .loadingJournal: "Loading journal...",
+            .quickAddSection: "Quick Add",
+            .frequentTaskSection: "Frequent",
             .retry: "Retry",
             .editTask: "Edit Task",
             .newTask: "New Task",
@@ -539,6 +566,11 @@ public enum AppText {
             .journalSavingSoon: "Enregistrement imminent…",
             .journalSavedToNotion: "Enregistré dans Notion",
             .journalAutosaveHint: "Enregistrement automatique dans 2 secondes",
+            .journalEditsKeptDuringSync: "Saisie en cours — texte local conservé",
+            .journalConflictNotice: "Le cloud a une version différente — choisissez",
+            .journalConflictKeepLocal: "Garder le local",
+            .journalConflictUseCloud: "Utiliser le cloud",
+            .journalConflictMerge: "Fusionner",
             .noTasksToday: "Aucune tâche aujourd’hui",
             .noTasksOnDate: "Aucune tâche le %@",
             .workspaceSynced: "Synchronisé à l’instant",
@@ -579,8 +611,12 @@ public enum AppText {
             .deleteTaskConfirmation: "Supprimer cette tâche ?",
             .deleteTaskArchiveMessage: "La tâche sera archivée dans Notion et ne pourra pas être restaurée ici.",
             .backToToday: "Aujourd’hui",
+            .calendarDaysWithTasks: "%@ jours avec tâches",
+            .calendarDaysWithJournal: "%@ jours avec journal",
             .loadingTasks: "Chargement des tâches…",
             .loadingJournal: "Chargement du journal…",
+            .quickAddSection: "Ajout rapide",
+            .frequentTaskSection: "Fréquents",
             .retry: "Réessayer",
             .editTask: "Modifier la tâche",
             .newTask: "Nouvelle tâche",

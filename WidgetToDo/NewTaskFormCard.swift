@@ -130,6 +130,8 @@ private struct PlainDatePicker: NSViewRepresentable {
 
 struct NewTaskFormCard: View {
     @ObservedObject var viewModel: NewTaskViewModel
+    /// 高频任务名（由 TodoListViewModel 提供），展示在标题输入框下方的「常用」标签行。
+    var frequentTaskNames: [FrequentTaskName] = []
     @EnvironmentObject private var languageStore: LanguageStore
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isEstimatedMinutesFocused: Bool
@@ -221,6 +223,19 @@ struct NewTaskFormCard: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if !frequentTaskNames.isEmpty {
+                    FrequentTaskChipRail(
+                        label: languageStore.text(.frequentTaskSection),
+                        entries: frequentTaskNames
+                    ) { entry in
+                        viewModel.title = entry.name
+                        // 连同最近使用的类型一起填入；未记录过类型则不覆盖当前选择
+                        if let priority = entry.priority {
+                            viewModel.priority = priority
+                        }
+                    }
                 }
             }
 

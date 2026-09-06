@@ -252,6 +252,146 @@ public actor NotionRepository {
         return try await toggleTask(id: id, isDone: task.isDone)
     }
 
+    /// 重放本地待定变更队列（queued + failed）。
+    ///
+    /// - 同一目标（targetID + type）只重放最新一条（last-write-wins），旧条目直接标记 synced。
+    /// - 目标缓存记录已是 synced（被更新内容取代）或已不存在时跳过重放，避免旧数据覆盖新内容。
+    /// - 遇到写入失败立即停止：401/403 视为需要重新授权，其余（网络、限流等）等待下次触发。
+    @discardableResult
+    public func drainPendingMutations() async -> PendingMutationDrainResult {
+        guard let context = try? await configurationContext() else {
+            return PendingMutationDrainResult(replayed: 0, skipped: 0, stopReason: .missingConfiguration)
+        }
+
+        let mutations = (try? cache.pendingMutations()) ?? []
+        guard !mutations.isEmpty else {
+            return PendingMutationDrainResult(replayed: 0, skipped: 0, stopReason: nil)
+        }
+
+        let latest = latestMutationsPerTarget(from: mutations)
+        var replayed = 0
+        var skipped = 0
+        // 被同目标更新变更取代的旧条目直接结案，避免队列无限累积。
+        for mutation in mutations where !latest.contains(where: { $0.id == mutation.id }) {
+            try? cache.markMutation(id: mutation.id, status: .synced, lastError: "已被更新的变更取代。")
+            skipped += 1
+        }
+
+        for mutation in latest {
+            switch (mutation.target, mutation.type) {
+            case (.task, .toggleCheckbox):
+                guard let isDone = Self.decodeBoolPayload(mutation.payload, key: "isDone") else {
+                    try? cache.markMutation(id: mutation.id, status: .synced, lastError: "待定变更载荷无法解析，已丢弃。")
+                    skipped += 1
+                    continue
+                }
+                guard var task = try? cache.task(id: mutation.targetID) else {
+                    // 任务已删除或归档，重放无意义。
+                    try? cache.markMutation(id: mutation.id, status: .synced, lastError: nil)
+                    skipped += 1
+                    continue
+                }
+                guard task.syncStatus != .synced else {
+                    // 已有更新内容同步成功，旧变更作废。
+                    try? cache.markMutation(id: mutation.id, status: .synced, lastError: nil)
+                    skipped += 1
+                    continue
+                }
+                do {
+                    try await notionClient.updateTaskCheckbox(
+                        pageID: mutation.targetID,
+                        isDone: isDone,
+                        fields: context.settings.tasksFieldMapping,
+                        token: context.token
+                    )
+                } catch {
+                    return drainFailureResult(mutation: mutation, error: error, replayed: replayed, skipped: skipped)
+                }
+                task.syncStatus = .synced
+                try? cache.upsert(task)
+                try? cache.markMutation(id: mutation.id, status: .synced, lastError: nil)
+                replayed += 1
+
+            case (.journal, .replaceJournalText):
+                guard let text = Self.decodeStringPayload(mutation.payload, key: "text") else {
+                    try? cache.markMutation(id: mutation.id, status: .synced, lastError: "待定变更载荷无法解析，已丢弃。")
+                    skipped += 1
+                    continue
+                }
+                guard var entry = try? cache.journalEntry(id: mutation.targetID) else {
+                    try? cache.markMutation(id: mutation.id, status: .synced, lastError: nil)
+                    skipped += 1
+                    continue
+                }
+                guard entry.syncStatus != .synced else {
+                    try? cache.markMutation(id: mutation.id, status: .synced, lastError: nil)
+                    skipped += 1
+                    continue
+                }
+                do {
+                    try await notionClient.replaceJournalText(pageID: mutation.targetID, text: text, token: context.token)
+                } catch {
+                    return drainFailureResult(mutation: mutation, error: error, replayed: replayed, skipped: skipped)
+                }
+                entry.contentText = text
+                entry.syncStatus = .synced
+                try? cache.upsert(entry)
+                try? cache.markMutation(id: mutation.id, status: .synced, lastError: nil)
+                replayed += 1
+
+            default:
+                skipped += 1
+            }
+        }
+
+        return PendingMutationDrainResult(replayed: replayed, skipped: skipped, stopReason: nil)
+    }
+
+    /// 每个（目标 + 类型）只保留最新一条，并维持原时间顺序。
+    private func latestMutationsPerTarget(from mutations: [PendingMutation]) -> [PendingMutation] {
+        var latestIDs: [String: String] = [:]
+        for mutation in mutations {
+            let key = "\(mutation.target.rawValue)|\(mutation.targetID)|\(mutation.type.rawValue)"
+            latestIDs[key] = mutation.id
+        }
+        return mutations.filter { mutation in
+            let key = "\(mutation.target.rawValue)|\(mutation.targetID)|\(mutation.type.rawValue)"
+            return latestIDs[key] == mutation.id
+        }
+    }
+
+    private func drainFailureResult(
+        mutation: PendingMutation,
+        error: Error,
+        replayed: Int,
+        skipped: Int
+    ) -> PendingMutationDrainResult {
+        try? cache.markMutation(id: mutation.id, status: .failed, lastError: String(describing: error))
+        let reason: PendingMutationDrainResult.StopReason
+        if case let NotionClientError.httpError(statusCode, _) = error, statusCode == 401 || statusCode == 403 {
+            reason = .unauthorized
+        } else {
+            reason = .writeFailed
+        }
+        return PendingMutationDrainResult(replayed: replayed, skipped: skipped, stopReason: reason)
+    }
+
+    private static func decodeBoolPayload(_ payload: String, key: String) -> Bool? {
+        guard let data = payload.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let value = object[key] as? Bool
+        else { return nil }
+        return value
+    }
+
+    private static func decodeStringPayload(_ payload: String, key: String) -> String? {
+        guard let data = payload.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let value = object[key] as? String
+        else { return nil }
+        return value
+    }
+
     public func updateTaskTitle(id: String, title: String, priority: String?, estimatedMinutes: Int?) async throws -> TaskItem {
         guard var task = try cache.task(id: id) else {
             throw NotionRepositoryError.missingCacheRecord("任务缓存记录不存在。")
@@ -393,6 +533,76 @@ public actor NotionRepository {
         try cache.journalEntry(for: date)
     }
 
+    /// 只读：读取本地缓存中指定日期的任务（不发网络请求），供月历印记使用。
+    public func cachedTasks(for date: Date) async throws -> [TaskItem] {
+        try cache.loadTasks(for: date)
+    }
+
+    /// 月历印记（远端刷新）：拉取指定月（monthAnchor 所在月）的日记条目（含正文），
+    /// 只把本地缓存缺失的页面补进缓存（已有条目一律不覆盖，避免踩到本地未保存编辑），
+    /// 返回 day -> 是否有非空内容。
+    public func refreshJournalMarks(containing monthAnchor: Date) async throws -> [Int: Bool] {
+        let context = try await configurationContext()
+        let calendar = Calendar(identifier: .gregorian)
+        guard
+            let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: monthAnchor)),
+            let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthStart)
+        else { return [:] }
+
+        let entries = try await notionClient.findJournalEntries(
+            databaseID: context.settings.journalDatabaseID,
+            fields: context.settings.journalFieldMapping,
+            token: context.token,
+            from: monthStart,
+            to: nextMonth
+        )
+
+        var marks: [Int: Bool] = [:]
+        for var entry in entries {
+            let day = calendar.component(.day, from: calendar.startOfDay(for: entry.date))
+            marks[day] = !entry.contentText.isEmpty
+            if try cache.journalEntry(id: entry.id) == nil {
+                entry.syncStatus = .synced
+                try cache.upsert(entry)
+            }
+        }
+        return marks
+    }
+
+    /// 月历印记（远端刷新）：拉取指定月（monthAnchor 所在月）的任务，
+    /// 只把本地缓存缺失的任务补进缓存（已有的不动），返回 day -> 是否有任务。
+    public func refreshTaskMarks(containing monthAnchor: Date) async throws -> [Int: Bool] {
+        let context = try await configurationContext()
+        let calendar = Calendar(identifier: .gregorian)
+        guard
+            let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: monthAnchor)),
+            let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthStart)
+        else { return [:] }
+
+        let tasks = try await notionClient.queryTasks(
+            from: monthStart,
+            to: nextMonth,
+            databaseID: context.settings.tasksDatabaseID,
+            fields: context.settings.tasksFieldMapping,
+            token: context.token
+        )
+
+        var marks: [Int: Bool] = [:]
+        for var task in TaskSorting.sort(tasks) {
+            let day = calendar.component(.day, from: calendar.startOfDay(for: task.date))
+            marks[day] = true
+            if try cache.task(id: task.id) == nil {
+                task.syncStatus = .synced
+                try cache.upsert(task)
+            }
+        }
+        return marks
+    }
+
+    public func cachedJournal(id: String) async throws -> JournalEntry? {
+        try cache.journalEntry(id: id)
+    }
+
     private func configurationContext() async throws -> ConfigurationContext {
         guard let settings = try await settingsStore.load() else {
             throw NotionRepositoryError.missingConfiguration
@@ -401,6 +611,31 @@ public actor NotionRepository {
             throw NotionRepositoryError.missingToken
         }
         return ConfigurationContext(settings: settings, token: token)
+    }
+}
+
+/// 待定变更队列一次重放的汇总结果。
+public struct PendingMutationDrainResult: Sendable, Equatable {
+    public enum StopReason: String, Sendable, Equatable {
+        /// 未完成配置或缺 token，本次不处理任何条目。
+        case missingConfiguration
+        /// Notion 返回 401/403，需要重新授权，不自动重试。
+        case unauthorized
+        /// 其他写入失败（网络、限流等），保留队列等待下次触发。
+        case writeFailed
+    }
+
+    /// 成功重放到 Notion 的条数。
+    public let replayed: Int
+    /// 因已被更新内容取代、目标不存在等原因跳过的条数。
+    public let skipped: Int
+    /// 非 nil 表示本次重放中途停止的原因；nil 表示全部处理完毕。
+    public let stopReason: StopReason?
+
+    public init(replayed: Int, skipped: Int, stopReason: StopReason?) {
+        self.replayed = replayed
+        self.skipped = skipped
+        self.stopReason = stopReason
     }
 }
 

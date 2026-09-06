@@ -38,6 +38,11 @@ final class TodoListViewModel: ObservableObject {
     @Published var isSavingTaskEdit = false
     @Published var deletingTaskID: String?
 
+    // MARK: - Frequent Task Names
+    /// 高频任务名（时间衰减评分 Top 5，含最近使用的类型），供「快速添加」与表单「常用」标签行展示。
+    @Published private(set) var frequentTaskNames: [FrequentTaskName] = []
+    private let frequencyStore: TaskNameFrequencyStore
+
     // MARK: - Pomodoro State
     @Published private(set) var pomodoroSession: PomodoroSession?
     @Published var pomodoroStartTask: TaskItem?
@@ -57,10 +62,16 @@ final class TodoListViewModel: ObservableObject {
     let newTaskViewModel: NewTaskViewModel
     private let calendar = Calendar(identifier: .gregorian)
 
-    init(repository: NotionRepository, hasPriorityField: Bool, openURL: @escaping @MainActor (URL) -> Void) {
+    init(
+        repository: NotionRepository,
+        hasPriorityField: Bool,
+        openURL: @escaping @MainActor (URL) -> Void,
+        frequencyStore: TaskNameFrequencyStore = TaskNameFrequencyStore()
+    ) {
         self.repository = repository
         self.openURL = openURL
         self.selectedDate = Date()
+        self.frequencyStore = frequencyStore
         self.newTaskViewModel = NewTaskViewModel(repository: repository, hasPriorityField: hasPriorityField)
 
         newTaskViewModel.onSubmit = { [weak self] pendingItem in
@@ -73,10 +84,15 @@ final class TodoListViewModel: ObservableObject {
             tasks.insert(task, at: 0)
             self?.tasks = TaskSorting.sort(tasks)
             self?.showToast(.success, message: AppMessage(.taskCreated))
+            self?.recordFrequentTaskName(task.title, priority: task.priority)
         }
 
         newTaskViewModel.onCreateFailure = { [weak self] pendingItem, errorMessage in
             self?.handleCreationFailure(pendingItem, errorMessage: errorMessage)
+        }
+
+        Task { @MainActor [weak self] in
+            await self?.refreshFrequentTaskNames()
         }
     }
 
@@ -143,6 +159,25 @@ final class TodoListViewModel: ObservableObject {
         newTaskViewModel.openForm(defaultDate: selectedDate)
     }
 
+    /// 一键快速添加：跳过表单，以默认值（当前查看日期、该任务名最近使用的类型）创建任务。
+    func quickAddTask(_ entry: FrequentTaskName) {
+        newTaskViewModel.quickAdd(title: entry.name, priority: entry.priority, date: selectedDate)
+    }
+
+    private func recordFrequentTaskName(_ rawName: String, priority: String?) {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.frequencyStore.record(name: name, priority: priority, now: Date())
+            await self.refreshFrequentTaskNames()
+        }
+    }
+
+    private func refreshFrequentTaskNames() async {
+        frequentTaskNames = await frequencyStore.topEntries(limit: 5, now: Date())
+    }
+
     func showPreviousDay() async {
         guard let previous = calendar.date(byAdding: .day, value: -1, to: selectedDate) else { return }
         await load(for: previous)
@@ -155,6 +190,18 @@ final class TodoListViewModel: ObservableObject {
 
     func jumpToToday() async {
         await load(for: Date())
+    }
+
+    /// 月历印记：指定日期的本地缓存里是否有任务（只读，不发网络请求）。
+    func hasCachedTasks(on date: Date) async -> Bool {
+        guard let cached = try? await repository.cachedTasks(for: date) else { return false }
+        return !cached.isEmpty
+    }
+
+    /// 月历印记（远端刷新）：拉取 monthAnchor 所在月「有任务」的日期（day -> true），
+    /// 并把本地缓存缺失的任务补进缓存。网络失败返回空表（保持缓存印记不变）。
+    func refreshMonthTaskDays(containing monthAnchor: Date) async -> [Int: Bool] {
+        (try? await repository.refreshTaskMarks(containing: monthAnchor)) ?? [:]
     }
 
     var isShowingToday: Bool {

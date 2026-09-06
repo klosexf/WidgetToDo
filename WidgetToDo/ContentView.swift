@@ -243,7 +243,8 @@ final class RootViewModel: ObservableObject {
             todoListViewModel.configure(choiceField: snapshot.choiceField)
         }
         await todoListViewModel.load()
-        await journalViewModel.load()
+        // 日记走编辑感知同步：有未保存编辑时先落盘再拉取，避免覆盖正在输入的内容。
+        await journalViewModel.reloadFromNotion()
         if todoListViewModel.errorMessage == nil, journalViewModel.errorMessage == nil {
             bannerMessage = AppMessage(.workspaceSynced)
             bannerMessageKey = nil
@@ -1133,11 +1134,14 @@ private enum FloatingWidgetMetrics {
     static let topBarBottomSpacing: CGFloat = 18
 
     static let todoToolbarBottomSpacing: CGFloat = 18
+    static let quickAddRailBottomSpacing: CGFloat = 10
     static let todoDateTitleFontSize: CGFloat = 14
     static let todoDateTitleWidth: CGFloat = 60
     static let todoDateNavigationSpacing: CGFloat = 4
     static let jumpToTodayWidth: CGFloat = 44
     static let jumpToTodayLeadingPadding: CGFloat = 2
+    static let calendarPopoverXOffset: CGFloat = 20
+    static let calendarPopoverYOffset: CGFloat = 100
     static let headerIconButtonSpacing: CGFloat = 12
     static let headerIconButtonSize: CGFloat = 24
     static let headerIconSymbolSize: CGFloat = 16
@@ -1183,6 +1187,12 @@ struct FloatingWidgetView: View {
     @ObservedObject var journalViewModel: JournalViewModel
     @ObservedObject private var newTaskViewModel: NewTaskViewModel
     @State private var taskPendingDeletion: TaskItem?
+    /// 月历弹层：当前展开弹层的 tab（nil = 收起）。
+    @State private var activeCalendarTab: WidgetTab?
+    /// 月历当前展示的月份（当月任意一天）。
+    @State private var calendarMonth: Date = Date()
+    /// 月历印记：day -> 有任务/有日记（只读缓存，只示有无）。
+    @State private var calendarMarks: [Int: CalendarDayMark] = [:]
     let refreshAction: @MainActor () async -> Void
     var bannerMessage: AppMessage?
     var bannerMessageKey: AppText.Key?
@@ -1221,6 +1231,106 @@ struct FloatingWidgetView: View {
         }
     }
 
+    // MARK: - Calendar Popover
+
+    /// 印记加载的代际 key：弹层 tab + 展示月份任一变化时重新加载。
+    private var calendarReloadKey: String {
+        guard activeCalendarTab != nil else { return "inactive" }
+        return "\(activeCalendarTab == .todo ? "todo" : "journal")-\(Int(calendarMonth.timeIntervalSince1970))"
+    }
+
+    private func dismissCalendar() {
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.95)) {
+            activeCalendarTab = nil
+        }
+    }
+
+    private func toggleCalendar(for tab: WidgetTab) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+            if activeCalendarTab == tab {
+                activeCalendarTab = nil
+            } else {
+                // 切换弹层时重置为对应 tab 的当前日期所在月。
+                calendarMonth = tab == .todo ? todoViewModel.selectedDate : journalViewModel.selectedDate
+                calendarMarks = [:]
+                activeCalendarTab = tab
+            }
+        }
+    }
+
+    private func pickCalendarDay(_ date: Date) {
+        guard let tab = activeCalendarTab else { return }
+        dismissCalendar()
+        Task {
+            if tab == .todo {
+                await todoViewModel.load(for: date)
+            } else {
+                await journalViewModel.switchDate(to: date)
+            }
+        }
+    }
+
+    private func shiftCalendarMonth(by delta: Int) {
+        guard let calendar = Calendar(identifier: .gregorian).date(
+            byAdding: .month, value: delta, to: calendarMonth
+        ) else { return }
+        calendarMonth = calendar
+    }
+
+    /// 两段式印记加载：
+    /// 1. 先读本地缓存即时渲染（打开月历立刻有反馈）；
+    /// 2. 再拉远端当月真实数据与缓存结果 OR 合并（Notion 里写的日记/任务也能显示印记），
+    ///    并把缓存缺失的条目补进本地（下次离线也有印记）。
+    /// 远端刷新只补「缓存中不存在」的条目，已有条目一律不覆盖，避免踩到本地未保存编辑。
+    private func reloadCalendarMarks() async {
+        guard let tab = activeCalendarTab else { return }
+
+        let calendar = Calendar(identifier: .gregorian)
+        guard let monthStart = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: calendarMonth)
+        ), let days = calendar.range(of: .day, in: .month, for: monthStart)?.count else {
+            calendarMarks = [:]
+            return
+        }
+
+        // 第一段：本地缓存（按模块上下文只查对应数据源）。
+        var loaded: [Int: CalendarDayMark] = [:]
+        for day in 1...days {
+            guard let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart) else { continue }
+            switch tab {
+            case .todo:
+                loaded[day] = CalendarDayMark(hasTasks: await todoViewModel.hasCachedTasks(on: date), hasJournal: false)
+            case .journal:
+                loaded[day] = CalendarDayMark(hasTasks: false, hasJournal: await journalViewModel.hasCachedJournalContent(on: date))
+            }
+        }
+        calendarMarks = loaded
+
+        // 第二段：远端刷新（打开月历时拉取真实数据）。
+        let remote: [Int: Bool]
+        switch tab {
+        case .todo:
+            remote = await todoViewModel.refreshMonthTaskDays(containing: monthStart)
+        case .journal:
+            remote = await journalViewModel.refreshMonthContentDays(containing: monthStart)
+        }
+
+        // 竞态防护：远端期间用户已翻月/收起/切 tab，丢弃本次结果。
+        guard activeCalendarTab == tab,
+              calendar.isDate(calendarMonth, equalTo: monthStart, toGranularity: .month) else { return }
+
+        var merged = calendarMarks
+        for day in 1...days where remote[day] == true {
+            switch tab {
+            case .todo:
+                merged[day] = CalendarDayMark(hasTasks: true, hasJournal: false)
+            case .journal:
+                merged[day] = CalendarDayMark(hasTasks: false, hasJournal: true)
+            }
+        }
+        calendarMarks = merged
+    }
+
     private func miniActiveTab(from widgetTab: WidgetTab) -> MiniActiveTab {
         switch widgetTab {
         case .todo:
@@ -1231,20 +1341,56 @@ struct FloatingWidgetView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            topBar
-                .padding(.bottom, FloatingWidgetMetrics.topBarBottomSpacing)
+        ZStack(alignment: .topLeading) {
+            VStack(spacing: 0) {
+                topBar
+                    .padding(.bottom, FloatingWidgetMetrics.topBarBottomSpacing)
 
-            Group {
-                if selectedTab == .todo {
-                    todoPanel
-                } else {
-                    journalPanel
+                Group {
+                    if selectedTab == .todo {
+                        todoPanel
+                    } else {
+                        journalPanel
+                    }
                 }
             }
+            .padding(FloatingWidgetMetrics.shellPadding)
+            .background(FloatingWidgetPalette.shellBackground)
+
+            // 点击弹层以外的区域收起月历。
+            if activeCalendarTab != nil {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { dismissCalendar() }
+                    .zIndex(10)
+            }
+
+            if let calendarTab = activeCalendarTab {
+                CalendarPopoverView(
+                    language: languageStore.language,
+                    month: calendarMonth,
+                    selectedDate: calendarTab == .todo
+                        ? todoViewModel.selectedDate
+                        : journalViewModel.selectedDate,
+                    marks: calendarMarks,
+                    context: calendarTab == .todo ? .todo : .journal,
+                    textProvider: { languageStore.text($0) },
+                    onPickDay: { date in pickCalendarDay(date) },
+                    onChangeMonth: { shiftCalendarMonth(by: $0) },
+                    onPickToday: { pickCalendarDay(Date()) }
+                )
+                .offset(
+                    x: FloatingWidgetMetrics.calendarPopoverXOffset,
+                    y: FloatingWidgetMetrics.calendarPopoverYOffset
+                )
+                .zIndex(11)
+                // Pop in：原地从中心缩放浮现（无位移），贴合 macOS 原生 popover 的入场。
+                .transition(.scale(scale: 0.92, anchor: .top).combined(with: .opacity))
+            }
         }
-        .padding(FloatingWidgetMetrics.shellPadding)
-        .background(FloatingWidgetPalette.shellBackground)
+        .task(id: calendarReloadKey) {
+            await reloadCalendarMarks()
+        }
     }
 
     private var topBar: some View {
@@ -1295,6 +1441,9 @@ struct FloatingWidgetView: View {
         let isActive = selectedTab == tab
         return Button {
             withAnimation(.easeOut(duration: 0.22)) {
+                if activeCalendarTab != nil {
+                    activeCalendarTab = nil
+                }
                 selectedTab = tab
                 onActiveTabChange?(miniActiveTab(from: tab))
             }
@@ -1329,6 +1478,16 @@ struct FloatingWidgetView: View {
                 todoToolbar
                     .padding(.bottom, FloatingWidgetMetrics.todoToolbarBottomSpacing)
 
+                if !todoViewModel.frequentTaskNames.isEmpty {
+                    FrequentTaskChipRail(
+                        label: languageStore.text(.quickAddSection),
+                        entries: todoViewModel.frequentTaskNames
+                    ) { entry in
+                        todoViewModel.quickAddTask(entry)
+                    }
+                    .padding(.bottom, FloatingWidgetMetrics.quickAddRailBottomSpacing)
+                }
+
                 syncBanner
                     .padding(.bottom, FloatingWidgetMetrics.syncBannerBottomSpacing)
 
@@ -1358,7 +1517,10 @@ struct FloatingWidgetView: View {
                     .onTapGesture {
                         newTaskViewModel.dismissForm()
                     }
-                NewTaskFormCard(viewModel: newTaskViewModel)
+                NewTaskFormCard(
+                    viewModel: newTaskViewModel,
+                    frequentTaskNames: todoViewModel.frequentTaskNames
+                )
             }
 
             if todoViewModel.editingTask != nil {
@@ -1375,12 +1537,8 @@ struct FloatingWidgetView: View {
 
             VStack {
                 Spacer()
-                HStack {
-                    Spacer()
-                    ToastHostView(toast: todoViewModel.toast)
-                }
-                .padding(.trailing, 8)
-                .padding(.bottom, 8)
+                ToastHostView(toast: todoViewModel.toast)
+                    .padding(.bottom, 8)
             }
         }
         .confirmationDialog(
@@ -1409,43 +1567,90 @@ struct FloatingWidgetView: View {
         }
     }
 
-    private var todoToolbar: some View {
+    /// 统一日期切换组件：左右箭头 + 当前日期 + 回到今天。
+    /// 待办与日记各自持有独立日期（互不同步），仅复用同一组件的样式与交互；
+    /// 加载中禁用切换按钮，防止连点产生无效的并发请求。
+    /// 点击日期标题展开月历弹层（onDateTap），点某天跳转到该日期。
+    private func dateNavigationBar<Actions: View>(
+        title: String,
+        isShowingToday: Bool,
+        isLoading: Bool = false,
+        isCalendarActive: Bool = false,
+        onDateTap: (() -> Void)? = nil,
+        onPreviousDay: @escaping @MainActor () async -> Void,
+        onNextDay: @escaping @MainActor () async -> Void,
+        onJumpToToday: @escaping @MainActor () async -> Void,
+        @ViewBuilder actions: () -> Actions
+    ) -> some View {
         HStack(spacing: 0) {
             HStack(spacing: FloatingWidgetMetrics.todoDateNavigationSpacing) {
                 Button {
-                    Task { await todoViewModel.showPreviousDay() }
+                    Task { await onPreviousDay() }
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .buttonStyle(FloatingWidgetNavButtonStyle())
+                .cursor(.pointingHand)
+                .disabled(isLoading)
+                .opacity(isLoading ? 0.4 : 1)
 
-                Text(todoTitle)
-                    .font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .bold))
-                    .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
-                    .modifier(TrackingModifier(value: -0.28))
-                    .lineLimit(1)
-                    .allowsTightening(true)
-                    .frame(width: FloatingWidgetMetrics.todoDateTitleWidth, alignment: .center)
+                if let onDateTap {
+                    Button {
+                        onDateTap()
+                    } label: {
+                        Text(title)
+                            .font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .bold))
+                            .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
+                            .modifier(TrackingModifier(value: -0.28))
+                            .lineLimit(1)
+                            .allowsTightening(true)
+                            .frame(width: FloatingWidgetMetrics.todoDateTitleWidth, alignment: .center)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(isCalendarActive
+                                          ? FloatingWidgetPalette.todoDateTitle.opacity(0.08)
+                                          : .clear)
+                            )
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .cursor(.pointingHand)
+                    .disabled(isLoading)
+                    .opacity(isLoading ? 0.4 : 1)
+                } else {
+                    Text(title)
+                        .font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .bold))
+                        .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
+                        .modifier(TrackingModifier(value: -0.28))
+                        .lineLimit(1)
+                        .allowsTightening(true)
+                        .frame(width: FloatingWidgetMetrics.todoDateTitleWidth, alignment: .center)
+                }
 
                 Button {
-                    Task { await todoViewModel.showNextDay() }
+                    Task { await onNextDay() }
                 } label: {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .buttonStyle(FloatingWidgetNavButtonStyle())
+                .cursor(.pointingHand)
+                .disabled(isLoading)
+                .opacity(isLoading ? 0.4 : 1)
             }
 
-            if !todoViewModel.isShowingToday {
+            if !isShowingToday {
                 Button(languageStore.text(.backToToday)) {
-                    Task { await todoViewModel.jumpToToday() }
+                    Task { await onJumpToToday() }
                 }
                 .buttonStyle(.plain)
+                .cursor(.pointingHand)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(FloatingWidgetPalette.metaText)
                 .padding(.leading, FloatingWidgetMetrics.jumpToTodayLeadingPadding)
                 .frame(width: FloatingWidgetMetrics.jumpToTodayWidth, alignment: .trailing)
+                .disabled(isLoading)
             } else {
                 Spacer(minLength: 0)
                     .frame(width: FloatingWidgetMetrics.jumpToTodayWidth)
@@ -1453,6 +1658,23 @@ struct FloatingWidgetView: View {
 
             Spacer()
 
+            actions()
+        }
+        // 日期导航栏整体兜底为箭头：按钮之间的空隙、Spacer 区域不再呈 I-beam；
+        // 各按钮已单独覆盖为手型（内层后触发/后恢复，层级正确）。
+        .cursor(.arrow)
+    }
+
+    private var todoToolbar: some View {
+        dateNavigationBar(
+            title: todoTitle,
+            isShowingToday: todoViewModel.isShowingToday,
+            isCalendarActive: activeCalendarTab == .todo,
+            onDateTap: { toggleCalendar(for: .todo) },
+            onPreviousDay: { await todoViewModel.showPreviousDay() },
+            onNextDay: { await todoViewModel.showNextDay() },
+            onJumpToToday: { await todoViewModel.jumpToToday() }
+        ) {
             HStack(spacing: FloatingWidgetMetrics.headerIconButtonSpacing) {
                 Button {
                     todoViewModel.openNewTaskForm()
@@ -1691,36 +1913,37 @@ struct FloatingWidgetView: View {
 
     private var journalPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let entry = journalViewModel.entry {
-                HStack(spacing: 0) {
-                    Text(journalDateString(from: entry.date))
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
-                        .modifier(TrackingModifier(value: -0.28))
-                        .lineLimit(1)
+            dateNavigationBar(
+                title: journalTitle,
+                isShowingToday: journalViewModel.isShowingToday,
+                isLoading: journalViewModel.isLoading,
+                isCalendarActive: activeCalendarTab == .journal,
+                onDateTap: { toggleCalendar(for: .journal) },
+                onPreviousDay: { await journalViewModel.showPreviousDay() },
+                onNextDay: { await journalViewModel.showNextDay() },
+                onJumpToToday: { await journalViewModel.jumpToToday() }
+            ) {
+                HStack(spacing: FloatingWidgetMetrics.headerIconButtonSpacing) {
+                    Button {
+                        Task { await journalViewModel.reloadFromNotion() }
+                    } label: {
+                        headerActionIcon(systemName: "arrow.triangle.2.circlepath")
+                    }
+                    .buttonStyle(FloatingWidgetIconButtonStyle())
+                    .disabled(journalViewModel.isLoading)
 
-                    Spacer()
-
-                    HStack(spacing: FloatingWidgetMetrics.headerIconButtonSpacing) {
+                    if let url = journalViewModel.entry?.url {
                         Button {
-                            Task { await journalViewModel.reloadFromNotion() }
+                            journalViewModel.openInNotion(url)
                         } label: {
-                            headerActionIcon(systemName: "arrow.triangle.2.circlepath")
+                            headerActionIcon(systemName: "arrow.up.forward.square")
                         }
                         .buttonStyle(FloatingWidgetIconButtonStyle())
-
-                        if let url = journalViewModel.entry?.url {
-                            Button {
-                                journalViewModel.openInNotion(url)
-                            } label: {
-                                headerActionIcon(systemName: "arrow.up.forward.square")
-                            }
-                            .buttonStyle(FloatingWidgetIconButtonStyle())
-                        }
+                        .disabled(journalViewModel.isLoading)
                     }
                 }
-                .padding(.bottom, FloatingWidgetMetrics.journalDateBottomSpacing)
             }
+            .padding(.bottom, FloatingWidgetMetrics.journalDateBottomSpacing)
 
             if journalViewModel.isLoading {
                 ProgressView(languageStore.text(.loadingJournal))
@@ -1731,7 +1954,8 @@ struct FloatingWidgetView: View {
                     fontSize: FloatingWidgetMetrics.journalEditorFontSize,
                     lineSpacing: FloatingWidgetMetrics.journalEditorLineSpacing,
                     contentInsets: FloatingWidgetMetrics.journalEditorInsets,
-                    textColor: NSColor(FloatingWidgetPalette.editorText)
+                    textColor: NSColor(FloatingWidgetPalette.editorText),
+                    isSelectable: activeCalendarTab != .journal
                 )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(
@@ -1745,6 +1969,11 @@ struct FloatingWidgetView: View {
                     .onChange(of: journalViewModel.editorText) { _, newValue in
                         journalViewModel.scheduleAutosave(text: newValue)
                     }
+
+                if journalViewModel.conflict != nil {
+                    journalConflictBanner
+                        .padding(.top, FloatingWidgetMetrics.journalStatusTopSpacing)
+                }
             }
 
             HStack(spacing: FloatingWidgetMetrics.journalStatusSpacing) {
@@ -1775,6 +2004,45 @@ struct FloatingWidgetView: View {
         }
     }
 
+    private var journalConflictBanner: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12, weight: .medium))
+                Text(languageStore.text(.journalConflictNotice))
+                    .font(.system(size: 11, weight: .semibold))
+                    .modifier(TrackingModifier(value: -0.11))
+            }
+            .foregroundStyle(FloatingWidgetPalette.warningText)
+
+            HStack(spacing: 14) {
+                Button(languageStore.text(.journalConflictKeepLocal)) {
+                    journalViewModel.resolveConflictKeepingLocal()
+                }
+                Button(languageStore.text(.journalConflictUseCloud)) {
+                    journalViewModel.resolveConflictUsingCloud()
+                }
+                Button(languageStore.text(.journalConflictMerge)) {
+                    journalViewModel.resolveConflictByMerging()
+                }
+            }
+            .font(.system(size: 10, weight: .semibold))
+            .buttonStyle(.plain)
+            .foregroundStyle(FloatingWidgetPalette.actionBtnColor)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: FloatingWidgetMetrics.panelCornerRadius, style: .continuous)
+                .fill(FloatingWidgetPalette.editorBg)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FloatingWidgetMetrics.panelCornerRadius, style: .continuous)
+                .stroke(FloatingWidgetPalette.warningText.opacity(0.45), lineWidth: FloatingWidgetMetrics.panelBorderLineWidth)
+        )
+    }
+
     private var emptyTasksView: some View {
         VStack(spacing: 12) {
             Image(systemName: "checklist")
@@ -1791,6 +2059,14 @@ struct FloatingWidgetView: View {
     private var todoTitle: String {
         TodoDateDisplayFormatter.title(
             for: todoViewModel.selectedDate,
+            language: languageStore.language
+        )
+    }
+
+    /// 日记 tab 的日期标题：待办与日记日期各自独立，互不同步。
+    private var journalTitle: String {
+        TodoDateDisplayFormatter.title(
+            for: journalViewModel.selectedDate,
             language: languageStore.language
         )
     }
@@ -1838,10 +2114,6 @@ struct FloatingWidgetView: View {
         case .failed:
             FloatingWidgetPalette.dangerText
         }
-    }
-
-    private func journalDateString(from date: Date) -> String {
-        TodoDateDisplayFormatter.title(for: date, language: languageStore.language)
     }
 
     private func headerActionIcon(systemName: String) -> some View {
@@ -1927,6 +2199,9 @@ private struct JournalTextEditor: NSViewRepresentable {
     let lineSpacing: CGFloat
     let contentInsets: EdgeInsets
     let textColor: NSColor
+    /// 是否可选中。月历弹层打开时设为 false：NSTextView 的 I-beam 光标会
+    /// 覆盖整个浮窗（包括叠在上方的 SwiftUI 弹层），只有关掉可选性才能根治。
+    let isSelectable: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -1948,7 +2223,7 @@ private struct JournalTextEditor: NSViewRepresentable {
         textView.drawsBackground = false
         textView.isRichText = false
         textView.isEditable = true
-        textView.isSelectable = true
+        textView.isSelectable = isSelectable
         textView.allowsUndo = true
         textView.importsGraphics = false
         textView.textContainerInset = NSSize(width: contentInsets.leading, height: contentInsets.top)
@@ -1974,6 +2249,10 @@ private struct JournalTextEditor: NSViewRepresentable {
         context.coordinator.scrollView = scrollView
         if let textView = scrollView.documentView as? NSTextView {
             context.coordinator.textView = textView
+            // 弹层开合时同步可选性：关闭 I-beam 光标泄漏（弹层打开）→ 恢复编辑（弹层关闭）。
+            if textView.isSelectable != isSelectable {
+                textView.isSelectable = isSelectable
+            }
             if textView.string != text {
                 textView.string = text
             }
