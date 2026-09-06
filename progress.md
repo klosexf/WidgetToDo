@@ -1,5 +1,21 @@
 # Progress
 
+## 2026-09-06 - 发布 GitHub Release v1.4.0
+- 目标: 打包 v1.4 并发布 GitHub Release v1.4.0
+- 改动:
+  - 版本号 bump 至 1.4（`3a03a14`，MARKETING_VERSION 1.3→1.4, CURRENT_PROJECT_VERSION 4→5）
+  - 推送 main + 创建并推送 tag `v1.4.0`
+  - 外层根目录生成 `WidgetToDo-V1.4.dmg`（2.5M，未签名）
+- 验证:
+  - `create-dmg --skip-jenkins --no-internet-enable` — 成功（agent 非沙箱模式执行成功，无需终端手动）
+  - `file WidgetToDo-V1.4.dmg` — zlib compressed data（有效 UDZO）
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 129 tests / 0 failures
+  - `gh release create v1.4.0 ... --latest` — 成功
+  - `gh release view v1.4.0` — assets state=uploaded, size=2659158, isDraft=false, isPrerelease=false
+- 发版: https://github.com/klosexf/WidgetToDo/releases/tag/v1.4.0
+- 备注: 旧 token 已失效（用户已作废，HTTP 401），本次使用用户提供的临时新 token 发版；该 token 已暴露在对话中，发版后需作废
+- 环境更新: 非沙箱（dangerouslyDisableSandbox）模式下 create-dmg 与 swift test --disable-sandbox 均可直接执行，不再需要终端手动
+
 ## 2026-09-06 - Journal page creation deferred to first save (切日期不再自动建页)
 - 用户反馈「在日历选择日期后还没写内容就自动建了页」——即前一条目「待跟进」的建页时机治理。目标：切换/选择日期只查询，用户输入内容并保存时才建页。
 - 改动:
