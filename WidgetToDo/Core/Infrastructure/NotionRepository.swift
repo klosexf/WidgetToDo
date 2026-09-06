@@ -5,6 +5,11 @@ public actor NotionRepository {
     private let settingsStore: SettingsStore
     private let cache: SQLiteCache
     private let notionClient: NotionClient
+    /// 在途加载去重：同一天的并发日记查询复用同一在途任务，
+    /// 避免「查询无页→建页」窗口内两个调用各建一页（Notion 无唯一约束，历史同日双页的根因）。
+    private var journalLoadInFlight: [Date: Task<JournalEntry, Error>] = [:]
+    /// 在途只读查询去重：同一天的并发 findJournal 复用同一在途任务（省请求；只读本身无竞态）。
+    private var journalFindInFlight: [Date: Task<JournalEntry?, Error>] = [:]
 
     public init(
         tokenStore: any TokenStore,
@@ -459,35 +464,72 @@ public actor NotionRepository {
         return task
     }
 
-    public func loadOrCreateJournal(for date: Date = Date()) async throws -> JournalEntry {
-        let context = try await configurationContext()
-
-        do {
-            if var journal = try await notionClient.findJournalPage(
-                databaseID: context.settings.journalDatabaseID,
-                fields: context.settings.journalFieldMapping,
-                token: context.token,
-                date: date
-            ) {
-                journal.syncStatus = .synced
-                try cache.upsert(journal)
-                return journal
-            }
-
-            let created = try await notionClient.createJournalPage(
-                databaseID: context.settings.journalDatabaseID,
-                fields: context.settings.journalFieldMapping,
-                token: context.token,
-                date: date
-            )
-            try cache.upsert(created)
-            return created
-        } catch {
-            if let cached = try cache.journalEntry(for: date) {
-                return cached
-            }
-            throw error
+    /// 只查不建：查询指定日期的日记页面，无页面返回 nil（不创建）。
+    /// 切换/选择日期走这里——「点开日期就建空页」是历史同日双页的来源之一，
+    /// 建页只发生在保存有内容的文本时（`saveJournal(text:date:)`）。
+    public func findJournal(for date: Date) async throws -> JournalEntry? {
+        let day = Calendar(identifier: .gregorian).startOfDay(for: date)
+        if let inFlight = journalFindInFlight[day] {
+            return try await inFlight.value
         }
+        let task = Task<JournalEntry?, Error> { [notionClient, cache] in
+            let context = try await self.configurationContext()
+            guard var journal = try await notionClient.findJournalPage(
+                databaseID: context.settings.journalDatabaseID,
+                fields: context.settings.journalFieldMapping,
+                token: context.token,
+                date: date
+            ) else {
+                return nil
+            }
+            journal.syncStatus = .synced
+            try cache.upsert(journal)
+            return journal
+        }
+        journalFindInFlight[day] = task
+        defer { journalFindInFlight[day] = nil }
+        return try await task.value
+    }
+
+    public func loadOrCreateJournal(for date: Date = Date()) async throws -> JournalEntry {
+        let day = Calendar(identifier: .gregorian).startOfDay(for: date)
+        // 在途去重：同一天已有加载在途时直接复用其结果，杜绝并发双建页。
+        if let inFlight = journalLoadInFlight[day] {
+            return try await inFlight.value
+        }
+        let task = Task<JournalEntry, Error> { [notionClient, cache] in
+            let context = try await self.configurationContext()
+
+            do {
+                if var journal = try await notionClient.findJournalPage(
+                    databaseID: context.settings.journalDatabaseID,
+                    fields: context.settings.journalFieldMapping,
+                    token: context.token,
+                    date: date
+                ) {
+                    journal.syncStatus = .synced
+                    try cache.upsert(journal)
+                    return journal
+                }
+
+                let created = try await notionClient.createJournalPage(
+                    databaseID: context.settings.journalDatabaseID,
+                    fields: context.settings.journalFieldMapping,
+                    token: context.token,
+                    date: date
+                )
+                try cache.upsert(created)
+                return created
+            } catch {
+                if let cached = try cache.journalEntry(for: date) {
+                    return cached
+                }
+                throw error
+            }
+        }
+        journalLoadInFlight[day] = task
+        defer { journalLoadInFlight[day] = nil }
+        return try await task.value
     }
 
     public func saveJournal(entryID: String, text: String, date: Date = Date()) async throws -> JournalEntry {
@@ -524,6 +566,13 @@ public actor NotionRepository {
         return entry
     }
 
+    /// 按日期保存日记（页面不存在时先建页）：用户首次输入内容时的保存入口。
+    /// 先复用 find/load 的查页逻辑拿到（或创建）目标页面，再走统一的 entryID 写入链路。
+    public func saveJournal(text: String, date: Date) async throws -> JournalEntry {
+        let entry = try await loadOrCreateJournal(for: date)
+        return try await saveJournal(entryID: entry.id, text: text, date: entry.date)
+    }
+
     public func resetConfiguration() async throws {
         tokenStore.deleteToken()
         try await settingsStore.clear()
@@ -539,6 +588,8 @@ public actor NotionRepository {
     }
 
     /// 月历印记（远端刷新）：拉取指定月（monthAnchor 所在月）的日记条目（含正文），
+    /// 印记语义为「该日写过内容」——app 切日期时自动创建的空页不算（存在页面 ≠ 写过日记，
+    /// 用户实测确认：空页点亮的印记是误导）。
     /// 只把本地缓存缺失的页面补进缓存（已有条目一律不覆盖，避免踩到本地未保存编辑），
     /// 返回 day -> 是否有非空内容。
     public func refreshJournalMarks(containing monthAnchor: Date) async throws -> [Int: Bool] {
@@ -560,7 +611,9 @@ public actor NotionRepository {
         var marks: [Int: Bool] = [:]
         for var entry in entries {
             let day = calendar.component(.day, from: calendar.startOfDay(for: entry.date))
-            marks[day] = !entry.contentText.isEmpty
+            // 同一天可能存在多个日记页（历史自动建页竞态等）：任一页有正文即点亮，
+            // OR 合并——后处理的空页不得覆盖先前的 true。
+            marks[day] = (marks[day] ?? false) || !entry.contentText.isEmpty
             if try cache.journalEntry(id: entry.id) == nil {
                 entry.syncStatus = .synced
                 try cache.upsert(entry)

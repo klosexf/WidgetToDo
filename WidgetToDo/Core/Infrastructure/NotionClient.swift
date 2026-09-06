@@ -209,7 +209,8 @@ public actor NotionClient {
     }
 
     /// 月历印记用：按日期范围（本地自然日，`from` 含当天、`to` 不含）查询日记页面，
-    /// 并逐页拉取正文填充 contentText。只读——不创建缺失的页面。
+    /// 并逐页拉取正文填充 contentText（印记语义是「该日写过内容」——自动创建的空页不算）。
+    /// 只读——不创建缺失的页面。
     public func findJournalEntries(
         databaseID: String,
         fields: JournalDatabaseFieldMapping,

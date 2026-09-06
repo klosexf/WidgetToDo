@@ -156,8 +156,10 @@ public final class SQLiteCache: @unchecked Sendable {
         // 按本地自然日范围匹配，而非完整时间戳等值：历史数据的 notion_date 存在
         // 「本地午夜」（如 2026-08-10T16:00:00Z，东八区）与「UTC 午夜」（2026-05-22T00:00:00Z）
         // 两种格式，等值匹配会让其中一种永远查不到（印记丢失的根因之一）；范围匹配两者都能命中。
+        // 同一天可能存在多个日记页（历史自动建页竞态）：优先返回有正文的——
+        // LIMIT 1 无排序时随机命中，空页会让印记/编辑回退误判「无内容」。
         let bounds = try dayBounds(for: date)
-        let sql = "SELECT id, title, notion_date, content_text, url, sync_status FROM journal_entries WHERE notion_date >= ? AND notion_date < ? LIMIT 1;"
+        let sql = "SELECT id, title, notion_date, content_text, url, sync_status FROM journal_entries WHERE notion_date >= ? AND notion_date < ? ORDER BY length(content_text) DESC LIMIT 1;"
         let rows = try query(sql, bindings: [bounds.start, bounds.end]) { statement in
             try readJournalEntry(from: statement)
         }

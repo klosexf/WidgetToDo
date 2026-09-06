@@ -43,12 +43,14 @@ final class JournalViewModel: ObservableObject {
         isLoading = true
 
         do {
-            let entry = try await repository.loadOrCreateJournal(for: selectedDate)
+            // 只查不建：切换/选择日期不自动建页（空页是历史同日双页的来源），
+            // 建页延迟到用户输入内容后的首次保存。
+            let entry = try await repository.findJournal(for: selectedDate)
             // 过期响应：期间用户已切换到其他日期，丢弃，避免旧日期内容覆盖当前日期。
             guard generation == loadGeneration else { return }
             self.entry = entry
-            editorText = entry.contentText
-            statusMessage = entry.contentText.isEmpty ? .journalReadyToWrite : .journalSynced
+            editorText = entry?.contentText ?? ""
+            statusMessage = (entry?.contentText ?? "").isEmpty ? .journalReadyToWrite : .journalSynced
             errorMessage = nil
         } catch {
             guard generation == loadGeneration else { return }
@@ -90,13 +92,14 @@ final class JournalViewModel: ObservableObject {
         await switchDate(to: Date())
     }
 
-    /// 月历印记：指定日期的本地缓存里是否有非空日记内容（只读，不发网络请求）。
-    func hasCachedJournalContent(on date: Date) async -> Bool {
+    /// 本地缓存印记：该日是否有非空日记内容（与远端刷新语义一致——
+    /// 内容非空才算，自动创建的空页不算）。
+    func hasCachedJournal(on date: Date) async -> Bool {
         guard let entry = try? await repository.cachedJournal(for: date) else { return false }
         return !entry.contentText.isEmpty
     }
 
-    /// 月历印记（远端刷新）：拉取 monthAnchor 所在月「日记内容非空」的日期（day -> true），
+    /// 月历印记（远端刷新）：拉取 monthAnchor 所在月「写过内容」的日期（day -> true），
     /// 并把本地缓存缺失的日记页面补进缓存。网络失败返回空表（保持缓存印记不变）。
     func refreshMonthContentDays(containing monthAnchor: Date) async -> [Int: Bool] {
         (try? await repository.refreshJournalMarks(containing: monthAnchor)) ?? [:]
@@ -111,6 +114,9 @@ final class JournalViewModel: ObservableObject {
     /// 同步前先把防抖中的文本立即入队并等待在途保存完成（不丢弃任何输入），
     /// 再拉取远端内容，由 `JournalSyncConflictEngine` 决定覆盖、保留或进入冲突流程。
     func reloadFromNotion() async {
+        // 并发守卫：已有加载在途时跳过，避免与启动/切日期流程并发触发 loadOrCreateJournal
+        // 造成同日双建页（仓库层虽已在途去重，UI 层也不再发起无意义的并发同步）。
+        guard !isLoading else { return }
         // 1. 把防抖中的最新文本立即入队（而不是取消丢弃），并等待在途保存结束。
         if debounceTask != nil {
             debounceTask?.cancel()
@@ -125,9 +131,9 @@ final class JournalViewModel: ObservableObject {
         loadGeneration += 1
         let generation = loadGeneration
 
-        let remote: JournalEntry
+        let remote: JournalEntry?
         do {
-            remote = try await repository.loadOrCreateJournal(for: selectedDate)
+            remote = try await repository.findJournal(for: selectedDate)
         } catch {
             // 过期响应：期间用户已切换日期，交给新的加载流程收尾，这里不落地也不复位状态。
             guard generation == loadGeneration else { return }
@@ -140,10 +146,12 @@ final class JournalViewModel: ObservableObject {
         guard generation == loadGeneration else { return }
 
         // 2. 决策时重新读取编辑器状态：拉取期间用户可能继续输入。
+        // 远端无页面时 remoteText 传本地文本：无页面 ≠ 云端分叉出不同内容，
+        // 避免误判 conflict（其「使用云端」选项会清空编辑器、丢掉尚未建页的本地输入）。
         let decision = JournalSyncConflictEngine.resolve(
             context: JournalSyncContext(
                 localText: editorText,
-                remoteText: remote.contentText,
+                remoteText: remote?.contentText ?? editorText,
                 hasUnsavedEdits: hasUnsavedEdits,
                 lastSaveFailed: entry?.syncStatus == .failed
             )
@@ -152,10 +160,10 @@ final class JournalViewModel: ObservableObject {
         switch decision {
         case .applyRemote:
             entry = remote
-            editorText = remote.contentText
+            editorText = remote?.contentText ?? ""
             errorMessage = nil
             conflict = nil
-            statusMessage = remote.contentText.isEmpty ? .journalReadyToWrite : .journalSynced
+            statusMessage = (remote?.contentText ?? "").isEmpty ? .journalReadyToWrite : .journalSynced
         case .keepLocal:
             // 只更新元数据与提示，不触碰 editorText，避免打断正在输入的内容。
             entry = remote
@@ -164,7 +172,7 @@ final class JournalViewModel: ObservableObject {
         case .conflict:
             // 本地编辑未成功写入云端且远端已分叉：保留本地内容，交给用户选择。
             entry = remote
-            conflict = JournalSyncConflict(remoteText: remote.contentText)
+            conflict = JournalSyncConflict(remoteText: remote?.contentText ?? "")
             statusMessage = .journalConflictNotice
         }
         isLoading = false
@@ -175,11 +183,20 @@ final class JournalViewModel: ObservableObject {
         if debounceTask != nil || saveTask != nil || pendingSaveText != nil {
             return true
         }
-        guard let entry else { return false }
+        guard let entry else {
+            // 当天尚无页面：编辑器有内容即未保存（保存时会按需建页）。
+            return !editorText.isEmpty
+        }
         if entry.syncStatus == .failed {
             return true
         }
         return editorText != entry.contentText
+    }
+
+    /// 底部「重试」按钮的显示条件：已建页保存失败，或建页本身失败（无 entry 且有未保存内容）。
+    var needsSaveRetry: Bool {
+        if entry?.syncStatus == .failed { return true }
+        return entry == nil && !editorText.isEmpty && errorMessage != nil
     }
 
     func scheduleAutosave(text: String) {
@@ -279,7 +296,20 @@ final class JournalViewModel: ObservableObject {
     }
 
     private func save(text: String) async {
-        guard let entry else { return }
+        // 当天尚无页面：有内容才建页保存；空文本不建页（切日期只查看不落页）。
+        guard let entry else {
+            guard !text.isEmpty else { return }
+            do {
+                let saved = try await repository.saveJournal(text: text, date: selectedDate)
+                self.entry = saved
+                statusMessage = .journalSavedToNotion
+                errorMessage = nil
+            } catch {
+                errorMessage = AppMessage(.journalSaveFailed, arguments: [error.localizedDescription])
+                statusMessage = nil
+            }
+            return
+        }
 
         do {
             let saved = try await repository.saveJournal(entryID: entry.id, text: text, date: entry.date)

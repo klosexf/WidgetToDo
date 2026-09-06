@@ -2,8 +2,9 @@ import XCTest
 @testable import NotionFloatCore
 
 /// 月历印记远端刷新的端到端契约（mock Notion API）：
-/// 在 Notion 客户端用标题/列表/引用等非 paragraph block 写的日记，
-/// 也必须被判定为「有内容」（曾因只提取 paragraph block 导致印记缺失）。
+/// 印记语义为「该日写过内容」——app 切日期时自动创建的空页不算
+/// （存在页面 ≠ 写过日记；用户实测确认空页印记是误导）。
+/// 同时保证非 paragraph block（标题/列表/引用）的正文被正确提取。
 final class RefreshJournalMarksTests: XCTestCase {
 
     private var tempDirectory: URL!
@@ -36,10 +37,10 @@ final class RefreshJournalMarksTests: XCTestCase {
 
         XCTAssertEqual(marks[6], true, "标题/列表/引用 block 必须算有内容")
         XCTAssertEqual(marks[7], false, "只有 divider 的页面不算有内容")
+        XCTAssertEqual(marks[8], nil, "无页面的日期不标记")
     }
 
-    /// 远端拉到的正文会写入缓存（contentText 含非 paragraph 文本），
-    /// 但缓存已有条目不被覆盖。
+    /// 远端拉到的正文会写入缓存，但缓存已有条目不被覆盖。
     func testRefreshBackfillsCacheWithoutOverwriting() async throws {
         try await makeHarness(queryBody: twoPagesQueryBody, blocksBodies: [
             "page-1": nonParagraphBlocksBody,
@@ -59,7 +60,9 @@ final class RefreshJournalMarksTests: XCTestCase {
             )
         )
 
-        let repository = try makeRepository()
+        let repository = try makeRepository(
+            cache: cache
+        )
         _ = try await repository.refreshJournalMarks(containing: date(2026, 9, 6))
 
         let cachedPage1 = try XCTUnwrap(cache.journalEntry(id: "page-1"))
@@ -69,6 +72,78 @@ final class RefreshJournalMarksTests: XCTestCase {
         let cachedPage2 = try XCTUnwrap(cache.journalEntry(id: "page-2"))
         XCTAssertEqual(cachedPage2.contentText, "", "divider-only 页面正文为空")
         XCTAssertEqual(cachedPage2.syncStatus, .synced)
+    }
+
+    /// 回归：同一天存在两个日记页（历史自动建页竞态），一页有正文、一页为空。
+    /// API 返回顺序中空页在后——OR 合并下印记必须仍为 true（曾被空页覆盖成 false，
+    /// 导致「有日记内容却没有印记」，实测 8月25日全天印记丢失）。
+    func testDuplicatePagesSameDayEmptyPageMustNotOverwriteMark() async throws {
+        try await makeHarness(
+            queryBody: duplicateSameDayQueryBody,
+            blocksBodies: [
+                "page-a": paragraphBlocksBody,
+                "page-b": emptyBlocksBody
+            ]
+        )
+
+        let repository = try makeRepository()
+        let marks = try await repository.refreshJournalMarks(containing: date(2026, 9, 6))
+
+        XCTAssertEqual(marks[6], true, "同日任一页有正文即点亮，空页不得覆盖")
+    }
+
+    /// 回归：本地缓存同日双页时，journalEntry(for:) 必须优先返回有正文的
+    /// （LIMIT 1 无排序时随机命中，空页会让印记/编辑回退误判「无内容」）。
+    func testCacheDuplicatePagesPrefersEntryWithContent() async throws {
+        let cache = try SQLiteCache(baseURL: tempDirectory)
+        // 先插入有正文的，再插入空页——无排序时多数实现返回先插入的，故反序验证更稳：
+        // 无论插入顺序，查询都必须给出有正文的那条。
+        try cache.upsert(
+            JournalEntry(
+                id: "page-a",
+                title: "日记",
+                date: date(2026, 9, 6),
+                contentText: "有正文",
+                url: nil,
+                syncStatus: .synced
+            )
+        )
+        try cache.upsert(
+            JournalEntry(
+                id: "page-b",
+                title: "日记",
+                date: date(2026, 9, 6),
+                contentText: "",
+                url: nil,
+                syncStatus: .synced
+            )
+        )
+        // 也覆盖反序：空页先插、有正文后插。
+        try cache.upsert(
+            JournalEntry(
+                id: "page-c",
+                title: "日记",
+                date: date(2026, 9, 7),
+                contentText: "",
+                url: nil,
+                syncStatus: .synced
+            )
+        )
+        try cache.upsert(
+            JournalEntry(
+                id: "page-d",
+                title: "日记",
+                date: date(2026, 9, 7),
+                contentText: "七号正文",
+                url: nil,
+                syncStatus: .synced
+            )
+        )
+
+        let sep6 = try XCTUnwrap(cache.journalEntry(for: date(2026, 9, 6)))
+        XCTAssertEqual(sep6.id, "page-a", "同日多页时优先返回有正文的（正序插入）")
+        let sep7 = try XCTUnwrap(cache.journalEntry(for: date(2026, 9, 7)))
+        XCTAssertEqual(sep7.id, "page-d", "同日多页时优先返回有正文的（反序插入）")
     }
 
     // MARK: - Fixtures
@@ -81,13 +156,14 @@ final class RefreshJournalMarksTests: XCTestCase {
         return Calendar(identifier: .gregorian).date(from: components)!
     }
 
-    private func makeRepository() throws -> NotionRepository {
+    private func makeRepository(cache: SQLiteCache? = nil) throws -> NotionRepository {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [RoutingMockURLProtocol.self]
+        let resolvedCache = try cache ?? SQLiteCache(baseURL: tempDirectory)
         return NotionRepository(
             tokenStore: InMemoryTokenStore(),
             settingsStore: settingsStore,
-            cache: try SQLiteCache(baseURL: tempDirectory),
+            cache: resolvedCache,
             notionClient: NotionClient(session: URLSession(configuration: config))
         )
     }
@@ -157,6 +233,53 @@ final class RefreshJournalMarksTests: XCTestCase {
             }
           ]
         }
+        """
+    }
+
+    /// 同一天（9月6日）两个日记页：page-a 有正文、page-b 为空（模拟历史建页竞态）。
+    /// 空页排在有正文页之后——复现覆盖 bug 的 API 顺序。
+    private var duplicateSameDayQueryBody: String {
+        """
+        {
+          "results": [
+            {
+              "id": "page-a",
+              "url": "https://www.notion.so/page-a",
+              "properties": {
+                "日记标题": { "title": [{ "plain_text": "日记 2026年9月6日" }] },
+                "记录日期": { "date": { "start": "2026-09-06" } }
+              }
+            },
+            {
+              "id": "page-b",
+              "url": "https://www.notion.so/page-b",
+              "properties": {
+                "日记标题": { "title": [{ "plain_text": "日记 2026年9月6日" }] },
+                "记录日期": { "date": { "start": "2026-09-06" } }
+              }
+            }
+          ]
+        }
+        """
+    }
+
+    private var paragraphBlocksBody: String {
+        """
+        {
+          "results": [
+            {
+              "id": "b1",
+              "type": "paragraph",
+              "paragraph": { "rich_text": [{ "plain_text": "关于新建待办的功能记录" }] }
+            }
+          ]
+        }
+        """
+    }
+
+    private var emptyBlocksBody: String {
+        """
+        { "results": [] }
         """
     }
 

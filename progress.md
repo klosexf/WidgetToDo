@@ -1,5 +1,59 @@
 # Progress
 
+## 2026-09-06 - Journal page creation deferred to first save (切日期不再自动建页)
+- 用户反馈「在日历选择日期后还没写内容就自动建了页」——即前一条目「待跟进」的建页时机治理。目标：切换/选择日期只查询，用户输入内容并保存时才建页。
+- 改动:
+  - `NotionRepository`：新增 `findJournal(for:) -> JournalEntry?`（只查不建，带在途去重 `journalFindInFlight`）；新增 `saveJournal(text:date:)`（先经 loadOrCreateJournal 确保页面存在——查无才建，再走统一 entryID 写入链路）；`loadOrCreateJournal` 保留，仅供保存链路复用。
+  - `JournalViewModel`：`load(for:)` 与 `reloadFromNotion` 改走 `findJournal`，entry 允许为 nil（编辑器空白、提示 readyToWrite）；`save(text:)` entry 为 nil 时有内容才走 `saveJournal(text:date:)` 建页保存，空文本直接跳过（不建页）；`hasUnsavedEdits` 无页面时按「编辑器非空」判定；`reloadFromNotion` 远端无页时 remoteText 传本地文本，避免误判 conflict（其「使用云端」会清空尚未建页的本地输入）；新增 `needsSaveRetry`（建页失败时也显示重试按钮）。
+  - `ContentView`：重试按钮条件 `entry?.syncStatus == .failed` 改为 `journalViewModel.needsSaveRetry`。
+  - `ConcurrentJournalLoadTests` 新增 3 例：findJournal 无页返回 nil 且 0 次建页；saveJournal(text:date:) 无页时建 1 次页并 PATCH 正文；再次保存命中已有页不再建页。
+- 验证: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test` -> Executed 129 tests, 0 failures（126 存量 + 3 新增）；剥离签名 `xcodebuild build`（Debug, CODE_SIGNING_ALLOWED=NO）-> BUILD SUCCEEDED。UI 手测待用户在 Xcode 重跑：切到无日记的日期不应在 Notion 出现新页；输入文字约 2 秒后自动建页并写入。
+- 风险与说明: 存量空页不自动清理（可在 Notion 手动删除）；建页失败时本地文本仍在编辑器且显示重试按钮，不丢内容。回滚点: 还原 NotionRepository.swift + JournalViewModel.swift + ContentView.swift，删除 ConcurrentJournalLoadTests.swift 中新增 3 例。
+
+## 2026-09-06 - Journal duplicate page root cause: concurrent loadOrCreateJournal (同日双页根因治理)
+- 用户提问「为什么同一日期出现两个相同日记页」。根因定论：`loadOrCreateJournal` 的「查询无页→建页」之间存在 await 挂起点，两个并发调用（启动 refreshWorkspace 与日记刷新/切日期按钮各自 `Task {}` 触发）可同时穿过查询窗口、各建一页；Notion 数据库无唯一约束，无法兜底。即 2026-09-06 早间条目「待跟进」的自动建页竞态。
+- 修复:
+  - `NotionRepository.loadOrCreateJournal`：actor 内新增 `journalLoadInFlight: [Date: Task<JournalEntry, Error>]` 在途去重——同一天并发调用复用同一在途任务，任务结束（成功/失败）即清除；不同日期互不影响。
+  - `JournalViewModel.reloadFromNotion`：开头加 `guard !isLoading else { return }` 并发守卫，UI 层不再与启动/切日期流程并发发起同步。
+  - 新增回归测试 `ConcurrentJournalLoadTests`（2 例）：并发双调用只产生 1 次 POST /pages 且拿到同一 page id；在途结束后顺序再加载命中远端已有页不再建页。mock 按 URL 路径分发（query 首次空/之后有页、pages 只允许建一次、blocks 空）。
+- 验证: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test` -> Executed 126 tests, 0 failures（124 存量 + 2 新增）；剥离签名 `xcodebuild build`（Debug, CODE_SIGNING_ALLOWED=NO）-> BUILD SUCCEEDED（覆盖 App 层 JournalViewModel 改动）。
+- 说明: 存量同日双页数据不在代码修复范围（可手动在 Notion 合并/删除空页）；缓存层 `ORDER BY length(content_text) DESC` 与印记 OR 合并仍作为双页存在时的兜底。
+- 回滚点: 还原 NotionRepository.swift + JournalViewModel.swift，删除 Tests/NotionFloatCoreTests/ConcurrentJournalLoadTests.swift。
+
+## 2026-09-06 - Journal mark lost on duplicate pages per day (同日双页覆盖 bug 修复)
+- 用户反馈「8月25日有日记正文但无印记」。API 取证：8 月 51 个日记页，**每天 2 个重复页**（历史自动建页竞态），25 号一页有正文、一页为空，空页在 API 返回顺序中在后。
+- 根因: `refreshJournalMarks` 里 `marks[day] = !contentText.isEmpty` 是直接赋值——后处理的空页把先前的 true **覆盖成 false**。live 测试证实：修复前 8 月印记 = `[]`（全空），尽管 6 天有正文。
+- 修复:
+  - `NotionRepository.refreshJournalMarks`：改 OR 合并 `(marks[day] ?? false) || !contentText.isEmpty`——同日任一页有正文即点亮。
+  - `SQLiteCache.journalEntry(for:)`：`LIMIT 1` 无排序时同日双页随机命中，空页会让本地印记/编辑回退误判；改 `ORDER BY length(content_text) DESC LIMIT 1` 优先有正文的。
+  - 任务侧 `refreshTaskMarks` 恒 `marks[day] = true`，无覆盖问题，未动。
+  - 新增 2 个回归测试：同日双页空页在后印记仍 true；缓存同日双页（正序/反序插入）都返回有正文那条。
+- 验证: live 测试（真实 token+网络）8 月印记 `[10, 11, 18, 19, 25, 26]`——25 号点亮，与 API 逐页正文一致；`swift test` -> 124 tests 0 failures；剥离 #Preview 副本 `xcodebuild build` -> BUILD SUCCEEDED。
+- 待跟进（未做）: 每天双页的根因是 app 自动建页竞态（findJournalPage 与 create 之间无锁/远端无唯一约束），可另开任务治理（如切换日期不再自动建页，或建页前二次查询）。
+- 回滚点: 还原 NotionRepository.swift + SQLiteCache.swift + RefreshJournalMarksTests.swift。
+
+## 2026-09-06 - Journal mark semantics reverted to content-based per user confirmation (日记印记改回内容语义)
+- 用户反馈存在性印记点亮了「没写日记内容的日期」——确认上一轮语义改错了方向：app 切日期自动建空页，「存在页面 ≠ 写过日记」，存在性会把所有点开过的日期都点亮。
+- 用户选择：改回「有正文才有印记」。按 API 真值，9 月只有 1 号有正文（`456456456456`），其余 13 页全部 0 blocks——回滚后 9 月只有 1 号有印记，这是 Notion 里的真实数据。
+- 改回: `NotionClient.findJournalPages` → `findJournalEntries`（恢复逐页拉正文）；`refreshJournalMarks` 改回 `!contentText.isEmpty`；`hasCachedJournal` 改回内容判定；`RefreshJournalMarksTests` 恢复内容断言 + blocks fixture。
+- 验证: live 测试（真实 token + 真实网络）输出 `[1]`——9 月只有 1 号 true，与 API 逐页验证吻合；`swift test` -> 122 tests 0 failures；剥离 #Preview 副本 `xcodebuild build` -> BUILD SUCCEEDED。
+- 待跟进: 如果用户希望「点开日期不自动建页、有输入才建页」，需要改 `loadOrCreateJournal` 的建页时机（L2，另开任务）。
+- 回滚点: 还原 NotionClient/NotionRepository/JournalViewModel/ContentView + 测试文件。
+
+## 2026-09-06 - Journal mark semantics: existence-based, verified against live Notion (日记印记改存在性语义)
+- 用户第五轮反馈「有内容的日期仍无印记」。按 advisor 指引停止猜测、拿运行时证据：
+  1. 临时 live 诊断测试（真实 Keychain token + 真实 settings + 真实网络，跑 app 同路径 refreshJournalMarks）：输出 `day 1 -> true`、其余 false——与用户截图「1 号有印记」完全吻合，证明 app 路径本身在跑、数据在回。
+  2. curl 直查 Notion API（同 filter）：9 月 14 个日记页，**只有 9月1日有正文**（`456456456456`），其余 13 页 blocks=0——用户切日期时 app 自动建页（loadOrCreateJournal），空页是常态。
+- 根因定论: 印记语义错位——代码实现「正文非空才有印记」，用户期望「该日建过/写过日记就有印记」（与待办侧「存在任务」对齐）。此前所有修复（范围匹配、远端刷新、block 提取）都在内容判定框架内打转，方向错了。
+- 修复:
+  - `NotionClient.findJournalEntries` → `findJournalPages`：只 query 不拉 blocks（月历 14 请求 → 1 请求；单日加载仍走 findJournalPage+fetchJournalText）。
+  - `NotionRepository.refreshJournalMarks`：marks[day] = true（存在性）。
+  - `JournalViewModel.hasCachedJournalContent` → `hasCachedJournal`（缓存存在即 true）；ContentView 调用点同步。
+  - `RefreshJournalMarksTests` 重写为存在性断言（空页/divider-only 页都点亮；缓存不覆盖契约保留）。
+- 验证: live 诊断测试新语义下 9 月 11 天全 true（与 API 14 页/11 天吻合）；删除临时测试后 `swift test` -> 122 tests 0 failures；剥离 #Preview 副本 `xcodebuild build` -> BUILD SUCCEEDED。
+- 教训: 连续多轮「修复无效」时先拿运行时证据（live 测试 + curl ground truth），证据链直接推翻三个错误假设（旧二进制/日期塌缩/API 失败），暴露真根因是语义错位。
+- 回滚点: 还原 NotionClient/NotionRepository/JournalViewModel/ContentView + 测试文件。
+
 ## 2026-09-06 - Calendar today button copy unified (弹层「今天」改「回到今天」)
 - 目标: 月历弹层头部的「今天」按钮文案与导航栏统一为「回到今天」。
 - 改动: `CalendarPopoverView.swift` 弹层按钮 textProvider 从 `.calendarToday` 改为复用 `.backToToday`（中/英/法三语现成）；`AppLocalizer.swift` 删除不再使用的 `calendarToday` key（enum case + 三处翻译）。

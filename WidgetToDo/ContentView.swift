@@ -1301,7 +1301,7 @@ struct FloatingWidgetView: View {
             case .todo:
                 loaded[day] = CalendarDayMark(hasTasks: await todoViewModel.hasCachedTasks(on: date), hasJournal: false)
             case .journal:
-                loaded[day] = CalendarDayMark(hasTasks: false, hasJournal: await journalViewModel.hasCachedJournalContent(on: date))
+                loaded[day] = CalendarDayMark(hasTasks: false, hasJournal: await journalViewModel.hasCachedJournal(on: date))
             }
         }
         calendarMarks = loaded
@@ -1991,7 +1991,7 @@ struct FloatingWidgetView: View {
 
                 Spacer()
 
-                if journalViewModel.entry?.syncStatus == .failed {
+                if journalViewModel.needsSaveRetry {
                     Button(languageStore.text(.retry)) {
                         Task { await journalViewModel.forceSave() }
                     }
