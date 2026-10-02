@@ -1,5 +1,47 @@
 # Progress
 
+## 2026-10-01 - 浮窗顶部激励话术条 + 设置页开关（默认关闭）
+- 目标: 在浮窗顶部新增一行可编辑的激励话术，单行、超长时横向跑马灯；设置页加开关，默认关闭。
+- 非目标: 不改既有面板的内边距与行高常量；不给文案加字数硬上限（未与用户确认）；不改 `AppSettings` / `SettingsStore`。
+- 设计定稿: 方案 E4「无印」A 档——13px/500 宋体（`Songti SC`）`#6B5D4F`、字距 .9px、条高 44、无底色无线无图标。原型见外层目录 `激励话术E4深化.html`。
+- 改动:
+  - 新增 `Core/Models/MotivationQuote.swift`：`{enabled, text}`，默认 `enabled=false`。
+  - 新增 `Core/Services/MotivationStripLayout.swift`：纯计算（单行归一化、可用宽度反算、溢出判定、恒定 26px/s 的时长）。含 `availableWidth(containerWidth:horizontalPadding:trailingAllowance:)`——溢出判定必须由容器反算，读文字元素自身宽度会让任意短句都被误判成需要滚动（原型阶段真实踩过）。
+  - 新增 `Core/Infrastructure/MotivationQuoteStore.swift`：独立 JSON actor，落 `Application Support/NotionFloat/motivation-quote.json`，照搬 `TaskNameFrequencyStore` 模式，读写失败静默降级为内存模式。
+  - 新增 `MotivationViewModel.swift`（`@MainActor ObservableObject`，load/setEnabled/save）、`MotivationStripView.swift`（跑马灯用 `TimelineView(.animation(paused:))`，hover 暂停且用 `timeOrigin` 补偿避免恢复跳帧）、`MotivationEditorCard.swift`（多行编辑弹框）。
+  - `ContentView.swift`：`RootViewModel` 增 `motivationViewModel` 并在 `bootstrap()` 里 `load()`；`FloatingWidgetView.body` 外层新增一个 `VStack(spacing:0)` 把条放在带 `shellPadding` 的 VStack **之外**（`.background(shellBackground)` 随之外移，无条时区域等价），关闭时整条不渲染；`todoPanel` 的 ZStack 内新增编辑弹框 + 透明点击层（**不加灰色遮罩**，与既有弹层一致）；`OnboardingView` 在 `languageSection` 之后插入 `motivationSection` 开关行，复用 `languageSection` 行皮肤与 `PomodoroSwitch`。
+  - `AppLocalizer.swift`：新增 4 个键 ×zh/en/fr 三份齐全（`motivationSettingTitle` / `SettingHint` / `Placeholder` / `EditorTitle`）；按钮复用既有 `.cancel` / `.save`，字数复用 `.wordCount`。
+- 验证:
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test` -> Executed **145 tests, 0 failures**（129 存量 + 16 新增：`MotivationStripLayoutTests` 11 例、`MotivationQuoteStoreTests` 5 例，全部 TDD 先红后绿）。
+  - `swift build --product NotionFloatCoreSmokeTests && ./.build/debug/NotionFloatCoreSmokeTests` -> **All smoke tests passed**（ContentView 的源码字面量锁未被破坏；插入点选在 `if mode == .settings` 分支内，避开 `main.swift:852` 锁的 `} else {` 段，且 `languageSection` 首次出现仍早于 `tokenSection`）。
+  - `xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug CODE_SIGNING_ALLOWED=NO build` -> **BUILD SUCCEEDED**。
+  - ⚠️ 关键教训：**`swift test` 全绿并不覆盖 App 层**。xcodebuild 首轮暴露 4 个真实编译错误，全部是 SPM 路径查不出的：`MotivationViewModel` 缺 `import Combine`（`@Published` 不可用）、`MotivationStripLayout` 缺 `import Foundation`（`components(separatedBy:)` 在 Xcode 模块图下不可见）、`accessibilityAction(perform:)` 签名不存在（正确为 `accessibilityAction(default:)` 尾闭包）、`@MainActor` 类型的 init 不能作 init 默认参数（改为显式传入，含 `#Preview` 调用点）。新增 App 层文件的验收必须跑 xcodebuild，不能只跑 `swift test`。
+  - 环境: `xcode-select -p` 仍指向 CommandLineTools，全程用 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` 单命令生效，未改全局设置。
+- UI 手测反馈修复（同日，用户在 Xcode 实跑后指出）:
+  - **弹框不居中**：根因是 `FloatingWidgetView.body` 的容器为 `ZStack(alignment: .topLeading)`（`ContentView.swift:1344`），子视图默认贴左上角——月历弹层就是靠 `.offset(x:20,y:100)` 硬补偿的。本次不用 offset，改为把透明点击层与弹框一起包进内层 `ZStack` 并 `.frame(maxWidth:.infinity, maxHeight:.infinity)`，靠 ZStack 默认 center 对齐真正居中。
+  - **弹框被撑到 maxHeight 376**：`TextEditor` 是贪婪视图，`.frame(minHeight: 146)` 拦不住它吃满 `cardMaxHeight`。改为固定 `editorHeight = 146`，卡片回到 ~261pt 固有高度。
+  - **光标与占位文案错位**：根因是结构性的——原先用 SwiftUI `Text` 叠一层假占位（padding 16），真实光标来自 `TextEditor` 自己的内缩（padding 8 + 内建 inset），两套独立边距永远对不齐，换字号/换语言会再错。改为新增 `MotivationTextEditor.swift`（`NSViewRepresentable` 包 `NSTextView` 子类，占位由 `draw(_:)` 自绘），占位与光标同以 `textContainerInset` 为原点，对齐由构造保证。顺带 `lineSpacing` 走 `typingAttributes` 的段落样式，`textContainer.lineFragmentPadding = 0` + `widthTracksTextView = true` 保证左缘一致。删除卡片内已失效的 `Ink.placeholder` / `Ink.editorText`。
+  - **条内数字与汉字基线错位**：`Songti SC` 只有 Regular/Bold/Black，`.weight(.medium)` 请求不存在的字重触发 CoreText 字体替换，数字与汉字落进两个不同字体的基线。`MotivationStripView.font` 去掉 `.weight(.medium)`，改用该家族真实存在的 Regular。
+  - **编辑按钮不明显**：原为 20px 无边框灰图标、有文案时 hover 才浮现，实跑判为看不清。改为复用任务行 `⋯` 按钮皮肤（24×24、radius 12、底 `#FEFDFB`、描边 `#EAE5E0` 1pt，`ContentView.swift:1863-1867`），图标色提至 `#787572`、weight medium，且**常驻**（常态 0.85、hover 1.0）——推翻此前"hover 才浮现"的决定。右内边距 12 避开窗口圆角。无障碍标签改用既有键 `.motivationEditorTitle`，不再硬编码英文。
+  - **条的位置从窗口顶缘移到 tab 行下方**：用户实跑后反馈顶缘"看起来怪"——顶缘是窗口 chrome 的语义区，句子压在那里跟 tab 胶囊抢"我是谁"。改为放在 `topBar` 之后、日期行之前，随内容列左右内缩（不再通栏）。同时撤销此前为通栏加的外层 `VStack`，`FloatingWidgetView.body` 恢复原有单层结构，条作为 `topBar` 的兄弟节点插入；新增 `FloatingWidgetMetrics.motivationStripBottomSpacing = 10`。条自身去掉 14px 横向内边距与白底（内容列已内缩 16、底色同壳层），使右缘编辑按钮与日期行操作图标对齐同一条垂直线。净代价由 44px 变为 54px（44 + 10 间距）。
+  - **tab 行与条之间间距过大**：两处叠加——条高 44 把 13pt 文字居中后上下各多约 15px 空气，再加 tab 行原有 18pt 底距。`topBarBottomSpacing` 是共享常量（关闭态与日记页都用），不能直接改，故：条高 44 → 28（与 chip 行 26 同量级，它已不是顶缘冠冕而是内容列一行）；新增 `topBarBottomSpacingWithMotivation = 10`，仅在条渲染时生效，关闭态仍是 18 不变。净代价由 54px 降至 38px（28 + 10），上下气口各约 16px 对称。
+  - **弹框标题上方一大片空白**：卡片写了 `.frame(minHeight:242, maxHeight:376)` 却没有 Spacer/滚动容器消化多余空间——父层 ZStack 提议 460，卡片被撑到 maxHeight 376，而内容固有高度仅 261，多出的 115pt 均分到内容上下，标题上方即 ~57pt 空白。`NewTaskFormCard` 不出此问题是因为它有 `SlimFormScrollView` 按 283 精确吃高。本弹框编辑器已是固定 146，不需要弹性高度，故删掉该层 frame 让卡片按内容定高，并清理随之失效的 `cardMinHeight` / `cardMaxHeight` / `buttonHeight` 三个死常量与一处过时注释。
+  - **编辑按钮改回 hover 才显示**：此前"不明显"的根因是对比度低 + 贴窗口圆角被裁，已通过换 `⋯` 按钮皮肤、提图标对比度、右内边距 12 解决；皮肤修好后用户要求回到常态隐藏、鼠标移入显示区域才浮现。`editButton` 的 opacity 由 `isHovering ? 1 : 0.85` 改为 `isHovering ? 1 : 0`。按钮的 40px 槽位仍常驻预留，避免浮现瞬间文字可用宽度突变导致跑马灯重算。注意：未设置（占位）态现在也只在 hover 时显示按钮，邀请填写仅靠占位文案本身 + 整行可点。
+  - **「话术写了 154 字却只滚出开头一小截」**：真 bug。`staticText` 用 `.lineLimit(1)` 直接量布局中的 `Text`，没有 `.fixedSize()`，SwiftUI 把容器宽度喂给它后它就截断了，量到的 `textWidth` ≈ 可用宽度（268px）而非固有宽度（154 字约 1950px）。跑马灯位移 `cycle = textWidth + gap` 因此只算了约 304px，而渲染那行用了 `.fixedSize()` 是真宽度——偏移走 304px，其余内容永远滚不进来。修法：改为在 `.background` 里放一个 `fixedSize(horizontal:true)` + `opacity(0)` 的隐藏探针量固有宽度，不参与布局；删掉失效的 `measureWidth` 扩展。此类视图层测量错误 `swift test` 与 `xcodebuild` 都查不出，只能实跑暴露。
+  - **跑马灯速度**：用户选定「提速」方案。`MotivationStripLayout.pointsPerSecond` 26 → 50，154 字（约 1950px）一轮由 76.4s 降至 39.7s。先写 `testLongQuoteCompletesLoopWithinFortySeconds` 锁设计意图（在 26px/s 下实测失败于 76.38s，再改常量转绿）——测试断言的是耗时上限而非常量值，常量被无声改回即红。
+  - **整块面板被撑到约 2000pt 宽（日期行/chips 看似"消失"）**：上一轮加的测量探针是元凶。`fixedSize` 的 Text 放进 `.background` 的 ZStack 后，ZStack 取最大子视图尺寸 = 文字固有宽度；`Color.clear` 量到的 `containerWidth` 因此也变成文字宽度，再喂回 `scrollingText` 的 `.frame(width: containerWidth)` 形成正反馈，整条乃至整个内容列被撑到上千 pt。窗口 `widgetContent` 用 center 对齐裁切，于是只看到中间一片：居中的 tab 胶囊和空态图标还在，左对齐的日期行/chips 落在可视切片之外。面板里的"今天没有任务"是 10月2日的正常空态，不是丢数据。修法：探针 `onGeometryChange` 量完固有宽度后立刻 `.frame(width: 0, height: 0).clipped()`，对布局零贡献。教训：任何"隐藏测量探针"都必须显式塌缩尺寸，`.opacity(0)` / `.hidden()` 都仍参与布局。
+  - **跑马灯速度定稿 45px/s**：用户先选 50，后改为 45。154 字（约 1950px）一轮 44.1s。测试上限随之由 40s 改为 45s（`testLongQuoteCompletesLoopWithinFortyFiveSeconds`）——上限是设计意图的一部分，必须跟速度决定一起改；该测试在 26px/s 下仍会失败（76.4s），咬合力已在本会话早先实测证明。
+  - **既有「新建/编辑任务」弹框被激励条挤坏（标题跑出卡片背景、内部大片空白、不居中）**：根因是窗口高度预算本就卡在极限——无条时 `todoPanel` 可用高度恰为 376 = 卡片 `maxHeight`；条占 38px 后变 346，而卡片内部是 `35 + 283 + 58 = 376` 的常量预算（滚动上限 283 由 376 反推写死，不看实际可用高度），内容比被夹后的框高 30px，VStack 居中溢出，标题被顶到背景之外。修两处：① 两个表单弹框从 `todoPanel` 的 ZStack 提升到 `FloatingWidgetView` 窗口级 ZStack 并居中（与激励话术编辑弹框同一套 `ZStack + frame(maxWidth/maxHeight:.infinity)` 写法），拿到整窗 460 预算，376 放得下，且上下对称；新建弹框的"点外面关闭"随之覆盖整窗（编辑弹框原本就没有外部点击关闭，保持不变）。② 滚动上限改自适应：`scrollableContentHeightLimit = min(cardMaxHeight - header - footer, max(0, cardHeight - header - footer))`，`cardHeight` 由卡片自身 frame 的 GeometryReader 量得——窗口被拖到任意小也不会再溢出。smoke 锁定的字面量（`contentHeightLimit: scrollableContentHeightLimit`、`NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight`、`maxHeight: NewTaskFormMetrics.cardMaxHeight`）全部以子串形式保留，smoke 通过即证明未破坏。编辑态内容较短时卡片内部的对称留白是既有行为（frame 取满预算、内容居中），非本次引入。
+  - **关闭开关必须保留已写文案**（用户补充的要求）：核实现有实现已满足——`MotivationQuoteStore.setEnabled` 只改 `cache.enabled`，`MotivationViewModel.setEnabled` 只翻标志位并收起弹框，两处都不触碰 `text`；重启后 `load()` 读回原文。为防日后被改坏，补两条锁：`testDisablingKeepsSavedTextForNextEnable`（关→重开仍在）与 `testEnablingTwiceDoesNotDropText`。并按 TDD 验证咬合力：临时在 `setEnabled(false)` 里加 `cache.text = ""`，两条测试立即失败（`("") is not equal to ("先完成，再完美。")`），其余五条不受影响，随后撤销破坏转绿。`MotivationViewModel` 属 App 层不在 `swift test` 覆盖内，该路径靠代码走查确认，真源仍是 store。
+  - 验证: `xcodebuild ... build` -> BUILD SUCCEEDED；`swift test` -> 148 tests / 0 failures；smoke -> All smoke tests passed。
+- 未验证项（阻塞）: 上述两项修复需用户再跑一次 Xcode 目视确认居中与高度；本轮只做到编译通过 + 回归全绿，此环境无法截图。此前"UI 未实跑"一条已由用户实跑解除。
+- 风险与说明:
+  - 默认关闭，且条体在 `if motivationViewModel.isEnabled` 之后，关闭态视图树不含新视图；`shellPadding` 与各 `*BottomSpacing` 常量一字未改，日记页布局不受影响。
+  - 迷你模式是整块替换 `FloatingWidgetView`（`ContentView.swift:72-77`），折叠时条体天然不渲染，无需额外处理。
+  - 通栏条依赖 `ContentView.swift:60` 的 `clipShape` 裁出圆角顶，本身不设圆角。
+  - 弹框给了 `keyboardShortcut(.cancelAction)`（Esc 取消）与 `.defaultAction`（⌘Enter 保存）；既有卡片均未绑 Esc，属本次新增约定。
+- 回滚点: 还原 `ContentView.swift` + `AppLocalizer.swift`；删除 `Core/Models/MotivationQuote.swift`、`Core/Services/MotivationStripLayout.swift`、`Core/Infrastructure/MotivationQuoteStore.swift`、`MotivationViewModel.swift`、`MotivationStripView.swift`、`MotivationEditorCard.swift`、`Tests/NotionFloatCoreTests/Motivation*Tests.swift`。新增文件走 `PBXFileSystemSynchronizedRootGroup` 自动收录，未改 `.xcodeproj`，删除文件即从 target 移除。
+
 ## 2026-09-06 - 发布 GitHub Release v1.4.0
 - 目标: 打包 v1.4 并发布 GitHub Release v1.4.0
 - 改动:

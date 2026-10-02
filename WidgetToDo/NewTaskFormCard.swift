@@ -137,12 +137,18 @@ struct NewTaskFormCard: View {
     @FocusState private var isEstimatedMinutesFocused: Bool
     @State private var isTypeOptionsPresented = false
     @State private var scrollTrigger = 0
+    /// 卡片实际拿到的高度（被 min/max 夹过）。滚动上限以它为基准，
+    /// 窗口被拖小、或上方新增占位行时内容不会溢出卡片背景。
+    @State private var cardHeight: CGFloat = NewTaskFormMetrics.cardMaxHeight
 
     private let headerHeight: CGFloat = 35
     private let footerHeight: CGFloat = 58
 
     private var scrollableContentHeightLimit: CGFloat {
-        NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight
+        min(
+            NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight,
+            max(0, cardHeight - headerHeight - footerHeight)
+        )
     }
 
     var body: some View {
@@ -161,6 +167,13 @@ struct NewTaskFormCard: View {
         }
         .frame(width: NewTaskFormMetrics.cardWidth)
         .frame(minHeight: NewTaskFormMetrics.cardMinHeight, maxHeight: NewTaskFormMetrics.cardMaxHeight)
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { cardHeight = proxy.size.height }
+                    .onChange(of: proxy.size.height) { _, newValue in cardHeight = newValue }
+            }
+        )
         .background(
             RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
                 .fill(NewTaskFormPalette.cardFill)

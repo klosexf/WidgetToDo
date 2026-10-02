@@ -41,6 +41,7 @@ struct ContentView: View {
             case .settings:
                 OnboardingView(
                     viewModel: rootViewModel.onboardingViewModel,
+                    motivationViewModel: rootViewModel.motivationViewModel,
                 mode: .settings,
                 onBack: rootViewModel.returnFromSettings,
                 onResetConfiguration: {
@@ -79,6 +80,7 @@ struct ContentView: View {
                 FloatingWidgetView(
                     todoViewModel: rootViewModel.todoListViewModel,
                     journalViewModel: rootViewModel.journalViewModel,
+                    motivationViewModel: rootViewModel.motivationViewModel,
                     refreshAction: rootViewModel.refreshWorkspace,
                     bannerMessage: rootViewModel.bannerMessage,
                     bannerMessageKey: rootViewModel.bannerMessageKey,
@@ -156,6 +158,7 @@ final class RootViewModel: ObservableObject {
     let onboardingViewModel: OnboardingViewModel
     let todoListViewModel: TodoListViewModel
     let journalViewModel: JournalViewModel
+    let motivationViewModel = MotivationViewModel()
 
     init(repository: NotionRepository, openURL: @escaping @MainActor (URL) -> Void) {
         self.repository = repository
@@ -221,6 +224,7 @@ final class RootViewModel: ObservableObject {
         if let language = try? await repository.loadAppLanguage() {
             languageStore.apply(language)
         }
+        await motivationViewModel.load()
         do {
             let snapshot = try await onboardingViewModel.loadSnapshot()
             todoListViewModel.configure(choiceField: snapshot.choiceField)
@@ -328,6 +332,7 @@ struct OnboardingView: View {
     }
 
     @ObservedObject var viewModel: OnboardingViewModel
+    @ObservedObject var motivationViewModel: MotivationViewModel = MotivationViewModel()
     let mode: Mode
     var onBack: (() -> Void)?
     var onResetConfiguration: (() async -> Void)?
@@ -357,6 +362,7 @@ struct OnboardingView: View {
                         if mode == .settings {
                             settingsIntro
                             languageSection
+                            motivationSection
                         } else {
                             onboardingHero
                             languageSection
@@ -576,6 +582,46 @@ struct OnboardingView: View {
             }
             .menuStyle(.borderlessButton)
             .disabled(viewModel.isWorking || isResetActionPending)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(OnboardingModalPalette.inputBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(OnboardingModalPalette.inputBorder, lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+    }
+
+    /// 激励话术开关行：行皮肤沿用 `languageSection`，开关沿用 `PomodoroSwitch`，默认关闭。
+    private var motivationSection: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Label {
+                    Text(languageStore.text(.motivationSettingTitle))
+                } icon: {
+                    Image(systemName: "bolt")
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(OnboardingModalPalette.primaryText)
+
+                Text(languageStore.text(.motivationSettingHint))
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(OnboardingModalPalette.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+
+            PomodoroSwitch(
+                isOn: Binding(
+                    get: { motivationViewModel.isEnabled },
+                    set: { motivationViewModel.setEnabled($0) }
+                )
+            )
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
@@ -1146,6 +1192,10 @@ private enum FloatingWidgetMetrics {
     static let headerIconButtonSize: CGFloat = 24
     static let headerIconSymbolSize: CGFloat = 16
     static let syncBannerBottomSpacing: CGFloat = 14
+    /// 激励话术条与下方日期行之间的间距。
+    static let motivationStripBottomSpacing: CGFloat = 10
+    /// 条渲染时 tab 行的底距（关闭时仍用 `topBarBottomSpacing` 的 18）。
+    static let topBarBottomSpacingWithMotivation: CGFloat = 10
 
     static let taskRowHorizontalSpacing: CGFloat = 10
     static let taskRowTextStackSpacing: CGFloat = 6
@@ -1185,6 +1235,7 @@ struct FloatingWidgetView: View {
     @State private var selectedTab: WidgetTab
     @ObservedObject var todoViewModel: TodoListViewModel
     @ObservedObject var journalViewModel: JournalViewModel
+    @ObservedObject var motivationViewModel: MotivationViewModel
     @ObservedObject private var newTaskViewModel: NewTaskViewModel
     @State private var taskPendingDeletion: TaskItem?
     /// 月历弹层：当前展开弹层的 tab（nil = 收起）。
@@ -1203,6 +1254,7 @@ struct FloatingWidgetView: View {
     init(
         todoViewModel: TodoListViewModel,
         journalViewModel: JournalViewModel,
+        motivationViewModel: MotivationViewModel,
         refreshAction: @escaping @MainActor () async -> Void,
         bannerMessage: AppMessage?,
         bannerMessageKey: AppText.Key?,
@@ -1212,6 +1264,7 @@ struct FloatingWidgetView: View {
     ) {
         self.todoViewModel = todoViewModel
         self.journalViewModel = journalViewModel
+        self.motivationViewModel = motivationViewModel
         _newTaskViewModel = ObservedObject(wrappedValue: todoViewModel.newTaskViewModel)
         self.initialActiveTab = activeTab
         _selectedTab = State(initialValue: FloatingWidgetView.widgetTab(from: activeTab))
@@ -1344,7 +1397,20 @@ struct FloatingWidgetView: View {
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
                 topBar
-                    .padding(.bottom, FloatingWidgetMetrics.topBarBottomSpacing)
+                    // 条渲染时收紧 tab 行底距；关闭时仍是原来的 18，不影响既有布局。
+                    .padding(.bottom, motivationViewModel.isEnabled
+                             ? FloatingWidgetMetrics.topBarBottomSpacingWithMotivation
+                             : FloatingWidgetMetrics.topBarBottomSpacing)
+
+                // 激励话术条：tab 行下方、日期行上方，随内容列左右内缩；关闭时整条不渲染。
+                if motivationViewModel.isEnabled {
+                    MotivationStripView(
+                        quote: motivationViewModel.quote,
+                        placeholderText: languageStore.text(.motivationPlaceholder),
+                        editAction: { motivationViewModel.beginEditing() }
+                    )
+                    .padding(.bottom, FloatingWidgetMetrics.motivationStripBottomSpacing)
+                }
 
                 Group {
                     if selectedTab == .todo {
@@ -1386,6 +1452,59 @@ struct FloatingWidgetView: View {
                 .zIndex(11)
                 // Pop in：原地从中心缩放浮现（无位移），贴合 macOS 原生 popover 的入场。
                 .transition(.scale(scale: 0.92, anchor: .top).combined(with: .opacity))
+            }
+
+            // 激励话术编辑弹框：与其他弹层一致，只留透明点击层，不加灰色遮罩。
+            // 外层 ZStack 是 .topLeading 对齐，必须自己铺满再居中，否则弹框会贴左上角。
+            if motivationViewModel.isEnabled && motivationViewModel.isEditorPresented {
+                ZStack {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { motivationViewModel.cancelEditing() }
+
+                    MotivationEditorCard(
+                        title: languageStore.text(.motivationEditorTitle),
+                        placeholder: languageStore.text(.motivationPlaceholder),
+                        wordCountText: { count in languageStore.text(.wordCount, count) },
+                        cancelLabel: languageStore.text(.cancel),
+                        saveLabel: languageStore.text(.save),
+                        initialText: motivationViewModel.quote,
+                        onSave: { motivationViewModel.save($0) },
+                        onCancel: { motivationViewModel.cancelEditing() }
+                    )
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .zIndex(20)
+            }
+
+            // 任务新建/编辑弹框：提升到窗口级并居中。
+            // 原来挂在 todoPanel 的 ZStack 里，高度预算只有内容列剩余高度；
+            // 顶部激励条占用后预算低于卡片 376 的固有高度，内容会溢出卡片背景（标题跑到框外）。
+            // 窗口级拿到整窗预算，376 放得下；窗口被拖小时由自适应滚动上限兜底。
+            if newTaskViewModel.showForm {
+                ZStack {
+                    Rectangle()
+                        .fill(Color.clear)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            newTaskViewModel.dismissForm()
+                        }
+                    NewTaskFormCard(
+                        viewModel: newTaskViewModel,
+                        frequentTaskNames: todoViewModel.frequentTaskNames
+                    )
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .zIndex(15)
+            }
+
+            if todoViewModel.editingTask != nil {
+                ZStack {
+                    Color.clear.allowsHitTesting(false)
+                    EditTaskFormCard(viewModel: todoViewModel)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .zIndex(16)
             }
         }
         .task(id: calendarReloadKey) {
@@ -1508,23 +1627,6 @@ struct FloatingWidgetView: View {
                         .foregroundStyle(FloatingWidgetPalette.dangerText)
                         .padding(.top, 8)
                 }
-            }
-
-            if newTaskViewModel.showForm {
-                Rectangle()
-                    .fill(Color.clear)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        newTaskViewModel.dismissForm()
-                    }
-                NewTaskFormCard(
-                    viewModel: newTaskViewModel,
-                    frequentTaskNames: todoViewModel.frequentTaskNames
-                )
-            }
-
-            if todoViewModel.editingTask != nil {
-                EditTaskFormCard(viewModel: todoViewModel)
             }
 
             if todoViewModel.pomodoroStartTask != nil {
@@ -2345,6 +2447,9 @@ struct EditTaskFormCard: View {
     @State private var typeSearchText = ""
     @State private var isTypeOptionsPresented = false
     @State private var scrollTrigger = 0
+    /// 卡片实际拿到的高度（被 min/max 夹过）。滚动上限以它为基准，
+    /// 窗口被拖小、或上方新增占位行时内容不会溢出卡片背景。
+    @State private var cardHeight: CGFloat = NewTaskFormMetrics.cardMaxHeight
 
     private var selectedTypeOption: NotionSelectOption? {
         viewModel.choiceField?.options.first { $0.name == viewModel.editingPriority }
@@ -2366,7 +2471,10 @@ struct EditTaskFormCard: View {
     private let footerHeight: CGFloat = 58
 
     private var scrollableContentHeightLimit: CGFloat {
-        NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight
+        min(
+            NewTaskFormMetrics.cardMaxHeight - headerHeight - footerHeight,
+            max(0, cardHeight - headerHeight - footerHeight)
+        )
     }
 
     var body: some View {
@@ -2385,6 +2493,13 @@ struct EditTaskFormCard: View {
         }
         .frame(width: NewTaskFormMetrics.cardWidth)
         .frame(minHeight: NewTaskFormMetrics.cardMinHeight, maxHeight: NewTaskFormMetrics.cardMaxHeight)
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { cardHeight = proxy.size.height }
+                    .onChange(of: proxy.size.height) { _, newValue in cardHeight = newValue }
+            }
+        )
         .background(
             RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
                 .fill(NewTaskFormPalette.cardFill)
@@ -2747,6 +2862,7 @@ struct EditTaskFormCard: View {
     FloatingWidgetView(
         todoViewModel: makePreviewTodoListViewModel(),
         journalViewModel: makePreviewJournalViewModel(),
+        motivationViewModel: MotivationViewModel(),
         refreshAction: {},
         bannerMessage: nil,
         bannerMessageKey: .workspaceSynced

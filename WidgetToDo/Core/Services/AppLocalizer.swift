@@ -174,6 +174,10 @@ public enum AppText {
         case pomodoroDurationWriteFailed
         case pomodoroRetryDurationWrite
         case pomodoroLater
+        case motivationSettingTitle
+        case motivationSettingHint
+        case motivationPlaceholder
+        case motivationEditorTitle
     }
 
     private static let translations: [AppLanguage: [Key: String]] = [
@@ -296,6 +300,10 @@ public enum AppText {
             .completedTasksCount: "%@/%@ 已完成",
             .todayJournal: "今日日记",
             .wordCount: "%@ 字",
+            .motivationSettingTitle: "激励话术",
+            .motivationSettingHint: "在浮窗顶部显示一行可编辑的激励语，超长时横向滚动。",
+            .motivationPlaceholder: "请填写激励话术",
+            .motivationEditorTitle: "编辑激励话术",
             .minutesValue: "%@ 分钟",
             .settingsSceneHint: "使用菜单栏图标来显示或隐藏悬浮面板。",
             .missingToken: "请填写 Notion Token。",
@@ -470,6 +478,10 @@ public enum AppText {
             .completedTasksCount: "%@/%@ completed",
             .todayJournal: "Today's journal",
             .wordCount: "%@ words",
+            .motivationSettingTitle: "Motivation line",
+            .motivationSettingHint: "Show one editable motivation line at the top of the widget; long text scrolls sideways.",
+            .motivationPlaceholder: "Add a motivation line",
+            .motivationEditorTitle: "Edit motivation line",
             .minutesValue: "%@ min",
             .settingsSceneHint: "Use the menu bar icon to show or hide the floating panel.",
             .missingToken: "Enter a Notion Token.",
@@ -644,6 +656,10 @@ public enum AppText {
             .completedTasksCount: "%@/%@ terminées",
             .todayJournal: "Journal du jour",
             .wordCount: "%@ mots",
+            .motivationSettingTitle: "Phrase de motivation",
+            .motivationSettingHint: "Affiche une ligne de motivation modifiable en haut du widget ; le texte long défile horizontalement.",
+            .motivationPlaceholder: "Ajoutez une phrase de motivation",
+            .motivationEditorTitle: "Modifier la phrase de motivation",
             .minutesValue: "%@ min",
             .settingsSceneHint: "Utilisez l’icône de la barre des menus pour afficher ou masquer le panneau flottant.",
             .missingToken: "Saisissez un jeton Notion.",
