@@ -1,5 +1,21 @@
 # Progress
 
+## 2026-10-02 - 发布 GitHub Release v1.5.0
+- 目标: 打包 v1.5 并发布 GitHub Release v1.5.0
+- 改动:
+  - 版本号 bump 至 1.5（`48524dd`，MARKETING_VERSION 1.4→1.5, CURRENT_PROJECT_VERSION 5→6）
+  - 推送 main + 创建并推送 tag `v1.5.0`
+  - 外层根目录生成 `WidgetToDo-V1.5.dmg`（2.6M，未签名）
+- 验证:
+  - `create-dmg --skip-jenkins --no-internet-enable` — 成功（agent 非沙箱模式）
+  - `file WidgetToDo-V1.5.dmg` — zlib compressed data（有效 UDZO）
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 148 tests / 0 failures
+  - `gh release create v1.5.0 ... --latest` — 成功
+  - `gh release view v1.5.0` — assets state=uploaded, size=2746049, isDraft=false, isPrerelease=false
+- 发版: https://github.com/klosexf/WidgetToDo/releases/tag/v1.5.0
+- v1.5 内容: 浮窗顶部激励话术条（可编辑、横向滚动）+ 设置页开关（默认关闭）
+- 备注: 沿用 v1.4 发版时用户提供的 token（该 token 曾暴露在对话中，建议用户尽快作废并改走终端发版流程）
+
 ## 2026-10-01 - 浮窗顶部激励话术条 + 设置页开关（默认关闭）
 - 目标: 在浮窗顶部新增一行可编辑的激励话术，单行、超长时横向跑马灯；设置页加开关，默认关闭。
 - 非目标: 不改既有面板的内边距与行高常量；不给文案加字数硬上限（未与用户确认）；不改 `AppSettings` / `SettingsStore`。
