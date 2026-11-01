@@ -9,6 +9,102 @@
 - UI 验证：用临时原生 SwiftUI 宿主直接提取修改前后 `dateNavigationBar`、生产样式与日期格式化器，每行固定为实际 340pt 面板宽度。CUA 实际点击到 10月30日，旧版复现“10月3…”，修复后待办（含全部 3 个右侧操作）、日记及无点击回调分支均完整显示；实际点击日期标题、前后切换与回到今天，状态和布局正常；中/英/法日期标题均完整。宿主源码与构建记录在 `/private/tmp/widgettodo-date-check/`。此验证覆盖日期组件，不替代完整生产 App 的月历弹层或线上 Notion 联调。
 - 范围/回滚：仅日期标题横向布局，长日期会按内容宽度移动右箭头；短日期保留原最小占位。回滚本次 ContentView 与 smoke 的增量即可，无用户数据迁移；重新在 Xcode 运行可使用修复版。
 
+## 2026-10-11 - HyperFrames V3：开头错位修正并重导出
+- 目标/状态：用户反馈上一份1080p60导出在前几秒画面错位；定位并移除原生视频额外CSS平移，修正版MP4已完成导出与技术核验，用户观看确认待反馈。旧导出格式检查仍成立，但其画面对齐已被用户否定，使用本修正版替代。
+- 原因/改动：上一份源快照的native视频translate=62.719px/83.504px，裁切框与鼠标坐标未同步移动；本轮源已有较小残余translate=-4.78px/2.489px。仅移除video元素的inline translate与Studio标记，修正后HTML与原V3源包index.html逐字节一致；保持其余镜头/时间轴/音乐。生产Swift/API/配置未改，bugs.md未改；前后HTML快照已保存。
+- 独立工程验证：`hyperframes@0.8.146 lint --json`0错误/0警告；`inspect --at 2.8,3.5,4.7,10.2,13.8,15.4,21,26.5,35.1,39.2,45.5,49.5,53,56.9 --json`14镜头0问题；`render --output output/WidgetToDo-把今天推起来-V3-1080p60-错位修正版.mp4 --fps 60 --resolution 1080p --quality high --workers 2 --video-frame-format png`成功，2m51.1s，3600帧。
+- 成片验证：`python3 source/verify_reexport_fixed.py`PASS；60.000秒/1920×1080/60fps/H.264-yuv420p/AAC-48kHz立体声、完整解码、fast-start、25组640/960宽导出帧复查；开头前4秒另抽24组画面，额外偏移裁切缺口已消失，运动相邻帧有区别，音频包SHA与原V3一致。23103666字节，SHA-256=`8ad5f39ed46b5bed9f73779e010d1d4927fccba77a46b7553c95a12f18fee9fd`；证据位于独立工程 `verification/reexport-*`。
+- 范围/回滚：仅独立视频工程与进度文档；无生产代码修改，未重复Swift回归。旧MP4/ZIP保留；源可回滚到 `verification/reexport-source-before-fix.html`。本次不等同于用户最终创意验收或线上Notion联调。
+
+## 2026-10-11 - HyperFrames V3：1080p60 MP4导出
+- 目标/状态：用户明确要求把HyperFrames视频导为60fps/1080p MP4；最新60秒V3已导出，格式与解码验收完成。本次仅导出，创意认可仍待用户反馈。
+- 影响路径：独立 `WidgetToDo-HyperFrames-Pulse-2026-10-11/output/WidgetToDo-把今天推起来-V3-1080p60.mp4`；新增独立source/verify_export_60fps.py、verification/v3-60fps-*记录及README导出说明，生产仓库只补本progress。原30fps视频、旧ZIP、当前HTML与已有编辑均保留，未改生产Swift/API/配置，bugs.md未改。
+- 渲染验证（独立工程入口）：HyperFrames0.8.146 `lint --json`通过，错误/警告0；`HYPERFRAMES_BROWSER_PATH=<本机已安装Chrome> NPM_CONFIG_CACHE=/private/tmp/widgettodo-hyperframes-npm npx --offline hyperframes@0.8.146 render --output output/WidgetToDo-把今天推起来-V3-1080p60.mp4 --fps 60 --resolution 1080p --quality high --workers 2 --video-frame-format png`成功，3600帧从原时间轴重新捕获，耗时2m15.4s。默认浏览器下载因证书链失败，改用已安装Chrome；未关闭TLS校验，原错误日志保留。
+- 成片验证：`python3 source/verify_export_60fps.py` PASS；ffprobe计数为60.000秒/1920×1080/60fps/3600解码帧，H.264/yuv420p、AAC/48kHz/立体声、fast-start；完整音视频解码通过，18组640/960宽导出帧目视复查；运动段相邻60fps帧有区别。音频包SHA-256与旧30fps V3一致。文件20940940字节，SHA-256=`311af9f43301fa53aae07c54856c7d879d5366d2eba8612952eb94dc45dd3662`。
+- 当前源/边界：发现native视频已有Studio translate=62.719px/83.504px，当前HTML与旧ZIP不同，按“保留用户编辑”保持原样，源快照与SHA保留。现有特写裁切与末尾淡出不改；原生录屏保留其原始帧率，不虚构中间交互；本次60fps提升的是重新渲染的时间轴/后期动效。停用新增MP4即可回滚。无生产代码修改，未重复执行Swift回归；同日148 tests/0 failures记录仍保留在前述任务中。
+
+## 2026-10-11 - Remotion 独立功能影片：下一步，就在眼前
+- 目标/状态：按用户新要求用Remotion制作区别于HyperFrames的视频，借鉴Apple产品宣传的空间、留白和侧光呈现。54秒/1920×1080/60fps/无口播的可编辑全片与源包技术交付完成；创意验收待用户反馈。按Remotion插件默认交付Studio预览，未自动导出最终MP4，不把关键帧检查写成MP4验收。
+- 影响路径：外层独立 `WidgetToDo-Remotion-2026-10-11/`，含DESIGN/分镜、52原生组件快照、独立Swift宿主/OfflineAPI、4天关联作品集mock、223秒真实录屏与3934帧时间戳、4段原生剪辑、8个独立Remotion场景、120BPM原创音乐/音效、验证与源包；生产仓库只补progress.md，生产Swift/Package/Xcode/entitlements/存储/API契约未改。已有记录和旧视频保留，bugs.md未改。
+- 叙事/画面：作品集首页准备，实际新建封面任务→给排版启动25分钟→暂停/继续→同时完成并累计25分钟→今日手写日记保存/昨日排版决定回看→任务与日记写回结果→真实3/7迷你胶囊。黑白银色舞台、侧光透视、方向擦除/推移、专注大数字与轨道、三状态扇形收束；初稿转场文字重叠和日记日期标签不一致已通过实际重渲帧修正。
+- 原生/回归验证：独立 `zsh source/build-native.sh` 成功；本轮CUA实际操作上述流程。`python3 source/prepare_assets.py` PASS，新建10分钟/工作任务synced、layout=done/25分钟/synced、journal=synced、无错误、28条离线真实Client请求、52生产源码SHA-256不变；本轮 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-remotion-clang swift test --disable-sandbox`：148 tests/0 failures，日志保留。
+- 影片验证（独立工程入口）：`npm run lint`通过ESLint与TypeScript；`REMOTION_CHROME=<本机已安装Chrome> node source/verify_frames.mjs`实际渲染23个全片关键/过渡帧与Journal独立场景，Frame1500重复渲染逐字节一致。CUA在Studio点击播放器实际推进并循环，Journal独立时间轴510帧可打开，主片3240帧/60fps，最终seek=3120，无错误遮罩；截图/状态保留于verification/studio-preview.png与studio-playback.json。首次WebMCP play受浏览器音频手势限制，改用真实播放器点击后推进，未降低浏览器安全设置。
+- 音轨/源包：本地原创120BPM器乐与操作音，无口播或付费API；FFmpeg ebur128=-19.2LUFS/-1.5dBTP，无削波，真人听感尚未验证。`python3 source/pack_source.py` PASS，ZIP=52463080字节、164个内容文件加2个manifest/报告；CRC/独立解压/13个引用素材/52快照指纹/8个源媒体完整解码/三音轨重生成逐字节一致。便携包省略500MB无损PNG，保留原始MOV和时间戳，独立解压后重建3934帧、重剪4段并完整解码通过；MOV重建有有损像素差异，不声称重渲整片一致。
+- 边界/回滚：离线隔离mock，未线上Notion联调；25分钟时钟快进有画面脚注；日记手动输入，透视/银色边缘/轨道/倒影/连接线为视频后期；迷你胶囊是原有组件加演示宿主回调，未据此验收生产窗口管理器。设置与错误分支未拍入。npm安装提示10项high依赖审计告警，锁版本保留、未部署外网。停用本独立工程即可回滚。Studio：`http://localhost:3030/WidgetToDo-Product-Film`。
+
+## 2026-10-11 - HyperFrames V3：更大胆、更有冲击力
+- 目标/状态：按用户否定首版及对V2预览「还需要更大胆、更有冲击力」的反馈，重做60秒/1080p/30fps/无口播V3；成片与可编辑源包技术交付完成，V3创意效果待用户观看反馈，不把自动化通过写成用户认可。
+- 影响路径：外层独立 `WidgetToDo-HyperFrames-Pulse-2026-10-11/`（DESIGN/分镜、52个Swift快照、独立原生宿主/OfflineAPI、11任务/4日记/常用任务mock、1704原生帧、剪辑记录、GSAP镜头/转场、132BPM原创音乐与操作音、导出/验收/源包）。生产仓库只补progress，生产Swift/Package/Xcode/entitlements/存储/API协议均未改；已有记录保留。
+- 叙事/镜头：咖啡快闪的一次推进，实际新建照片任务→调整海报标题与时长→常用任务一键添加→月历→本地话术→开始/暂停/继续专注→菜单完成并累计25分钟→日记保存与昨日8ml配方回看→写回结果→真实3/8迷你胶囊收起/展开。V3加入大字撞入、32度透视、原生UI操作特写、缩放穿越/推移/径向切换；日记段短暂停顿供阅读。
+- 原生/回归验证：独立 `zsh source/build-native.sh` 成功；本轮CUA实际操作全部上述流程，`verification/native-verification.json`记录任务/日记synced、菜单done/25分钟、海报第二稿/30分钟、新任务/常用添加、话术本地JSON一致及33条离线真实Client请求；52生产源码SHA-256未变。本仓库 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-hyperframes-pulse-clang swift test --disable-sandbox`：148 tests/0 failures，完整日志位于独立工程verification/repository-tests.log。
+- 视频验证（独立工程入口）：HyperFrames0.8.146 `check`结果ok，lint/runtime错误0、对比度23/23；布局2warning/3info对应已审查的125ms开场交叠和活跃转场，保留原始报告，不写零警告。`inspect --strict`抽查18个稳定画面0问题。插件animation-map共250条tween，离屏/交叠/慢速标记均记录意图，4处停顿分别为真实输入/添加结果/日记阅读/写回结果。`hyperframes render --fps 30 --quality high --workers 2 --video-frame-format png`成功；`python3 source/verify_export.py` PASS，60.000秒/1920×1080/30fps/1800帧、完整解码、24组640/960宽实际导出帧复查。
+- 音轨/源包：原创132BPM器乐、鼓点起落、转场冲击和点击音，无口播/付费API；FFmpeg ebur128为-16.3LUFS/-1.2dBFS真峰值，无削波；真人听感尚未验证。`python3 source/pack_source.py` PASS，111文件/54040814字节，ZIP CRC、内嵌成片SHA-256、解压素材引用、52Swift快照和完整视频解码通过；从解压包重生成三音轨逐字节一致。包内保留原始MOV/时间戳及已剪原生MP4；省略226MB无损PNG，MOV重建可能有有损像素差异；未从解压包重渲全片，边界写入README。
+- 边界/回滚：独立mock，未线上Notion联调；话术仅本地，任务/日记写回经过离线状态机验证；25分钟演示时钟快进已标注。镜头透视/蒙版为后期效果。设置、错误恢复等辅助分支未拍成操作教程。停用本独立工程即可回滚，首版/V2保留，bugs.md未改。新版Studio为 `http://localhost:3028/#project/WidgetToDo-HyperFrames-Pulse-2026-10-11`；CUA实际点击播放，00:00推进到01:00，随后studio_seek返回playhead=2.8/isPlaying=false，截图保留于verification/v3-studio-playback.png。Studio在精确60秒会收起场景，导出1800帧只到59.967秒；成片末帧由完整解码和关键帧检查覆盖。
+
+## 2026-10-11 - HyperFrames 产品演示：把今天推进一步
+- 目标/状态：技术导出与源包完成；用户于2026-10-11明确否定本版的节奏、动效与功能传达，创意验收未通过，已转入下述V3重做。原版为50秒/16:9/1080p/30fps/无口播视频与43MB可编辑源工程；原始选择为浅奶油色、安静轻盈。围绕咖啡快闪：提醒→菜单专注→完成25分钟→日记复盘→昨天8ml配方→真实启动海报任务。
+- 影响路径：外层独立 `WidgetToDo-HyperFrames-2026-10-11/`（DESIGN、分镜、11任务/4日记关联mock、52组件快照、独立Swift宿主、1993原生帧、原始MOV、HyperFrames HTML/GSAP、音轨、验证与成片/ZIP）；生产仓库仅补本progress，Swift/Package/Xcode/entitlements/持久化与Notion契约未改，原有未提交记录保留。
+- 原生/回归验证：`zsh source/build-native.sh`成功；CUA实际操作编辑/保存提醒、启动25分钟、完成任务、日记输入保存、回看昨天并返回今天、启动海报专注。`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-hyperframes-clang swift test --disable-sandbox`：148 tests/0 failures。`python3 source/verify_export.py`确认menu=done/25分钟/synced、journal=synced、提醒本地JSON一致、真实Repository/Client的离线PATCH、52生产源码SHA-256均未变。
+- 视频验证（独立工程真实入口）：HyperFrames 0.8.146 `lint`、`validate`、`inspect --strict`、`check`均通过，错误/警告0、文字对比度失败0；17条info是已审查的0.6秒交叠转场。插件animation-map检查96条动效，无死区、意外离屏或不可见；慢/零宽度标记对应背景/进度线/SVG细线。`hyperframes render --fps 30 --quality high --workers 2 --video-frame-format png`成功；`python3 source/verify_export.py` PASS，50.000秒/1920×1080/1500帧，完整音视频解码、16组640/960宽关键帧复查。日记结果31.8–36秒补拍同一会话的实际保存状态，剪辑记录明示。
+- 音轨/源包：本地原创88bpm器乐与实际操作音，无口播/付费API；FFmpeg ebur128：-19.4 LUFS/-7.2dBFS真峰值，无削波，真人听感未验证。`python3 source/pack_source.py` PASS，173文件/44772198字节，ZIP CRC、内嵌成片散列、独立解压/素材引用/原生视频解码通过；从解压工程重新生成三音轨逐字节一致。轻量源包保留原始MOV与已剪源视频，完整无损PNG帧留在本地工程，演示数据库/二进制/私人配置不入包。
+- 边界/回滚：真实组件、隔离mock；未线上Notion联调。任务与日记自动写回，提醒仅本地；25分钟演示时间压缩已标注。停用独立工程即可回滚，旧交付保留，bugs.md未改。Studio本地预览 `http://localhost:3027/#project/WidgetToDo-HyperFrames-2026-10-11` 已就绪；打开面板工具返回queued。
+
+
+## 2026-10-11 - 参考录屏风格的新产品视频：操作与结果接力
+- 目标/状态：用户提供`录屏2026-10-11 11.22.16.mov`并选择C「操作与结果接力」；新的50秒/16:9/无口播MP4与可编辑源工程完成，14分镜、原创配乐/操作音、独立复审和解压修复验证齐备。
+- 影响路径：外层独立`WidgetToDo-Reference-Style-2026-10-11/`（参考拆解、分镜、A/B/C预览、52组件快照、1009无损原生帧、丰富关联mock、动画工程、编辑参数、音轨、验证与审片）；本仓库只更新progress.md，生产Swift、Package.swift、Xcode工程、entitlements、持久化及Notion契约未改。
+- 参考事实：ffprobe确认38.36秒、2940×1534、H.264可变帧率、无音轨。成片沿用浅白点阵、黑字/亮青关键词与完整界面，不使用参考产品素材。首轮审片发现双窗身份和话术保存去向不清，已补同一浮窗/前后标签及本地保存，同步段明确任务/日记实时进Notion，结尾真实开启下一任务；独立复审通过。
+- 分镜与导出验证（独立工程入口）：`python3 tools/storyboard_lint.py 镜头表.md`无红灯，文字主导1/14；`python3 source/render_film.py`成功；`python3 source/verify_film.py`PASS，50.000秒/1920×1080/30fps/1500帧，音视频完整解码，16组640/960宽关键帧检查。`python3 tools/qa.py --project 代码工程 --out qa/scenes`确定性14/14、页面错误0、框景0；9处跳变对应原生设置/弹框/完成状态。
+- 原生与回归证据：52个当前生产源码SHA-256与本日录制快照再次一致；悬停暂停/移开恢复、关开保留本地文字、menu=done/25分钟/synced、日记synced、真实Repository/Client离线PATCH记录验证通过。同日已执行`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-art-clang swift test`：148 tests/0 failures；本次仅视觉素材变更，生产代码指纹不变，复用该完整日志。
+- 门禁事实：`python3 tools/deliver.py ... --qa qa/scenes --out output`因快动作0.0为红灯而拒绝自动交付；参考原片亦为红灯0.0088。按用户明确指定的参考阅读风格和C构图记录风格例外，未改阈值、未把红灯写成通过；空画面0、蓝紫0。原始拒绝日志与事实段完整保留，`python3 tools/deliver.py --verify output/交付说明.md`指纹通过。
+- 源包修复：`python3 source/pack_source.py`CRC和内嵌成片散列通过；`python3 source/verify_repairability.py`PASS，独立临时目录解压后重建612张派生素材、重新编译52组件快照、三分轨重生成完全一致、同步镜头90帧重渲染逐像素一致、完整MP4解码和事实指纹通过。最终重打包再核对修复相关文件与测试包相同。
+- 边界/回滚：独立mock与真实组件，未线上Notion联调；话术仅本地，任务/日记自动写回，不承诺双向即时推送；25分钟快进已明示。音轨-19 LUFS/-6.7dBTP，真人听感未验证。停用此独立视频即可回滚，旧视频保留，bugs.md未改。
+
+## 2026-10-11 - 话术激励功能介绍视频：一句一步
+- 目标/状态：按用户指定 huashu-art-motion 重做约50秒、16:9、无口播功能视频。三个6秒构图预览后，用户选择C「一句一步」；完整成片、可修复源工程、交付说明与独立复审已完成。
+- 影响路径：新增外层独立 `WidgetToDo-Motivation-Motion-2026-10-11/`（真实组件独立宿主、52个Swift快照、丰富关联mock、1009张无损原生帧、逐镜视频、原创音乐/操作音分轨、镜头参数、渲染/验收/打包工具）；本仓库仅增补本 progress.md，生产Swift、Package.swift、Xcode工程、entitlements、持久化与Notion协议未改。
+- 内容：从开启提醒、写自己的话、长句滚动、悬停暂停，到开始菜单任务、记录25分钟、完成并写下今天的推进；40–45秒大字明确任务/日记实时进入Notion；结尾继续下一任务。保留完整原生浮窗，构图按C方向，无局部放大或二维码。
+- 原生验证：独立 `zsh source/build-native.sh` 编译成功；原生事件录制89项，实际操作设置开关、话术编辑、保存、悬停、专注、完成和日记保存。`python3 source/verify_film.py` PASS：悬停18/20秒话术条像素相同、移开后改变；关闭/开启保留本地文案；menu=done/25分钟/synced，日记synced，真实Repository/Client离线拦截记录有任务与日记PATCH。
+- 自动化回归：在本仓库运行 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-art-clang swift test`，148 tests / 0 failures；完整日志在独立工程 `verification/repository-tests-verified.log`。52个生产源码SHA-256与本轮录制快照一致。
+- 导出/审片：`python3 source/render_film.py`、`python3 tools/qa.py --project 代码工程 --out qa/scenes` 成功；12/12确定性、页面错误0、框景0。`python3 source/verify_film.py` PASS：50.000秒/1920×1080/30fps/1500帧，音视频完整解码，16个导出关键帧及640/960宽复查。独立首轮指出同步对象露出过短、音量偏轻；已修订并复审结案。音轨约-19 LUFS/-6.7dBTP，无削波；真人听感未验证。
+- 门禁/交付：`python3 tools/deliver.py ... --qa qa/scenes --out output` 黄灯可交付，快动作4.71%高于3.5%红线，中段空画面0、蓝紫0；为原生阅读/悬停保留停顿，理由写入制作说明。`python3 tools/deliver.py --verify output/交付说明.md` 事实段指纹一致。
+- 源包修复：`python3 source/pack_source.py` CRC与内嵌MP4散列通过；`python3 source/verify_repairability.py` PASS，在独立临时目录解压后重建607张派生帧、重新编译52个组件快照、三条音轨重生成与原文件一致、同步镜头90个重渲染解码帧逐像素一致、完整成片解码通过。不依赖原仓库、个人账号或线上服务。
+- 边界/回滚：所有界面来自真实组件，数据与网络响应均为独立mock，未做真实Notion线上联调；话术仅本地保存，视频“实时”指自动写回体验，不承诺双向即时推送；25分钟已明示快进。仅停用这支独立视频即可回滚，之前交付版本保留；bugs.md未改。
+
+## 2026-10-08 - 产品视频突出优势与下载动机
+- 目标/状态：已重剪为 16:9、50 秒、无口播的产品优势展示版，面向小红书/B站/视频号的小屏观看。根据用户纠正，突出优势而非局部放大：完整原生浮窗贯穿，所有裁切镜头撤销；结尾二维码移除。
+- 内容：今日任务留在桌面、从任务直接专注、记录时长并完成、任务/日记实时同步到 Notion、话术激励与昨日复盘融入咖啡快闪筹备的一次推进。结尾为 5 秒产品名、免费 macOS 下载提示和地址。
+- 影响路径：外层独立 `WidgetToDo-Promo-2026-10-08/` 的分镜、合成器、统一剪辑时间、原创音乐/操作声、导出验证、README、预览与源工程打包；本仓库只更新 progress.md，生产 Swift / 工程配置 / 持久化协议未改。
+- 验证：独立工程 `python3 source/make_promo_audio.py` / `python3 source/render_promo.py` 成功；`python3 source/verify_promo.py` PASS，50.000 秒 / 1920×1080 / 30fps / 1500 帧 / 26 个实际解码关键帧，完整解码正常；音频 -18.15 LUFS、-5.87 dBTP，无口播。640×360 与 960×540 目视检查完整界面、话术编辑、完成确认、Notion 同步和无二维码结尾。
+- 原生事实验证：任务完成/25 分钟/日记保存回看/话术本地持久化/API 写回断言通过，52 个生产源码 SHA-256 与录制快照一致。`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-demo-clang swift test --disable-sandbox`：148 tests / 0 failures，日志在外层独立工程 verification/repository-tests-promo.log。
+- 交付验证：`python3 source/pack_source.py` 成功，188 文件；ZIP CRC 与包内 MP4 散列检查通过，源包不含被撤销的裁切/二维码草稿。浏览器新版 readyState=4、50 秒、1920×1080、videoError=none；当前 535×301 的响应式播放正常。
+- 边界/回滚：真实原组件与隔离 mock，未做线上 Notion 账号联调；话术在本地保存；25 分钟时间压缩已标注。尚无发布后的观看/下载转化数据。之前交付版本保留，废弃剪辑备份只留在独立工程 verification/archive-detail-rejected/，不进入交付源包；bugs.md 未改。
+
+## 2026-10-08 - 演示视频补充话术激励
+- 目标/状态：已把话术激励编辑、保存、滚动展示融入 50 秒视频，保留任务/日记的大字 Notion 同步说明。
+- 影响路径：独立演示的 source/Demo.swift、mock-data.json、storyboard.json、capture_demo.py、render_video.py、make_audio.py、verify_export.py，原生素材、音频、README、预览与验证记录；本仓库只更新 progress.md，生产 Swift 未改。
+- 验证：`./source/build-native.sh` 成功；`python3 source/capture_demo.py` 成功（109 事件、755 帧、writer completed），真实编辑的 23 字提醒与本地 JSON 一致，任务完成/25 分钟/日记保存/昨日回看并返回当天正常；`python3 source/make_audio.py` / `python3 source/render_video.py` 成功；`python3 source/verify_export.py` PASS，50.000 秒 / 1080p / 30fps / 1500 帧 / 22 解码关键帧。编辑、保存、滚动及后续流程已目视检查，960×540 无文字裁切。浏览器 video readyState=4、error=null。
+- 回归：`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-demo-clang swift test --disable-sandbox`，148 tests / 0 failures；52 个生产 Swift 文件 SHA-256 未变。
+- 边界/回滚：话术产品默认关闭，演示数据预先开启；话术本地保存，不声称同步到 Notion。仍使用隔离 mock，无线上联调。此前版本备份在演示 verification/archive-v1/，恢复该素材/脚本即可回滚视频；bugs.md 未改。
+
+
+## 2026-10-07 - 独立原生产品演示视频
+- 目标/状态：围绕「秋季咖啡快闪」制作 16:9、50 秒、无口播产品演示；已交付 MP4 与可编辑源工程。
+- 影响路径：外层 `WidgetToDo-Demo-2026-10-07/` 新增分镜、mock 数据、原生组件快照与录制器、音乐与合成脚本、素材和验证记录；本仓库只更新本 progress.md，未改生产 Swift / Package.swift / Xcode 工程 / entitlements / 持久化协议。
+- 验证：
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-demo-clang swift test --disable-sandbox`：148 tests / 0 failures。
+  - 演示工程 `source/build-native.sh` 对应的 swiftc 编译：成功；原生运行事件操作验证了计时弹框、25 分钟结束、累计时长、勾选完成、日记逐字输入与自动保存、月历选昨日与返回今日。
+  - 演示工程 `python3 source/render_video.py`：成功并正常退出；`python3 source/verify_export.py`：PASS，1920×1080 / 30fps / 1500 帧 / 50.000 秒 / AAC 48kHz stereo，完整解码无错误，18 个导出关键帧已检查。
+  - 原生结果断言：menu 已完成、时长 25、sync=synced；当日任务 6 条；日记保存与回看成功，ViewModel 无错误。52 个生产 Swift 文件 SHA-256 与演示开始时一致。
+  - 本地浏览器预览：video readyState=4、duration=50、1920×1080、error=null，播放控制响应正常。
+- 边界/风险：只验证隔离 mock，不是线上 Notion 联调；原生捕获约 19fps，成片与外围动效为 30fps；25 分钟时间压缩已在视频标注。源工程可重录与重导出，需要 Mac 系统字体、Python/Pillow/NumPy、FFmpeg，重录另需 Xcode Swift 6.2。
+- 同步文案补充：用户要求说明实时同步到 Notion；已更新开场、完成反馈、日记段落与结尾，并增加「已自动同步到 Notion」。核对任务改动即时发请求、日记停输入约 2 秒自动保存；保留隔离 mock 标注，不承诺双向即时推送。
+  - 验证：`python3 source/render_video.py` / `python3 source/verify_export.py` 重新运行通过，50 秒 / 1080p / 30fps / 18 解码关键帧；开场与 35 秒保存文案目视确认未裁切。`swift test --disable-sandbox` 再次 148 tests / 0 failures。
+- 可读性修订：按用户反馈把同步信息提升为开场/结尾 108px 主标题、任务/日记 88px 主标题；辅助文字 42px 深色；保存反馈 54px 深底白字，35–40 秒停留 5 秒。独立视频文案、合成器、README、预览与打包脚本更新，生产代码未改。
+  - 验证：`python3 source/render_video.py` 正常退出；`python3 source/verify_export.py` PASS，50 秒 / 1080p / 30fps / 1500 帧，完整解码与 18 个关键帧通过；3、23.5、35、38、49 秒实际导出帧按 960×540 目视检查，清楚且无裁切；浏览器刷新新版 video readyState=4、error=null。Swift 回归未重复执行（生产代码无改动），保留前轮 148 tests / 0 failures。
+- 回滚：生产代码改动为 0；移走独立演示目录即可停止使用；未更新 bugs.md。
+
+
 ## 2026-10-02 - 发布 GitHub Release v1.5.0
 - 目标: 打包 v1.5 并发布 GitHub Release v1.5.0
 - 改动:
