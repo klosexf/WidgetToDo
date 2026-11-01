@@ -1,5 +1,20 @@
 # Progress
 
+## 2026-11-01 - 发布 GitHub Release v1.6.0
+- 目标: 打包 v1.6 并发布 GitHub Release v1.6.0
+- 改动:
+  - 版本号 bump 至 1.6（`6cc2589`，MARKETING_VERSION 1.5→1.6, CURRENT_PROJECT_VERSION 6→7）
+  - 推送 main + 创建并推送 tag `v1.6.0`
+  - 外层根目录生成 `WidgetToDo-V1.6.dmg`（2.6M，未签名）
+- 验证:
+  - `create-dmg --skip-jenkins --no-internet-enable` — 成功（agent 非沙箱模式）
+  - `file WidgetToDo-V1.6.dmg` — zlib compressed data（有效 UDZO）
+  - `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox` — 148 tests / 0 failures
+  - `gh release view v1.6.0` — assets state=uploaded, size=2746218, isDraft=false, isPrerelease=false
+- 发版: https://github.com/klosexf/WidgetToDo/releases/tag/v1.6.0
+- v1.6 内容: 完整显示较长日期标题（修复截断）
+- 备注: 沿用 v1.4 发版 token（已多次提醒用户作废未执行）
+
 ## 2026-11-01 - 日期标题完整显示
 - 目标/状态：已完成。修复较长日期出现省略号；本地代码、自动化与原生日期栏验证通过，用户回测确认正常。
 - 用户验收：2026-11-01，用户针对本次长日期完整显示修复反馈“我测了，没问题”，确认本次修复可结案。以下保留实际自动化结果与环境限制；未打包发布或替换已安装 App。
