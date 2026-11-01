@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-11-01 - 日期标题完整显示
+- 目标/状态：已完成。修复较长日期出现省略号；本地代码、自动化与原生日期栏验证通过，用户回测确认正常。
+- 用户验收：2026-11-01，用户针对本次长日期完整显示修复反馈“我测了，没问题”，确认本次修复可结案。以下保留实际自动化结果与环境限制；未打包发布或替换已安装 App。
+- 影响路径（L2）：`WidgetToDo/ContentView.swift` 将日期标题的 60pt 固定宽度改为最小宽度，两个显示分支均使用文字固有宽度，保持 14pt 字号；`Tests/NotionFloatCoreSmokeTests/main.swift` 同步既有宽度守卫；本 progress 记录验证。保留本轮开始前已有的 progress 改动；未修改 Notion/持久化/工程配置，bugs.md 未改。
+- 自动化：`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-date-clang swift test --disable-sandbox` 通过，148 tests / 0 failures；同环境 `swift run --disable-sandbox NotionFloatCoreSmokeTests` 通过（All smoke tests passed）；`git diff --check` 通过。标准 `swift test` 因嵌套沙箱 `sandbox_apply: Operation not permitted` 失败，保留该环境限制。
+- 构建：`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-date-clang xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -derivedDataPath /private/tmp/widgettodo-date-build CODE_SIGNING_ALLOWED=NO build` 在获准的沙箱外执行通过（BUILD SUCCEEDED）；首次沙箱内构建被 `#Preview` 的 swift-plugin-server 限制阻塞。日志：`/private/tmp/widgettodo-date-check/{tests,smoke,build,build-unsandboxed}.log`。
+- UI 验证：用临时原生 SwiftUI 宿主直接提取修改前后 `dateNavigationBar`、生产样式与日期格式化器，每行固定为实际 340pt 面板宽度。CUA 实际点击到 10月30日，旧版复现“10月3…”，修复后待办（含全部 3 个右侧操作）、日记及无点击回调分支均完整显示；实际点击日期标题、前后切换与回到今天，状态和布局正常；中/英/法日期标题均完整。宿主源码与构建记录在 `/private/tmp/widgettodo-date-check/`。此验证覆盖日期组件，不替代完整生产 App 的月历弹层或线上 Notion 联调。
+- 范围/回滚：仅日期标题横向布局，长日期会按内容宽度移动右箭头；短日期保留原最小占位。回滚本次 ContentView 与 smoke 的增量即可，无用户数据迁移；重新在 Xcode 运行可使用修复版。
+
 ## 2026-10-02 - 发布 GitHub Release v1.5.0
 - 目标: 打包 v1.5 并发布 GitHub Release v1.5.0
 - 改动:

@@ -729,12 +729,12 @@ struct NotionFloatCoreSmokeTestsRunner {
         let toolbarSource = String(source[toolbarStart.lowerBound..<toolbarEnd])
 
         try expect(
-            source.contains("static let todoDateTitleWidth: CGFloat = 60"),
-            "todo date title should reserve enough fixed width for the 14pt today label"
+            source.contains("static let todoDateTitleMinWidth: CGFloat = 60"),
+            "short date titles should retain their minimum slot width"
         )
         try expect(
-            source.contains(".frame(width: FloatingWidgetMetrics.todoDateTitleWidth, alignment: .center)"),
-            "todo date title should render inside the fixed-width frame"
+            source.contains(".frame(minWidth: FloatingWidgetMetrics.todoDateTitleMinWidth, alignment: .center)"),
+            "date title slots should expand for longer dates"
         )
         try expect(
             source.contains("static let todoDateNavigationSpacing: CGFloat = 4"),
@@ -758,7 +758,7 @@ struct NotionFloatCoreSmokeTestsRunner {
         )
         try expect(
             source.contains(".allowsTightening(true)"),
-            "todo date title should tighten glyph spacing before truncation"
+            "todo date title should retain its compact glyph spacing"
         )
         try expect(
             !toolbarSource.contains(".frame(height: 28)"),

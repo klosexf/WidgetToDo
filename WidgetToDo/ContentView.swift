@@ -1182,7 +1182,7 @@ private enum FloatingWidgetMetrics {
     static let todoToolbarBottomSpacing: CGFloat = 18
     static let quickAddRailBottomSpacing: CGFloat = 10
     static let todoDateTitleFontSize: CGFloat = 14
-    static let todoDateTitleWidth: CGFloat = 60
+    static let todoDateTitleMinWidth: CGFloat = 60
     static let todoDateNavigationSpacing: CGFloat = 4
     static let jumpToTodayWidth: CGFloat = 44
     static let jumpToTodayLeadingPadding: CGFloat = 2
@@ -1707,7 +1707,8 @@ struct FloatingWidgetView: View {
                             .modifier(TrackingModifier(value: -0.28))
                             .lineLimit(1)
                             .allowsTightening(true)
-                            .frame(width: FloatingWidgetMetrics.todoDateTitleWidth, alignment: .center)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .frame(minWidth: FloatingWidgetMetrics.todoDateTitleMinWidth, alignment: .center)
                             .background(
                                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                                     .fill(isCalendarActive
@@ -1727,7 +1728,8 @@ struct FloatingWidgetView: View {
                         .modifier(TrackingModifier(value: -0.28))
                         .lineLimit(1)
                         .allowsTightening(true)
-                        .frame(width: FloatingWidgetMetrics.todoDateTitleWidth, alignment: .center)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .frame(minWidth: FloatingWidgetMetrics.todoDateTitleMinWidth, alignment: .center)
                 }
 
                 Button {
