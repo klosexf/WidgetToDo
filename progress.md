@@ -6,6 +6,7 @@
 - `swift test --disable-sandbox` 通过 148 项，`swift run --disable-sandbox NotionFloatCoreSmokeTests` 通过。Xcode Release 双架构构建成功，最低系统为 macOS 15。
 - `hdiutil verify` 通过。只读挂载后，`lipo -archs` 确认 arm64 和 x86_64，`codesign --verify --deep --strict --all-architectures` 通过。包内版本 1.7（8），应用可执行文件与 Release 构建结果相同，Applications 链接指向 `/Applications`。使用 Apple Development 签名，未经公证。
 - 本机安装包共 3794283 字节，SHA-256 为 `ae9c109f606ae890252a03a884d0ac18d7950eb4dce497b100c84e083d626699`。打包和挂载记录位于外层 `work/2026-11-26-release-1.7/`。
+- GitHub 已将 [v1.7.0](https://github.com/klosexf/WidgetToDo/releases/tag/v1.7.0) 标记为最新正式版，对应源码 `46b4a4f`。`gh api repos/klosexf/WidgetToDo/releases/latest` 确认附件为 uploaded。从中英文 README 使用的公开直链匿名下载返回 HTTP 200，`cmp` 确认下载文件与挂载验证过的 DMG 逐字节一致。
 
 ## 2026-11-26 - 自由拖拽验收与暖棕 UI 合并
 - 用户确认沿用自由拖拽。历史提交 `c6b3e6b` 已移除网格吸附，中英文 README 已按现有实现更正。
