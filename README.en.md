@@ -31,7 +31,7 @@ Ideal for people who manage daily tasks in Notion but want their to-do list "pin
 
 If you manage tasks in Notion, every time you want to glance at today's to-dos, check one off, or jot down a journal entry, you have to switch to a browser or the Notion app. WidgetToDo turns these two things into a persistent desktop floating panel:
 
-- **Always on desktop**: Draggable, grid-snapping, multi-layout; collapses into a mini capsule that keeps only the title and key actions.
+- **Always on desktop**: Drag the panel to a convenient spot or collapse it into a mini capsule showing the title and key actions.
 - **Direct Notion integration**: Reads/writes your Tasks database and journal database; token stored in macOS Keychain, SQLite cache keeps your last-fetched tasks available offline.
 - **Native macOS**: Built with SwiftUI + AppKit, menu bar icon, localized in Simplified Chinese / English / French.
 
@@ -42,7 +42,7 @@ If you manage tasks in Notion, every time you want to glance at today's to-dos, 
 
 ## Features
 
-- **Floating panel**: Draggable, snap-to-grid, collapses into a mini capsule.
+- **Floating panel**: Drag freely and release to place the panel, or collapse it into a mini capsule.
 - **Today's tasks**: Check off, create, and edit Notion tasks.
 - **New task**: Title/status/estimated duration, with readable validation messages.
 - **Daily journal**: Edit today's journal, manually sync to Notion.
@@ -169,7 +169,7 @@ This is a single-repo native macOS project. The testable core logic is exposed a
   <img src="./assets/readme/architecture-flow.svg" width="100%" alt="Layered architecture: View/ViewModel → NotionRepository → NotionClient / SQLiteCache / KeychainTokenStore / SettingsStore">
 </p>
 
-Reusable pure logic for window dragging, snapping, and layout lives in `Core/Services/` for `swift test` coverage; the AppKit/SwiftUI layer only consumes the computed results.
+`FloatingWindowManager` handles native window dragging. In `Core/Services/`, `MiniModeLayoutEngine` computes the window size and position for collapse and expansion. Run `swift test` to verify those calculations.
 
 ### Directory Structure
 
@@ -191,7 +191,7 @@ WidgetToDo/
 │   ├── Core/
 │   │   ├── Models/                 # Shared models (TaskItem / NewTaskDraft / AppSettings)
 │   │   ├── Infrastructure/         # NotionClient / NotionRepository / SQLiteCache / KeychainTokenStore / SettingsStore
-│   │   └── Services/               # Pure logic (field mapping / window snap algorithm / validators)
+│   │   └── Services/               # Pure logic (field mapping / mini window layout / validators)
 │   ├── WidgetToDo.entitlements     # Only declares network.client
 │   └── *.lproj/                    # Localization resources (zh-Hans / en / fr)
 ├── Tests/

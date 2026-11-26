@@ -31,7 +31,7 @@ struct MiniCapsuleContainer<Leading: View>: View {
                 onExpand()
             } label: {
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(MiniCapsulePalette.actionText)
                     .frame(width: 24, height: 24)
             }
@@ -42,7 +42,7 @@ struct MiniCapsuleContainer<Leading: View>: View {
                 onClose()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(MiniCapsulePalette.actionText)
                     .frame(width: 24, height: 24)
             }
@@ -52,6 +52,7 @@ struct MiniCapsuleContainer<Leading: View>: View {
         .padding(.horizontal, 10)
         .frame(width: 220, height: 56)
         .background(MiniCapsulePalette.background)
+        .background(WidgetWindowMaterial())
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -62,6 +63,7 @@ struct MiniCapsuleContainer<Leading: View>: View {
         .onTapGesture {
             onExpand()
         }
+        .simultaneousGesture(WindowDragGesture())
     }
 }
 
@@ -140,12 +142,12 @@ struct MiniProgressRing: View {
 }
 
 private enum MiniCapsulePalette {
-    static let background = Color.white
-    static let border = Color(red: 0.89, green: 0.87, blue: 0.85).opacity(0.92)
-    static let titleText = Color(red: 0.129, green: 0.125, blue: 0.122)
-    static let subtitleText = Color(red: 0.545, green: 0.522, blue: 0.494)
-    static let actionText = Color(red: 0.47, green: 0.459, blue: 0.447)
-    static let accent = Color(red: 0.129, green: 0.125, blue: 0.122)
-    static let ringBackground = Color(red: 0.914, green: 0.894, blue: 0.875)
+    static let background = WidgetTheme.shell
+    static let border = WidgetTheme.border
+    static let titleText = WidgetTheme.text
+    static let subtitleText = WidgetTheme.secondary
+    static let actionText = WidgetTheme.secondary
+    static let accent = WidgetTheme.text
+    static let ringBackground = WidgetTheme.control
     static let ringFill = Color(red: 0.22, green: 0.74, blue: 0.34)
 }

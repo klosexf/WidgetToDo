@@ -77,7 +77,7 @@ struct CalendarPopoverView: View {
                 ), id: \.self) { symbol in
                     Text(symbol)
                         .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(Color(red: 0.639, green: 0.612, blue: 0.573))
+                        .foregroundStyle(WidgetTheme.secondary)
                         .frame(maxWidth: .infinity)
                 }
 
@@ -97,7 +97,7 @@ struct CalendarPopoverView: View {
                 .fill(.thickMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(red: 0.984, green: 0.976, blue: 0.957).opacity(0.42))
+                        .fill(Color.white.opacity(0.25))
                 )
                 .overlay(
                     // 顶部微光边缘（原生 popover 的高光描边质感）
@@ -114,7 +114,7 @@ struct CalendarPopoverView: View {
         )
         // 柔和多层阴影：贴合 macOS 浮层的「轻轻托起」感
         .shadow(color: .black.opacity(0.08), radius: 2, y: 0.5)
-        .shadow(color: Color(red: 0.47, green: 0.353, blue: 0.235).opacity(0.22), radius: 28, y: 12)
+        .shadow(color: Color.black.opacity(0.13), radius: 28, y: 12)
         // 弹层内所有 Text 禁用文本选择——去掉 macOS 给可选文本加的 I-beam 光标，
         // 让日期数字/星期表头/标题呈现默认箭头（这是根治 I-beam 的标准做法，
         // onHover+NSCursor 在 Text/Button 的 NSTrackingArea 面前会被抢回去）。
@@ -129,26 +129,26 @@ struct CalendarPopoverView: View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(monthTitle)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color(red: 0.129, green: 0.125, blue: 0.122))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(WidgetTheme.text)
 
                 // 图例按模块上下文只显示对应一项：待办→● 任务，日记→▬ 日记。
                 HStack(spacing: 3) {
                     switch context {
                     case .todo:
                         Circle()
-                            .fill(Color(red: 0.69, green: 0.561, blue: 0.42))
+                            .fill(WidgetTheme.accent)
                             .frame(width: 3, height: 3)
                         Text(textProvider(.taskLabel))
                             .font(.system(size: 10.5, weight: .medium))
-                            .foregroundStyle(Color(red: 0.639, green: 0.612, blue: 0.573))
+                            .foregroundStyle(WidgetTheme.secondary)
                     case .journal:
                         RoundedRectangle(cornerRadius: 1.5)
-                            .fill(Color(red: 0.478, green: 0.612, blue: 0.776))
+                            .fill(WidgetTheme.journalAccent)
                             .frame(width: 5, height: 2.5)
                         Text(textProvider(.journalTab))
                             .font(.system(size: 10.5, weight: .medium))
-                            .foregroundStyle(Color(red: 0.639, green: 0.612, blue: 0.573))
+                            .foregroundStyle(WidgetTheme.secondary)
                     }
                 }
             }
@@ -161,7 +161,7 @@ struct CalendarPopoverView: View {
                 } label: {
                     Text(textProvider(.backToToday))
                         .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.569, green: 0.42, blue: 0.322))
+                        .foregroundStyle(WidgetTheme.accent)
                         .padding(.horizontal, 11)
                         .padding(.vertical, 4)
                         .background(
@@ -170,7 +170,7 @@ struct CalendarPopoverView: View {
                         )
                         .overlay(
                             Capsule(style: .continuous)
-                                .stroke(Color(red: 0.89, green: 0.851, blue: 0.776), lineWidth: 1)
+                                .stroke(WidgetTheme.border, lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
@@ -189,7 +189,7 @@ struct CalendarPopoverView: View {
         } label: {
             Image(systemName: direction < 0 ? "chevron.left" : "chevron.right")
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color(red: 0.639, green: 0.612, blue: 0.573))
+                .foregroundStyle(WidgetTheme.secondary)
                 .frame(width: 22, height: 22)
                 .contentShape(Rectangle())
         }
@@ -218,8 +218,8 @@ struct CalendarPopoverView: View {
                         isSelected
                             ? Color.white
                             : (cell.isInMonth
-                                ? Color(red: 0.29, green: 0.271, blue: 0.239)
-                                : Color(red: 0.733, green: 0.714, blue: 0.682))
+                                ? WidgetTheme.text
+                                : WidgetTheme.secondary.opacity(0.55))
                     )
 
                 markIndicator(mark, isSelected: isSelected)
@@ -230,7 +230,7 @@ struct CalendarPopoverView: View {
                 Group {
                     if isSelected {
                         RoundedRectangle(cornerRadius: 11, style: .continuous)
-                            .fill(Color(red: 0.569, green: 0.42, blue: 0.322))
+                            .fill(WidgetTheme.accent)
                     }
                 }
             )
@@ -238,7 +238,7 @@ struct CalendarPopoverView: View {
                 Group {
                     if isToday && !isSelected {
                         RoundedRectangle(cornerRadius: 11, style: .continuous)
-                            .stroke(Color(red: 0.569, green: 0.42, blue: 0.322), lineWidth: 1.5)
+                            .stroke(WidgetTheme.accent, lineWidth: 1.5)
                     }
                 }
             )
@@ -268,7 +268,7 @@ struct CalendarPopoverView: View {
                         .fill(
                             isSelected
                                 ? Color.white.opacity(0.85)
-                                : Color(red: 0.69, green: 0.561, blue: 0.42)
+                                : WidgetTheme.accent
                         )
                         .frame(width: 3, height: 3)
                 case .journal:
@@ -276,7 +276,7 @@ struct CalendarPopoverView: View {
                         .fill(
                             isSelected
                                 ? Color.white.opacity(0.85)
-                                : Color(red: 0.478, green: 0.612, blue: 0.776)
+                                : WidgetTheme.journalAccent
                         )
                         .frame(width: 5, height: 2.5)
                 }
@@ -302,12 +302,12 @@ struct CalendarPopoverView: View {
             }
         }
         .font(.system(size: 10.5, weight: .medium))
-        .foregroundStyle(Color(red: 0.639, green: 0.612, blue: 0.573))
+        .foregroundStyle(WidgetTheme.secondary)
         .padding(.top, 8)
         .padding(.horizontal, 2)
         .overlay(
             Rectangle()
-                .fill(Color(red: 0.937, green: 0.914, blue: 0.863))
+                .fill(WidgetTheme.border)
                 .frame(height: 0.5)
                 .offset(y: -4),
             alignment: .top

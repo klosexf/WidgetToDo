@@ -2,11 +2,7 @@ import SwiftUI
 
 /// 浮窗顶部的激励话术单行条：通栏、居中、宋体，超长时横向跑马灯。
 ///
-/// 放在带 padding 的壳层之外，因此自己贴窗口上缘并自带白底；
-/// 关闭时整条不渲染，不占用列表高度。
-///
-/// 色值与 `ContentView.swift:1090-1130` 的 `FloatingWidgetPalette` 对齐——
-/// 那边是 private 枚举，跨文件取不到，这里只复制本条用到的三项。
+/// 位于内容列内；关闭时整条不渲染，不占用列表高度。
 struct MotivationStripView: View {
     /// 已归一化的单行文案；空串表示未设置。
     let quote: String
@@ -34,8 +30,8 @@ struct MotivationStripView: View {
 
     private enum Ink {
         static let quote = Color(red: 0.420, green: 0.365, blue: 0.310)   // #6B5D4F
-        static let placeholder = Color(red: 0.639, green: 0.616, blue: 0.573).opacity(0.75)  // #A39D92
-        static let icon = Color(red: 0.47, green: 0.459, blue: 0.447)    // #787572，同顶栏图标色
+        static let placeholder = WidgetTheme.secondary.opacity(0.75)
+        static let icon = WidgetTheme.secondary
     }
 
     /// Songti SC 只有 Regular/Bold/Black，没有 medium：
@@ -160,11 +156,11 @@ struct MotivationStripView: View {
                 .frame(width: 24, height: 24)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(red: 0.996, green: 0.992, blue: 0.984).opacity(0.96))  // 同任务行 ⋯ 按钮
+                        .fill(Color.white.opacity(0.65))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color(red: 0.918, green: 0.898, blue: 0.878).opacity(0.95), lineWidth: 1)
+                        .stroke(WidgetTheme.border, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)

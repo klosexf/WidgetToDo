@@ -263,8 +263,8 @@ struct NotionFloatCoreSmokeTestsRunner {
             "floating window drag completion must not rely on global mouse-up monitoring"
         )
         try expect(
-            source.contains("if event.type == .leftMouseUp"),
-            "floating window drag completion should clear drag state on local leftMouseUp"
+            source.contains("NSWindow.didMoveNotification") && !source.contains("setFrameOrigin("),
+            "native window dragging should observe window motion and avoid moving the window on each input event"
         )
     }
 
@@ -587,7 +587,7 @@ struct NotionFloatCoreSmokeTestsRunner {
         let navScopeEnd = source[navRange.upperBound...].range(of: "private var todoToolbar")?.lowerBound ?? navRange.upperBound
         let navScope = source[navRange.lowerBound..<navScopeEnd]
         try expect(
-            navScope.contains(".font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .bold))"),
+            navScope.contains(".font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .semibold))"),
             "the shared date title should use the same font style as the todo date title"
         )
         try expect(
@@ -749,7 +749,7 @@ struct NotionFloatCoreSmokeTestsRunner {
             "todo date title should use the non-today date font size as the shared baseline"
         )
         try expect(
-            source.contains(".font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .bold))"),
+            source.contains(".font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .semibold))"),
             "todo date title should use the shared font size for today and non-today dates"
         )
         try expect(
@@ -1166,10 +1166,6 @@ struct NotionFloatCoreSmokeTestsRunner {
         try expect(
             normalized.contains("viewModel.submit()"),
             "new task form should keep submit behavior"
-        )
-        try expect(
-            !normalized.contains("regularMaterial"),
-            "new task form should no longer use regularMaterial in the bounded form source"
         )
         try expect(
             formSource.contains("private var newTaskHeader: some View") &&

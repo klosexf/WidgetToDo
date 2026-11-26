@@ -54,13 +54,11 @@ struct ContentView: View {
                 widgetContent
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: AppWindowChrome.cornerRadius, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor))
-        )
+        .background(WidgetWindowMaterial().allowsHitTesting(false).accessibilityHidden(true))
         .clipShape(RoundedRectangle(cornerRadius: AppWindowChrome.cornerRadius, style: .continuous))
         .environmentObject(rootViewModel.languageStore)
         .environment(\.locale, rootViewModel.languageStore.language.locale)
+        .tint(WidgetTheme.accent)
         .task {
             if rootViewModel.screen == .loading {
                 await rootViewModel.bootstrap()
@@ -351,7 +349,7 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
+            WidgetTheme.shell
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -473,7 +471,7 @@ struct OnboardingView: View {
                         onBack()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(OnboardingModalPalette.secondaryText)
                     }
                     .buttonStyle(.plain)
@@ -560,7 +558,7 @@ struct OnboardingView: View {
     private var languageSection: some View {
         HStack {
             Label("Language", systemImage: "globe")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(OnboardingModalPalette.primaryText)
 
             Spacer()
@@ -605,7 +603,7 @@ struct OnboardingView: View {
                 } icon: {
                     Image(systemName: "bolt")
                 }
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(OnboardingModalPalette.primaryText)
 
                 Text(languageStore.text(.motivationSettingHint))
@@ -640,7 +638,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: OnboardingModalMetrics.onboardingSectionSpacing) {
             HStack(alignment: .firstTextBaseline) {
                 Text(languageStore.text(.notionToken))
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(OnboardingModalPalette.primaryText)
                 Spacer()
                 Button {
@@ -686,7 +684,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: OnboardingModalMetrics.onboardingSectionSpacing) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(OnboardingModalPalette.primaryText)
                 Spacer()
                 Text(languageStore.text(.pasteFullURL))
@@ -811,7 +809,7 @@ struct OnboardingView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.counterclockwise")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 12, weight: .medium))
                     Text(languageStore.text(.resetConfiguration))
                         .font(.system(size: 13, weight: .semibold))
                 }
@@ -853,7 +851,7 @@ struct OnboardingView: View {
 
                 if !viewModel.isWorking {
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 12, weight: .medium))
                         .offset(x: isPrimaryButtonHovered ? OnboardingModalMetrics.onboardingButtonHoverOffset : 0)
                 }
             }
@@ -907,28 +905,28 @@ private enum OnboardingModalMetrics {
 }
 
 private enum OnboardingModalPalette {
-    static let modalBackground = Color.white
-    static let cardShadow = Color.black.opacity(0.08)
-    static let inputBackground = Color(red: 0.976, green: 0.976, blue: 0.976)
-    static let inputBorder = Color(red: 0.91, green: 0.91, blue: 0.91)
-    static let border = Color(red: 0.91, green: 0.91, blue: 0.91)
-    static let primaryText = Color(red: 0.102, green: 0.102, blue: 0.102)
-    static let secondaryText = Color(red: 0.42, green: 0.42, blue: 0.42)
-    static let tertiaryText = Color(red: 0.612, green: 0.639, blue: 0.686)
-    static let placeholderText = Color(red: 0.75, green: 0.75, blue: 0.75)
-    static let placeholderDecoration = Color(red: 0.84, green: 0.84, blue: 0.84)
-    static let buttonFill = Color(red: 0.176, green: 0.176, blue: 0.176)
-    static let buttonPressed = Color(red: 0.239, green: 0.239, blue: 0.239)
-    static let buttonShadow = Color.black.opacity(0.18)
-    static let buttonHoverShadow = Color.black.opacity(0.24)
+    static let modalBackground = WidgetTheme.content
+    static let cardShadow = Color.black.opacity(0.055)
+    static let inputBackground = Color.white
+    static let inputBorder = WidgetTheme.border
+    static let border = WidgetTheme.border
+    static let primaryText = WidgetTheme.text
+    static let secondaryText = WidgetTheme.secondary
+    static let tertiaryText = WidgetTheme.secondary
+    static let placeholderText = WidgetTheme.secondary.opacity(0.7)
+    static let placeholderDecoration = WidgetTheme.control
+    static let buttonFill = WidgetTheme.primaryAction
+    static let buttonPressed = WidgetTheme.primaryAction.opacity(0.85)
+    static let buttonShadow = Color.black.opacity(0.10)
+    static let buttonHoverShadow = Color.black.opacity(0.14)
     static let successText = Color(red: 0.298, green: 0.686, blue: 0.314)
     static let successBackground = Color(red: 0.953, green: 0.985, blue: 0.953)
     static let successBorder = Color(red: 0.808, green: 0.925, blue: 0.812)
     static let errorText = Color(red: 0.76, green: 0.208, blue: 0.208)
     static let errorBackground = Color(red: 0.996, green: 0.949, blue: 0.949)
     static let errorBorder = Color(red: 0.945, green: 0.792, blue: 0.792)
-    static let decoDot = Color(red: 0.65, green: 0.65, blue: 0.65).opacity(0.28)
-    static let decoAccent = Color(red: 0.72, green: 0.72, blue: 0.72)
+    static let decoDot = WidgetTheme.accent.opacity(0.15)
+    static let decoAccent = WidgetTheme.accent.opacity(0.5)
 }
 
 private struct OnboardingPrimaryButtonStyle: ButtonStyle {
@@ -1022,14 +1020,18 @@ private struct NotionTokenHelpView: View {
                 .keyboardShortcut(.cancelAction)
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text(languageStore.text(.tokenHelpStep1))
-                Text(languageStore.text(.tokenHelpStep2))
-                Text(languageStore.text(.tokenHelpStep3))
-                Text(languageStore.text(.tokenHelpStep4))
+            ScrollView(showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(languageStore.text(.tokenHelpStep1))
+                    Text(languageStore.text(.tokenHelpStep2))
+                    Text(languageStore.text(.tokenHelpStep3))
+                    Text(languageStore.text(.tokenHelpStep4))
+                }
+                .font(.callout)
+                .foregroundStyle(WidgetTheme.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
             }
-            .font(.callout)
-            .foregroundStyle(.secondary)
 
             Link(languageStore.text(.openNotionIntegrations), destination: URL(string: "https://www.notion.so/my-integrations")!)
 
@@ -1134,45 +1136,45 @@ private struct DatabaseHelpButtonStyle: ButtonStyle {
 }
 
 private enum FloatingWidgetPalette {
-    static let shellBackground = Color.white
-    static let tabPillBg = Color(red: 0.984, green: 0.976, blue: 0.965).opacity(0.94)
-    static let tabPillBorder = Color(red: 0.89, green: 0.87, blue: 0.85).opacity(0.92)
-    static let tabPillShadow = Color(red: 0.631, green: 0.569, blue: 0.506).opacity(0.1)
-    static let tabText = Color(red: 0.137, green: 0.137, blue: 0.137)
-    static let activeTabTop = Color(red: 0.945, green: 0.937, blue: 0.925)
-    static let activeTabBottom = Color(red: 0.925, green: 0.91, blue: 0.894)
-    static let activeTabShadow = Color(red: 0.702, green: 0.647, blue: 0.592).opacity(0.16)
-    static let todoToolbarText = Color(red: 0.129, green: 0.125, blue: 0.122)
-    static let syncBannerBg = Color(red: 0.965, green: 0.953, blue: 0.937).opacity(0.96)
-    static let syncBannerText = Color(red: 0.49, green: 0.47, blue: 0.447)
-    static let taskTitle = Color(red: 0.137, green: 0.133, blue: 0.129)
-    static let taskTitleCompleted = Color(red: 0.533, green: 0.533, blue: 0.533)
-    static let checkboxBorder = Color(red: 0.741, green: 0.714, blue: 0.686)
+    static let shellBackground = WidgetTheme.shell
+    static let tabPillBg = WidgetTheme.control
+    static let tabPillBorder = WidgetTheme.border
+    static let tabPillShadow = Color.clear
+    static let tabText = WidgetTheme.text
+    static let activeTabTop = Color.white
+    static let activeTabBottom = Color.white
+    static let activeTabShadow = Color.black.opacity(0.045)
+    static let todoToolbarText = WidgetTheme.secondary
+    static let syncBannerBg = WidgetTheme.control
+    static let syncBannerText = WidgetTheme.secondary
+    static let taskTitle = WidgetTheme.text
+    static let taskTitleCompleted = WidgetTheme.secondary
+    static let checkboxBorder = Color.black.opacity(0.23)
     static let checkboxCompleteTop = Color(red: 0.49, green: 0.835, blue: 0.427)
     static let checkboxCompleteBottom = Color(red: 0.4, green: 0.78, blue: 0.373)
-    static let metaText = Color(red: 0.545, green: 0.522, blue: 0.494)
+    static let metaText = WidgetTheme.secondary
     static let dangerText = Color(red: 1.0, green: 0.294, blue: 0.243)
     static let warningText = Color(red: 1.0, green: 0.616, blue: 0.184)
     static let durationText = Color(red: 0.78, green: 0.45, blue: 0.14)
     static let durationBg = Color(red: 0.996, green: 0.949, blue: 0.886)
     static let retryText = Color(red: 0.4, green: 0.376, blue: 0.353)
-    static let dividerColor = Color(red: 0.914, green: 0.894, blue: 0.875).opacity(0.95)
-    static let journalDate = Color(red: 0.604, green: 0.576, blue: 0.553)
-    static let editorBg = Color(red: 0.992, green: 0.988, blue: 0.98).opacity(0.96)
-    static let editorBorder = Color(red: 0.882, green: 0.863, blue: 0.839).opacity(0.96)
-    static let editorText = Color(red: 0.149, green: 0.145, blue: 0.141)
-    static let statusText = Color(red: 0.655, green: 0.627, blue: 0.604)
-    static let actionBtnColor = Color(red: 0.47, green: 0.459, blue: 0.447)
-    static let actionBtnHoverBg = Color(red: 0.949, green: 0.933, blue: 0.914).opacity(0.92)
-    static let actionBtnActiveBg = Color(red: 0.922, green: 0.902, blue: 0.878).opacity(0.96)
-    static let moreBtnBg = Color(red: 0.996, green: 0.992, blue: 0.984).opacity(0.96)
-    static let moreBtnBorder = Color(red: 0.918, green: 0.898, blue: 0.878).opacity(0.95)
-    static let scrollbarThumb = Color(red: 0.941, green: 0.925, blue: 0.91).opacity(0.98)
-    static let actionBtnHoverColor = Color(red: 0.333, green: 0.322, blue: 0.31)
+    static let dividerColor = Color.black.opacity(0.045)
+    static let journalDate = WidgetTheme.secondary
+    static let editorBg = WidgetTheme.content
+    static let editorBorder = Color.black.opacity(0.055)
+    static let editorText = WidgetTheme.text
+    static let statusText = WidgetTheme.secondary
+    static let actionBtnColor = WidgetTheme.secondary
+    static let actionBtnHoverBg = WidgetTheme.hover
+    static let actionBtnActiveBg = WidgetTheme.control
+    static let moreBtnBg = Color.white.opacity(0.65)
+    static let moreBtnBorder = WidgetTheme.border
+    static let scrollbarThumb = Color.black.opacity(0.15)
+    static let actionBtnHoverColor = WidgetTheme.text
     static let expandHintBg = Color(red: 0.176, green: 0.176, blue: 0.176).opacity(0.88)
-    static let editorInset = Color(red: 0.965, green: 0.953, blue: 0.941).opacity(0.88)
-    static let todoDateTitle = Color(red: 0.129, green: 0.125, blue: 0.122)
-    static let checkBg = Color.white.opacity(0.92)
+    static let editorInset = WidgetTheme.control
+    static let todoDateTitle = WidgetTheme.text
+    static let checkBg = Color.white
 }
 
 private enum FloatingWidgetMetrics {
@@ -1554,6 +1556,11 @@ struct FloatingWidgetView: View {
                 .buttonStyle(FloatingWidgetActionButtonStyle())
             }
         }
+        .background {
+            Color.clear
+                .contentShape(Rectangle())
+                .gesture(WindowDragGesture())
+        }
     }
 
     private func tabButton(_ tab: WidgetTab) -> some View {
@@ -1568,7 +1575,7 @@ struct FloatingWidgetView: View {
             }
         } label: {
             Text(languageStore.text(tab.textKey))
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(FloatingWidgetPalette.tabText)
                 .modifier(TrackingModifier(value: -0.13))
                 .frame(minWidth: 64)
@@ -1623,7 +1630,7 @@ struct FloatingWidgetView: View {
 
                 if let message = todoViewModel.errorMessage {
                     Text(languageStore.text(message))
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 10, weight: .regular))
                         .foregroundStyle(FloatingWidgetPalette.dangerText)
                         .padding(.top, 8)
                 }
@@ -1690,7 +1697,7 @@ struct FloatingWidgetView: View {
                     Task { await onPreviousDay() }
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 13, weight: .medium))
                 }
                 .buttonStyle(FloatingWidgetNavButtonStyle())
                 .cursor(.pointingHand)
@@ -1702,7 +1709,7 @@ struct FloatingWidgetView: View {
                         onDateTap()
                     } label: {
                         Text(title)
-                            .font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .bold))
+                            .font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .semibold))
                             .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
                             .modifier(TrackingModifier(value: -0.28))
                             .lineLimit(1)
@@ -1723,7 +1730,7 @@ struct FloatingWidgetView: View {
                     .opacity(isLoading ? 0.4 : 1)
                 } else {
                     Text(title)
-                        .font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .bold))
+                        .font(.system(size: FloatingWidgetMetrics.todoDateTitleFontSize, weight: .semibold))
                         .foregroundStyle(FloatingWidgetPalette.todoDateTitle)
                         .modifier(TrackingModifier(value: -0.28))
                         .lineLimit(1)
@@ -1736,7 +1743,7 @@ struct FloatingWidgetView: View {
                     Task { await onNextDay() }
                 } label: {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 13, weight: .medium))
                 }
                 .buttonStyle(FloatingWidgetNavButtonStyle())
                 .cursor(.pointingHand)
@@ -1750,7 +1757,7 @@ struct FloatingWidgetView: View {
                 }
                 .buttonStyle(.plain)
                 .cursor(.pointingHand)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(FloatingWidgetPalette.metaText)
                 .padding(.leading, FloatingWidgetMetrics.jumpToTodayLeadingPadding)
                 .frame(width: FloatingWidgetMetrics.jumpToTodayWidth, alignment: .trailing)
@@ -1814,7 +1821,7 @@ struct FloatingWidgetView: View {
                         .font(.system(size: 12, weight: .medium))
                         .opacity(0.7)
                     Text(banner)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 10, weight: .regular))
                 }
                 .foregroundStyle(FloatingWidgetPalette.syncBannerText)
                 .frame(maxWidth: .infinity)
@@ -1877,7 +1884,7 @@ struct FloatingWidgetView: View {
                     HStack(spacing: FloatingWidgetMetrics.taskRowMetaSpacing) {
                         if let estimatedMinutes = task.estimatedMinutes {
                             Text(languageStore.text(.minutesValue, estimatedMinutes))
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 10, weight: .medium))
                                 .foregroundStyle(FloatingWidgetPalette.durationText)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
@@ -1896,13 +1903,13 @@ struct FloatingWidgetView: View {
 
                         if task.estimatedMinutes != nil, choiceOption != nil {
                             Text("·")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.system(size: 10, weight: .regular))
                                 .foregroundStyle(FloatingWidgetPalette.metaText)
                         }
 
                         if let priority = task.priority, let choiceOption {
                             Text(priority)
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 10, weight: .medium))
                                 .foregroundStyle(TaskChoicePalette.dot(for: choiceOption))
                                 .lineLimit(1)
                                 .truncationMode(.tail)
@@ -1915,11 +1922,11 @@ struct FloatingWidgetView: View {
                         }
 
                         if choiceOption != nil {
-                            Text("·").font(.system(size: 10, weight: .semibold)).foregroundStyle(FloatingWidgetPalette.metaText)
+                            Text("·").font(.system(size: 10, weight: .regular)).foregroundStyle(FloatingWidgetPalette.metaText)
                         }
 
                         Text(syncText(for: task.syncStatus))
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 10, weight: .regular))
                             .foregroundStyle(syncColor(for: task.syncStatus))
                     }
                 }
@@ -1944,7 +1951,7 @@ struct FloatingWidgetView: View {
                     Button(languageStore.text(.retry)) {
                         Task { await todoViewModel.retry(task) }
                     }
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 10, weight: .regular))
                     .foregroundStyle(FloatingWidgetPalette.retryText)
                     .buttonStyle(.plain)
                 }
@@ -2099,7 +2106,7 @@ struct FloatingWidgetView: View {
                     Button(languageStore.text(.retry)) {
                         Task { await journalViewModel.forceSave() }
                     }
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 10, weight: .regular))
                     .foregroundStyle(FloatingWidgetPalette.dangerText)
                     .buttonStyle(.plain)
                 }
@@ -2130,7 +2137,7 @@ struct FloatingWidgetView: View {
                     journalViewModel.resolveConflictByMerging()
                 }
             }
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: 10, weight: .regular))
             .buttonStyle(.plain)
             .foregroundStyle(FloatingWidgetPalette.actionBtnColor)
         }
@@ -2154,7 +2161,7 @@ struct FloatingWidgetView: View {
                 .foregroundStyle(FloatingWidgetPalette.metaText)
 
             Text(emptyTasksTitle)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12, weight: .regular))
                 .foregroundStyle(FloatingWidgetPalette.metaText)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -2502,6 +2509,7 @@ struct EditTaskFormCard: View {
                     .onChange(of: proxy.size.height) { _, newValue in cardHeight = newValue }
             }
         )
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
                 .fill(NewTaskFormPalette.cardFill)
@@ -2538,7 +2546,7 @@ struct EditTaskFormCard: View {
         VStack(alignment: .leading, spacing: NewTaskFormMetrics.verticalSpacing) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(languageStore.text(.taskLabel))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(NewTaskFormPalette.title)
 
                 TextField(languageStore.text(.taskLabel), text: $viewModel.editingTitle)
@@ -2572,7 +2580,7 @@ struct EditTaskFormCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(languageStore.text(.estimatedMinutesLabel))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(NewTaskFormPalette.title)
 
                 HStack(spacing: 0) {
@@ -2613,7 +2621,7 @@ struct EditTaskFormCard: View {
             if let choiceField = viewModel.choiceField {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(choiceField.name)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(NewTaskFormPalette.title)
 
                     HStack(spacing: 0) {

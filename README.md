@@ -31,7 +31,7 @@ WidgetToDo 是一款**原生 macOS 桌面应用**，用 SwiftUI + AppKit 构建�
 
 用 Notion 管任务的人，每次看一眼今日待办、勾一个完成、写一段日记，都要切到浏览器或 Notion 客户端。WidgetToDo 把这两件事变成桌面常驻浮窗：
 
-- **常驻桌面**：可拖拽、网格吸附、多档布局；一键缩为迷你胶囊，只留标题与关键操作。
+- **常驻桌面**：将浮窗自由拖到顺手的位置，也可以一键缩为迷你胶囊，只留标题与关键操作。
 - **直连 Notion**：读写 Tasks 数据库与日记数据库；令牌存 macOS Keychain，断网时 SQLite 缓存仍可查看上次拉取的任务。
 - **原生 macOS**：SwiftUI + AppKit 构建，菜单栏常驻图标，简中 / 英 / 法三语本地化。
 
@@ -46,7 +46,7 @@ WidgetToDo 是一款**原生 macOS 桌面应用**，用 SwiftUI + AppKit 构建�
 
 ## 功能特性
 
-- **悬浮面板**：可拖拽、吸附、缩为迷你胶囊。
+- **悬浮面板**：支持自由拖拽，松手即可定位，也可缩为迷你胶囊。
 - **今日待办**：勾选、新建、编辑 Notion 任务。
 - **新建任务**：标题/状态/预计时长，校验有中文提示。
 - **当日日记**：编辑当日日记，手动同步到 Notion。
@@ -181,7 +181,7 @@ open WidgetToDo.xcodeproj
   <img src="./assets/readme/architecture-flow.svg" width="100%" alt="分层架构：View/ViewModel → NotionRepository → NotionClient / SQLiteCache / KeychainTokenStore / SettingsStore">
 </p>
 
-窗口拖拽、吸附、布局等可复用纯逻辑放在 `Core/Services/`，便于 `swift test` 覆盖；AppKit / SwiftUI 层只消费计算结果。
+`FloatingWindowManager` 处理原生窗口拖拽。`Core/Services/` 中的 `MiniModeLayoutEngine` 计算展开和收起时的窗口尺寸与位置，可通过 `swift test` 验证。
 
 ### 目录结构
 
@@ -203,7 +203,7 @@ WidgetToDo/
 │   ├── Core/
 │   │   ├── Models/                 # 共享模型（TaskItem / NewTaskDraft / AppSettings）
 │   │   ├── Infrastructure/         # NotionClient / NotionRepository / SQLiteCache / KeychainTokenStore / SettingsStore
-│   │   └── Services/               # 纯逻辑服务（字段映射 / 窗口吸附算法 / 校验器）
+│   │   └── Services/               # 纯逻辑服务（字段映射 / 迷你窗口布局 / 校验器）
 │   ├── WidgetToDo.entitlements     # 仅声明 network.client
 │   └── *.lproj/                    # 本地化资源（zh-Hans / en / fr）
 ├── Tests/

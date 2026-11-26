@@ -12,21 +12,21 @@ enum NewTaskFormMetrics {
 }
 
 enum NewTaskFormPalette {
-    static let cardFill = Color(red: 0.965, green: 0.957, blue: 0.941)
-    static let cardBorder = Color.black.opacity(0.08)
-    static let cardShadow = Color.black.opacity(0.14)
-    static let title = Color(red: 0.22, green: 0.21, blue: 0.19)
-    static let meta = Color(red: 0.50, green: 0.47, blue: 0.43)
-    static let fieldFill = Color.white
-    static let fieldBorder = Color.black.opacity(0.10)
+    static let cardFill = Color.white.opacity(0.82)
+    static let cardBorder = Color.white.opacity(0.85)
+    static let cardShadow = Color.black.opacity(0.13)
+    static let title = WidgetTheme.text
+    static let meta = WidgetTheme.secondary
+    static let fieldFill = Color.white.opacity(0.85)
+    static let fieldBorder = WidgetTheme.border
     static let validationBorder = Color.red.opacity(0.85)
     static let focusBorder = Color(red: 0.35, green: 0.61, blue: 0.93)
-    static let accent = Color.accentColor
-    static let primaryButtonFill = Color(red: 0.204, green: 0.192, blue: 0.180)
+    static let accent = WidgetTheme.accent
+    static let primaryButtonFill = WidgetTheme.primaryAction
     static let primaryButtonText = Color.white
-    static let secondaryButtonFill = Color.white
-    static let secondaryButtonBorder = Color(red: 0.886, green: 0.859, blue: 0.824)
-    static let secondaryButtonText = Color(red: 0.365, green: 0.333, blue: 0.306)
+    static let secondaryButtonFill = Color.white.opacity(0.8)
+    static let secondaryButtonBorder = WidgetTheme.border
+    static let secondaryButtonText = WidgetTheme.text
 }
 
 enum TaskChoicePalette {
@@ -51,7 +51,7 @@ enum TaskChoicePalette {
 struct NewTaskPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .bold))
+            .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(NewTaskFormPalette.primaryButtonText)
             .frame(maxWidth: .infinity)
             .frame(height: 38)
@@ -65,7 +65,7 @@ struct NewTaskPrimaryButtonStyle: ButtonStyle {
 struct NewTaskSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .bold))
+            .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(NewTaskFormPalette.secondaryButtonText)
             .frame(maxWidth: .infinity)
             .frame(height: 38)
@@ -85,7 +85,7 @@ private struct NewTaskFieldLabel: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(size: 13, weight: .medium))
             .foregroundStyle(NewTaskFormPalette.title)
     }
 }
@@ -174,6 +174,7 @@ struct NewTaskFormCard: View {
                     .onChange(of: proxy.size.height) { _, newValue in cardHeight = newValue }
             }
         )
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: NewTaskFormMetrics.cardCornerRadius, style: .continuous)
                 .fill(NewTaskFormPalette.cardFill)

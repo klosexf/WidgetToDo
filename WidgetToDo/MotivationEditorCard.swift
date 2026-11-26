@@ -47,13 +47,13 @@ struct MotivationEditorCard: View {
     }
 
     private enum Ink {
-        static let cardFill = Color(red: 0.965, green: 0.957, blue: 0.941)      // #F6F4F0
-        static let cardBorder = Color.black.opacity(0.08)
-        static let cardShadow = Color.black.opacity(0.14)
-        static let title = Color(red: 0.22, green: 0.21, blue: 0.19)            // #383631
-        static let meta = Color(red: 0.50, green: 0.47, blue: 0.43)             // #80786E
-        static let editorFill = Color(red: 0.992, green: 0.988, blue: 0.98).opacity(0.96)  // #FDFCFA
-        static let editorBorder = Color(red: 0.882, green: 0.863, blue: 0.839).opacity(0.96)  // #E1DCD6
+        static let cardFill = NewTaskFormPalette.cardFill
+        static let cardBorder = NewTaskFormPalette.cardBorder
+        static let cardShadow = NewTaskFormPalette.cardShadow
+        static let title = WidgetTheme.text
+        static let meta = WidgetTheme.secondary
+        static let editorFill = WidgetTheme.content
+        static let editorBorder = WidgetTheme.border
     }
 
     private var trimmed: String { MotivationStripLayout.normalizedQuote(draft) }
@@ -97,6 +97,7 @@ struct MotivationEditorCard: View {
         // 不给 minHeight/maxHeight：弹性 frame 会被父层 ZStack 撑到 maxHeight，
         // 而内部没有 Spacer 消化多余空间，多出来的高度会均分到内容上下，表现为标题上方一大片空白。
         // 编辑器本身是固定高度，卡片按内容定高即可。
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Metric.cardCornerRadius, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: Metric.cardCornerRadius, style: .continuous)
                 .fill(Ink.cardFill)
@@ -131,13 +132,13 @@ struct MotivationEditorCard: View {
 private struct MotivationPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .bold))
+            .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity)
             .frame(height: 38)
             .background(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color(red: 0.204, green: 0.192, blue: 0.180).opacity(configuration.isPressed ? 0.85 : 1))
+                    .fill(WidgetTheme.primaryAction.opacity(configuration.isPressed ? 0.85 : 1))
             )
     }
 }
@@ -145,17 +146,17 @@ private struct MotivationPrimaryButtonStyle: ButtonStyle {
 private struct MotivationSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .bold))
-            .foregroundStyle(Color(red: 0.365, green: 0.333, blue: 0.306))
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(WidgetTheme.text)
             .frame(maxWidth: .infinity)
             .frame(height: 38)
             .background(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.white.opacity(configuration.isPressed ? 0.92 : 1))
+                    .fill(NewTaskFormPalette.secondaryButtonFill.opacity(configuration.isPressed ? 0.92 : 1))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(Color(red: 0.886, green: 0.859, blue: 0.824), lineWidth: 1)
+                    .stroke(WidgetTheme.border, lineWidth: 1)
             )
     }
 }

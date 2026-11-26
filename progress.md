@@ -1,5 +1,54 @@
 # Progress
 
+## 2026-11-26 - 自由拖拽验收与暖棕 UI 合并
+- 用户确认沿用自由拖拽。历史提交 `c6b3e6b` 已移除网格吸附，中英文 README 已按现有实现更正。
+- 初版实测：用户反馈浮窗可以移动，但拖动有卡顿。旧窗口在每个拖动事件中读取全局鼠标坐标并调用 `setFrameOrigin`。改为 AppKit 背景拖动，标题区和胶囊使用 `WindowDragGesture`。窗口移动与缩放结束的通知合并后，沿用原有位置保存回调。同期更新已有 smoke test 对窗口移动的检查。
+- 修订版验证：`swift test --disable-sandbox` 通过 148 项测试，0 失败；`swift run --disable-sandbox NotionFloatCoreSmokeTests` 通过；完整 Xcode 环境下 macOS Debug 的 `xcodebuild build` 成功。
+- 原生验证：隔离宿主连续 4 次程序化移动窗口，观测到一次保存回调，读取离线设置确认最终位置正确。实际窗口中的标签切换、新建按钮、收起为 220×56 胶囊以及点击胶囊展开至 340×460 均通过。证据在外层 `work/2026-11-26-native-drag/verification/native-checks.json`。
+- 2026-11-26 用户亲自复测修订版浮窗，确认自由拖拽顺畅，同意将这版 UI 合并到主分支并推送到 GitHub。回滚拖动调整可还原窗口管理逻辑并去掉标题区和胶囊的两个系统手势。
+
+## 2026-11-11 - 任务标题加粗微调
+- 状态/范围：按用户截图反馈，将 `ContentView.swift` 任务标题由 12pt regular 改为 12pt semibold，普通/已完成任务统一；Pending 标题本来已是 semibold。本次 L1 仅一处 Swift 样式变更，字号、字距、间距、截断和功能保持不变。规格补记用户例外，bugs.md 未改。
+- 验证：`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-development-clang swift test --disable-sandbox`，148 tests / 0 failures；同环境 `swift run --disable-sandbox NotionFloatCoreSmokeTests` 全部通过；`xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -destination 'platform=macOS,arch=arm64' -derivedDataPath '../work/2026-11-11-warm-ui-development/DerivedData' CODE_SIGNING_ALLOWED=NO build`，BUILD SUCCEEDED。日志 `verification/title-weight-{swift-test,smoke,xcodebuild}.log`。
+- UI：独立宿主 `zsh source/build-verification.sh` 重编译通过；CUA 实际查看四条普通/完成任务标题均加粗、删除线与计时/更多按钮完整；`python3 source/observe.py main-semibold --expect '<窗口状态 JSON>' --capture` 断言实际窗口 340×460。当前 53 份生产/宿主副本散列匹配。证据 `verification/title-weight-verification.json`，画面 `captures/production-main-semibold.png` 与 `任务标题加粗.md`。仅复测字重影响，保留上一轮拖拽/吸附等未验收边界。
+- 交付/回滚：同一 `work/2026-11-11-warm-ui-development/开发版/WidgetToDo.app` 已更新并通过 `codesign --verify --deep --strict --verbose=2`；前版保存在 `backups/WidgetToDo-before-title-weight.app`。隔离验证进程已结束；未替换已安装产品、未提交发布。回滚本项只需将该任务标题字体恢复 regular，不回退其他已确认 UI。
+
+## 2026-11-11 - 暖棕 Craft 质感正式 UI 开发
+- 状态：已迁入正式产品代码并完成构建、自动化和主要原生交互核验；桌面拖拽/吸附仍待独立实机复测。用户追加的话术展示条已补齐样式和核验。分支 `codex/warm-craft-ui`，尚未提交或发布。
+- 影响：新增 `WidgetToDo/WidgetTheme.swift`；更新 ContentView、NewTaskFormCard、PomodoroViews、CalendarPopoverView、MiniCapsuleViews、MotivationStripView、MotivationEditorCard 七个视图文件；同步现有 smoke test 的两处日期半粗体预期，移除旧版禁止表单材质的样式断言。新增本日规格/计划。原布局、尺寸、字段、回调、宋体话术及跑马灯速度保留，Token 帮助正文增加滚动。RootViewModel 业务段、其他 ViewModel、FloatingWindowManager 和全部 Core/Package/工程/entitlements 未变；bugs.md 未改。
+- 自动化：仓库运行 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-development-clang swift test --disable-sandbox`，148 tests / 0 failures；`swift run --disable-sandbox NotionFloatCoreSmokeTests`，All smoke tests passed。日志外层 `work/2026-11-11-warm-ui-development/verification/{swift-test-final,smoke-test-final}.log`。
+- 构建：`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug -destination 'platform=macOS,arch=arm64' -derivedDataPath '../work/2026-11-11-warm-ui-development/DerivedData' CODE_SIGNING_ALLOWED=NO build`，BUILD SUCCEEDED；沙箱首次拦截预览宏，沙箱外正式构建通过。日志 `verification/xcodebuild-final.log`。产品整理到外层 `work/2026-11-11-warm-ui-development/开发版/WidgetToDo.app`，本机临时签名并经 `codesign --verify --deep --strict --verbose=2` 验证有效；未替换已安装 App。
+- 原生 UI：外层 `zsh source/build-verification.sh` 编译当前 53 份 UI/Core/窗口源码副本，宿主使用真实 ContentView/RootViewModel/FloatingWindowManager；只重定向两项非关键存储并添加只读探针，所有 URL 均由离线协议拦截。CUA 实际操作验证待办/日记胶囊收起、箭头与主体展开、关闭、标签保留；主窗 340×460、胶囊 220×56；日历印记/翻月/选日/回到今天/日期栏关闭；正式菜单进入编辑、空标题/时长校验、类型选择及保存；新建校验和保存；专注开始、暂停、继续、手动完成/累计时长反馈；设置语言往返、开关、三种帮助、Token 帮助滚到底读完整、离线保存、错误校验/更正、重置确认与取消。设置初始入口由测试宿主调用正式 openSettings，不宣称状态栏入口实测。
+- 话术专项：CUA 验证空占位、空输入禁用保存、短句宋体居中/静止、13 字计数、保存预填、取消不覆盖、108 字多行输入归一单行、实际长句滚动、收起展开后保留、关闭后原布局恢复。实测容器 308pt、长句固有宽 1384.5pt，窗口仍 340×460；两帧真实截图文字区域发生位移，保存内容与隔离 JSON 一致。证据 `verification/motivation-motion-and-storage.json`。
+- 证据/命令：独立目录 `python3 source/observe.py <state> --expect '<json>' --capture` 在每次原生操作后只读采集并断言状态；共 25 条状态观察、25 张真实窗口截图。`开发验收画面.md` 为画面总入口。`verification/final-source-audit.json` 校验生产源码/宿主副本散列与业务边界通过；`git diff --check` 通过。隔离验证进程已结束。
+- 边界：无真实 Notion 联调、完整深色外观、话术悬停暂停的独立复测或生产状态栏入口验收。CUA 拖拽两次返回 `noWindowsAvailable`，未把原生按钮成功当作拖拽/吸附通过。重置未执行清空。测试用控件滚动的坐标 API 也受该工具限制，Token 帮助改用暴露的原生 Scroll Down action 完成两次滚动并确认最后一行。
+- 回滚：本轮为未提交的独立分支，全部正式代码差异可审查；保留现有进度历史。回退时仅回退本轮 UI/测试/文档文件，保留用户原有 progress.md 记录；本轮未改产品数据与持久化契约。后续待实机拖拽/吸附复测和用户视觉回看。
+
+## 2026-11-06 - Craft 质感暖棕样板 v0.3：沿用现有产品主色
+- 用户偏好/状态：用户要求保留现有主色。已在独立 `work/2026-11-06-craft-native-prototype-v3-warm/` 完成暖棕版；保留 v0.2 蓝色样板及原版。正式 App 未替换。
+- 改动：沿用原日历暖棕选中色、原专注环棕色、新建/编辑深色主按钮，基底调为暖白/暖灰；恢复原有完成绿、进度绿、时长橙、日记标记蓝与输入焦点蓝。保留 v0.2 的字体层级、轻边缘、原生材质、尺寸和交互。影响仅独立样板的 PreviewTheme.swift、warm.py、版本标识、报告与截图；生产仓库只补本记录，bugs.md 未改。
+- 验证：独立目录 `python3 source/prepare.py` 成功；`zsh source/build.sh` 两套原生 .app 编译通过；`python3 source/validate-all.py` 全部通过（67 项四类界面、17 项基础、4 项语言、8 项入口、4 次胶囊空白点击，共 100 项样板检查），日志 `verification/final-native.log`。日历关闭复查使用日期栏区域点击；浮窗内其他空白区域关闭沿用 v0.2 验证记录。
+- UI/交付：重新生成 26 组完整对照与 53 张原生系统截图，实际查看暖棕日历、胶囊、专注环、编辑和设置主按钮；暖棕/深色与原有配色对应，结构沿用上一版。`verification/warm-delivery.json` 校验通过，55 份生产 Swift 散列未变。Core 沿用 v0.2 同日 148 tests / 0 failures 的记录，颜色变更不涉及生产 Core，未重复运行相同测试。
+- 风险/回滚：仅浅色、离线样板；真实 Notion、生产拖拽吸附、独立 CUA 鼠标复测不在本轮范围。退出暖棕样板即可结束预览；v0.2 和正式产品均保留。
+
+## 2026-11-06 - Craft 风格独立原生样板 v0.2：补齐胶囊、日历、编辑与设置
+- 目标/状态：四类界面及主要交互已在原版/提案两套独立原生样板补齐并验证，完整对照已生成；等待用户审美反馈，尚未应用到正式产品。
+- 影响路径：新增外层 `work/2026-11-06-craft-native-prototype-v2/`，沿用当前 55 份生产 Swift 副本，仅在副本统一胶囊/日历/编辑/设置的中性色、系统字体层级、轻边缘、材质和蓝色强调；保留 v0.1。主窗与设置 340×460pt、胶囊 220×56pt、日历宽 300pt、编辑宽 286pt；字段、网格和操作顺序保留。Token 帮助保留 420×260pt，说明正文增加滚动，改善长中文截断。生产仓库只补本记录，Swift/工程配置/持久化/API 契约均未改；bugs.md 未改。
+- 编译/回归：独立目录 `python3 source/prepare.py` 成功；`zsh source/build.sh` 两套 .app 编译通过。在生产仓库运行 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-craft-v2-test swift test --disable-sandbox`，148 tests / 0 failures，日志在独立目录 `verification/swift-test.log`。后续仅调整样板宿主与文档，生产代码不变，未重复相同 Core 回归。
+- UI 验证：`python3 source/validate-all.py` 全部通过：新增四类 67 项、上一版基础 17 项、语言菜单往返 4 项、设置到新建/编辑/专注/长日期的样板入口 8 项，共 96 项样板检查；55 份生产 Swift 散列未变。日志 `verification/final-native.log`，对应 `checks-v2.json` / `checks.json` / `checks-extra.json` / `checks-controls.json`。
+- 覆盖：待办胶囊收起/箭头展开/关闭、日记胶囊展示与展开后保留标签；日历任务/日记印记、前后翻月、选日、今天、浮窗内日历之外空白收起；编辑预填、空标题/时长校验、类型展开/选择、保存后重开与取消；设置完整滚动、激励开关、三种帮助、离线保存、错误校验与更正、重置确认与取消、返回、中英文菜单。使用 AppKit 原生事件队列、真实文本编辑器和 NSScrollView，系统 screencapture 截取窗口，逐项保存状态与截图。
+- 交付：`完整对照.md` 含 26 组原版/提案对照与帮助正文底部图，共引用 53 张原生系统截图；`打开原生样板.command` 打开两套应用，默认显示设置，控制条可进入所有样板。原版/提案的四类主要画面、编辑展开/保存、设置错误/帮助/确认等已实际查看。
+- 构建可复现：离线模板已放入本目录，不再依赖旧视频工程；重新生成前后 112 份源码/fixture 字节散列一致，记录 `verification/rebuild-stability.json`。文档与图片引用/尺寸、启动器可执行性检查通过，记录 `verification/delivery-checks.json`；`git diff --check` 通过，Git 仅有 progress.md 改动。
+- 限制/回滚：仅浅色离线样板；没有真实 Notion 联调、独立 CUA 鼠标复测或生产拖拽/吸附回归。胶囊展开/关闭按钮通过，主体空白区域点击展开额外在两套各重复两次通过（`checks-mini-background.json`）；文字区域点击未独立鼠标复测；日记胶囊用独立控制条进入。重置只验证确认与取消，不执行清空。退出 v0.2 样板即可结束预览；v0.1 和正式 App 保留。
+
+## 2026-11-06 - Craft 风格独立原生样板 v0.1
+- 目标/状态：已生成可运行的原版/提案样板与对照图，等待用户对视觉方向反馈；未将提案应用到正式产品。范围为待办主面板、专注区、新建任务浮层及部分状态。
+- 影响路径：外层 `work/2026-11-06-craft-native-prototype/` 包含 DESIGN/PLAN、当前 55 份生产 Swift 源码副本、样式变换、独立 AppKit 宿主、离线数据、两个 .app、启动器及截图；生产仓库只补本记录。生产 Swift/Package/Xcode/entitlements/Notion 契约未改，bugs.md 未改。
+- 验证：独立目录 `python3 source/prepare.py` 成功，生成原版与提案并记录 55 份生产源码 SHA-256；`zsh source/build.sh` 两个原生应用编译通过。`zsh 打开原生样板.command` 启动成功。`python3 source/verify.py` 17 checks PASS：两边均为 340×460pt，任务文字点击切换完成并恢复、新建浮层打开、空标题校验、实际文本编辑器输入与离线创建、完整 11月16日及前后日期点击、专注暂停与点击透明区域恢复；55 份生产 Swift 散列未变。证据：独立目录 `verification/checks.json`、各状态 JSON 与 `ui-verification.log`。
+- UI：使用真实 NSWindow，AppKit 事件队列投递点击、原生文本编辑器输入，并用系统 `screencapture` 按样板窗口 ID 保存桌面截图；已查看提案主面板、浮层、专注、长日期图，日期与右侧三个入口完整。CUA 连接超时，未完成通过 CUA 的独立鼠标/键盘复测。内部 cacheDisplay 曾出现边缘缓存伪影，对外交付采用 `captures/*-desktop-*.png` 原始系统截图。
+- 回归：在生产仓库运行 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer CLANG_MODULE_CACHE_PATH=/private/tmp/widgettodo-craft-tests-clang swift test --disable-sandbox`，148 tests / 0 failures；日志在独立目录 `verification/swift-test.log`。生产源码未改，后续仅调整独立宿主与文档，未重复运行相同回归。
+- 边界/回滚：数值为 WidgetToDo 视觉提案，不宣称 Craft 原始参数或像素级复刻。样板中的同步全部由 URLProtocol 离线响应，不读写真实 Notion 或正式 App 数据；未验收完整深色模式、日记/设置/迷你页面及桌面拖拽吸附。退出两个样板即可结束预览；正式 App 没有本轮视觉改动。
+
 ## 2026-11-01 - 发布 GitHub Release v1.6.0
 - 目标: 打包 v1.6 并发布 GitHub Release v1.6.0
 - 改动:

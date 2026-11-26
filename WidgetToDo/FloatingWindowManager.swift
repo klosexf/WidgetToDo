@@ -1,47 +1,14 @@
 import AppKit
+import Combine
 import SwiftUI
 
 private final class FloatingPanel: NSPanel {
-    private var dragStartMouseLocation: NSPoint?
-    private var dragStartFrameOrigin: NSPoint?
-    weak var frameChangeHandler: FloatingWindowManager?
-
     override var canBecomeKey: Bool {
         true
     }
 
     override var canBecomeMain: Bool {
         true
-    }
-
-    override func sendEvent(_ event: NSEvent) {
-        if event.type == .leftMouseDown {
-            dragStartMouseLocation = NSEvent.mouseLocation
-            dragStartFrameOrigin = frame.origin
-        } else if event.type == .leftMouseDragged,
-            let dragStartMouseLocation,
-            let dragStartFrameOrigin
-        {
-            let currentMouseLocation = NSEvent.mouseLocation
-            let delta = NSPoint(
-                x: currentMouseLocation.x - dragStartMouseLocation.x,
-                y: currentMouseLocation.y - dragStartMouseLocation.y
-            )
-            setFrameOrigin(
-                NSPoint(
-                    x: dragStartFrameOrigin.x + delta.x,
-                    y: dragStartFrameOrigin.y + delta.y
-                )
-            )
-            return
-        }
-        super.sendEvent(event)
-
-        if event.type == .leftMouseUp {
-            dragStartMouseLocation = nil
-            dragStartFrameOrigin = nil
-            frameChangeHandler?.notifyFrameChanged()
-        }
     }
 }
 
@@ -69,6 +36,7 @@ private final class WindowDragHostingController<Content: View>: NSHostingControl
 
 @MainActor
 final class FloatingWindowManager: NSObject {
+    private var frameObservation: AnyCancellable?
     private let panel: FloatingPanel
     private var savedNormalFrame: CGRect?
     private(set) var isMiniMode: Bool = false
@@ -94,14 +62,19 @@ final class FloatingWindowManager: NSObject {
         panel.isRestorable = false
         self.panel = panel
         super.init()
-        panel.frameChangeHandler = self
+        // A native window drag can finish without a mouse-up in the app.
+        let notifications = NotificationCenter.default
+        frameObservation = notifications.publisher(for: NSWindow.didMoveNotification, object: panel)
+            .merge(with: notifications.publisher(for: NSWindow.didEndLiveResizeNotification, object: panel))
+            .filter { [weak panel] _ in panel?.isVisible == true }
+            .debounce(for: .milliseconds(200), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, !isMiniMode else { return }
+                onFrameChanged?(currentFrameForPersistence())
+            }
     }
 
     var onFrameChanged: ((CodableRect?) -> Void)?
-
-    func notifyFrameChanged() {
-        onFrameChanged?(currentFrameForPersistence())
-    }
 
     func setInitialState(isMiniMode: Bool, normalFrame: CodableRect?) {
         self.isMiniMode = isMiniMode

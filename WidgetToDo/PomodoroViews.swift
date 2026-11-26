@@ -1,39 +1,38 @@
 import SwiftUI
 
 // MARK: - Pomodoro Palette
-// Strictly mirrors the CSS token values in WidgetToDo-Welcome-Modal.html
-// (.pomo-* classes) so the Pomodoro dialogs match the approved prototype.
+// Shared warm surfaces and accents follow the approved native UI sample.
 private enum PomodoroPalette {
     // Focus card
-    static let focusCardBg = Color(red: 0.992, green: 0.984, blue: 0.976)        // #fdfbf9
-    static let focusCardBorder = Color(red: 0.882, green: 0.863, blue: 0.839)    // #e1dcd6
-    static let ringFill = Color(red: 0.631, green: 0.486, blue: 0.349)            // #a17c59
-    static let ringTrack = Color(red: 0.933, green: 0.894, blue: 0.847)           // #eee4d8
-    static let ringInnerBg = Color(red: 0.992, green: 0.984, blue: 0.976)         // #fdfbf9
-    static let ringTextColor = Color(red: 0.463, green: 0.345, blue: 0.216)       // #765837
-    static let focusTitle = Color(red: 0.176, green: 0.176, blue: 0.176)          // #2d2d2d
-    static let focusMeta = Color(red: 0.545, green: 0.510, blue: 0.471)           // #8b8278
-    static let focusActionBorder = Color(red: 0.898, green: 0.867, blue: 0.831)   // #e5ddd4
-    static let focusActionBg = Color(red: 1.0, green: 0.996, blue: 0.980)          // #fffefa
-    static let focusActionText = Color(red: 0.369, green: 0.337, blue: 0.306)      // #5e564e
-    static let focusCompleteBorder = Color(red: 0.725, green: 0.875, blue: 0.733)  // #b9dfbb
-    static let focusCompleteBg = Color(red: 0.918, green: 0.965, blue: 0.906)      // #eaf6e7
-    static let focusCompleteText = Color(red: 0.271, green: 0.545, blue: 0.286)   // #458b49
+    static let focusCardBg = WidgetTheme.content
+    static let focusCardBorder = WidgetTheme.border
+    static let ringFill = WidgetTheme.ringAccent
+    static let ringTrack = WidgetTheme.control
+    static let ringInnerBg = WidgetTheme.content
+    static let ringTextColor = Color(red: 0.463, green: 0.345, blue: 0.216)
+    static let focusTitle = WidgetTheme.text
+    static let focusMeta = WidgetTheme.secondary
+    static let focusActionBorder = WidgetTheme.border
+    static let focusActionBg = Color.white
+    static let focusActionText = WidgetTheme.secondary
+    static let focusCompleteBorder = Color.green.opacity(0.18)
+    static let focusCompleteBg = Color.green.opacity(0.07)
+    static let focusCompleteText = WidgetTheme.success
     static let focusDangerHoverBg = Color(red: 1.0, green: 0.941, blue: 0.929)    // #fff0ed
     static let focusDangerHoverText = Color(red: 0.733, green: 0.310, blue: 0.278)  // #bb4f47
 
     // Scrim + dialog shell
     static let scrimBg = Color(red: 0.153, green: 0.133, blue: 0.114).opacity(0.26) // rgba(39,34,29,.26)
-    static let dialogBg = Color(red: 1.0, green: 0.996, blue: 0.980).opacity(0.98) // rgba(255,254,250,.98)
-    static let dialogBorder = Color(red: 0.863, green: 0.835, blue: 0.800).opacity(0.98) // rgba(220,213,204,.98)
-    static let dialogShadow = Color(red: 0.165, green: 0.137, blue: 0.110).opacity(0.20) // rgba(42,35,28,.2)
+    static let dialogBg = WidgetTheme.content.opacity(0.97)
+    static let dialogBorder = WidgetTheme.border
+    static let dialogShadow = Color.black.opacity(0.13)
 
     // Dialog text
-    static let kickerText = Color(red: 0.176, green: 0.176, blue: 0.176)          // #2d2d2d
-    static let bodyText = Color(red: 0.459, green: 0.427, blue: 0.396)            // #756d65
-    static let startBodyText = Color(red: 0.424, green: 0.392, blue: 0.361)       // #6c645c
-    static let successBodyText = Color(red: 0.373, green: 0.345, blue: 0.310)     // #5f584f
-    static let hintText = Color(red: 0.557, green: 0.525, blue: 0.494)            // #8e867e
+    static let kickerText = WidgetTheme.text
+    static let bodyText = WidgetTheme.secondary
+    static let startBodyText = WidgetTheme.secondary
+    static let successBodyText = WidgetTheme.secondary
+    static let hintText = WidgetTheme.secondary
 
     // Duration picker
     static let fieldLabel = Color(red: 0.373, green: 0.345, blue: 0.310)          // #5f584f
@@ -56,12 +55,12 @@ private enum PomodoroPalette {
     static let durationErrorText = Color(red: 0.753, green: 0.353, blue: 0.318)   // #c05a51
 
     // Buttons
-    static let primaryBtnBg = Color(red: 0.204, green: 0.192, blue: 0.180)         // #34312e
-    static let primaryBtnHoverBg = Color(red: 0.129, green: 0.122, blue: 0.114)   // #211f1d
-    static let secondaryBtnBorder = Color(red: 0.886, green: 0.859, blue: 0.824)  // #e2dbd2
+    static let primaryBtnBg = WidgetTheme.primaryAction
+    static let primaryBtnHoverBg = WidgetTheme.primaryAction.opacity(0.85)
+    static let secondaryBtnBorder = WidgetTheme.border
     static let secondaryBtnBg = Color.white                                         // #fff
-    static let secondaryBtnText = Color(red: 0.365, green: 0.333, blue: 0.306)    // #5d554e
-    static let secondaryBtnHoverBg = Color(red: 0.965, green: 0.949, blue: 0.929) // #f6f2ed
+    static let secondaryBtnText = WidgetTheme.secondary
+    static let secondaryBtnHoverBg = WidgetTheme.hover
     static let completeBtnBg = Color(red: 0.408, green: 0.769, blue: 0.420)       // #68c46b
     static let completeBtnHoverBg = Color(red: 0.337, green: 0.682, blue: 0.361)  // #56ae5c
     static let destructiveBtnBorder = Color(red: 0.937, green: 0.788, blue: 0.773) // #efc9c5
@@ -71,15 +70,15 @@ private enum PomodoroPalette {
     // Completion toggle
     static let completionTitle = Color(red: 0.176, green: 0.176, blue: 0.176)     // #2d2d2d
     static let completionHint = Color(red: 0.604, green: 0.565, blue: 0.533)     // #9a9088
-    static let toggleOffBg = Color(red: 0.784, green: 0.757, blue: 0.725)        // #c8c1b9
-    static let toggleOnBg = Color(red: 0.298, green: 0.847, blue: 0.392)         // #4cd964
+    static let toggleOffBg = Color.black.opacity(0.15)
+    static let toggleOnBg = Color(red: 0.298, green: 0.847, blue: 0.392)
     static let toggleKnob = Color.white
 
     // Task row start button
-    static let startBtnBorder = Color(red: 0.894, green: 0.867, blue: 0.831)     // #e4ddd4
-    static let startBtnBg = Color(red: 1.0, green: 0.996, blue: 0.980)           // #fffefa
-    static let startBtnText = Color(red: 0.376, green: 0.345, blue: 0.310)      // #60584f
-    static let startBtnHoverBg = Color(red: 0.945, green: 0.929, blue: 0.910)   // #f1ede8
+    static let startBtnBorder = WidgetTheme.border
+    static let startBtnBg = Color.white.opacity(0.8)
+    static let startBtnText = WidgetTheme.secondary
+    static let startBtnHoverBg = WidgetTheme.hover
 }
 
 private enum PomodoroMetrics {
@@ -167,7 +166,7 @@ struct PomodoroFocusCard: View {
                 VStack(alignment: .leading, spacing: PomodoroMetrics.focusCardRowGap) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(session.taskTitle)
-                            .font(.system(size: PomodoroMetrics.focusCardTitleSize, weight: .bold))
+                            .font(.system(size: PomodoroMetrics.focusCardTitleSize, weight: .semibold))
                             .foregroundStyle(PomodoroPalette.focusTitle)
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -248,7 +247,7 @@ struct PomodoroFocusCard: View {
                        height: PomodoroMetrics.focusCardRingSize - PomodoroMetrics.focusCardRingInset * 2)
 
             Text(formattedTime(seconds: remaining))
-                .font(.system(size: PomodoroMetrics.focusCardRingTextSize, weight: .bold, design: .monospaced))
+                .font(.system(size: PomodoroMetrics.focusCardRingTextSize, weight: .medium, design: .monospaced))
                 .foregroundStyle(PomodoroPalette.ringTextColor)
                 .tracking(-0.8)
         }
