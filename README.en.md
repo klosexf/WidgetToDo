@@ -10,7 +10,7 @@
   <a href="#download--installation"><img alt="platform" src="https://img.shields.io/badge/platform-macOS%2015%2B-blue"></a>
   <a href="#system-requirements"><img alt="swift" src="https://img.shields.io/badge/Swift-6.2-orange"></a>
   <a href="#license"><img alt="license" src="https://img.shields.io/badge/license-MIT-green"></a>
-  <a href="#download--installation"><img alt="version" src="https://img.shields.io/badge/version-v1.1.0-lightgrey"></a>
+  <a href="#download--installation"><img alt="version" src="https://img.shields.io/github/v/release/klosexf/WidgetToDo?label=version"></a>
 </p>
 
 > Put your Notion today's tasks and daily journal into an always-on desktop floating panel - no browser, no switching to the Notion app.
@@ -64,8 +64,8 @@ If you manage tasks in Notion, every time you want to glance at today's to-dos, 
 <h3 align="center">⬇️ Download WidgetToDo Now</h3>
 
 <p align="center">
-  <a href="https://github.com/klosexf/WidgetToDo/releases">
-    <img alt="Download WidgetToDo" src="https://img.shields.io/badge/Download_WidgetToDo_v1.1-macOS_DMG-blue?style=for-the-badge">
+  <a href="https://github.com/klosexf/WidgetToDo/releases/latest/download/WidgetToDo.dmg">
+    <img alt="Download WidgetToDo" src="https://img.shields.io/badge/Download_WidgetToDo-macOS_DMG-blue?style=for-the-badge">
   </a>
 </p>
 
@@ -73,9 +73,9 @@ If you manage tasks in Notion, every time you want to glance at today's to-dos, 
 
 ### Option 1: Download the DMG (regular users)
 
-Go to [Releases](https://github.com/klosexf/WidgetToDo/releases), download the latest `WidgetToDo-V1.1.dmg`, mount it, and drag `WidgetToDo.app` to your Applications folder.
+[Download the latest Mac installer](https://github.com/klosexf/WidgetToDo/releases/latest/download/WidgetToDo.dmg) for macOS 15 or later on Apple silicon or Intel. Open the DMG and drag `WidgetToDo.app` to Applications. [Release notes](https://github.com/klosexf/WidgetToDo/releases/latest)
 
-> The current release is distributed for developers and is **not** signed with a paid Apple Developer certificate. On first launch, macOS may show "cannot verify the developer" or "cannot check for malicious software" — this is normal Gatekeeper behavior for unsigned apps. Use any of these methods to bypass:
+> This build uses an Apple Development signature and has not been notarized by Apple. macOS may ask you to confirm the developer on first launch.
 >
 > 1. **System Settings**: Go to **System Settings → Privacy & Security**, then click "Open Anyway".
 > 2. **Right-click open**: In Finder, locate `WidgetToDo.app`, **right-click → Open**, then confirm in the dialog.
@@ -228,7 +228,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 
 ## Packaging & Release
 
-DMG artifacts are generated with `create-dmg`, named like `WidgetToDo-V1.1.dmg`, and distributed via GitHub Releases. `*.dmg` is added to `.gitignore` and never enters the repo.
+DMG artifacts are generated with `create-dmg`, uploaded as `WidgetToDo.dmg`, and distributed via GitHub Releases. `*.dmg` is added to `.gitignore` and never enters the repo.
 
 ## Development Conventions
 

@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-11-26 - 发布 v1.7.0
+
+- 工程版本 1.7，构建号 8，基于用户验收的暖棕界面与原生自由拖拽提交 `b0d5008`。中英文 README 指向固定附件名 `WidgetToDo.dmg`，版本徽章读取最新 Release。
+- `swift test --disable-sandbox` 通过 148 项，`swift run --disable-sandbox NotionFloatCoreSmokeTests` 通过。Xcode Release 双架构构建成功，最低系统为 macOS 15。
+- `hdiutil verify` 通过。只读挂载后，`lipo -archs` 确认 arm64 和 x86_64，`codesign --verify --deep --strict --all-architectures` 通过。包内版本 1.7（8），应用可执行文件与 Release 构建结果相同，Applications 链接指向 `/Applications`。使用 Apple Development 签名，未经公证。
+- 本机安装包共 3794283 字节，SHA-256 为 `ae9c109f606ae890252a03a884d0ac18d7950eb4dce497b100c84e083d626699`。打包和挂载记录位于外层 `work/2026-11-26-release-1.7/`。
+
 ## 2026-11-26 - 自由拖拽验收与暖棕 UI 合并
 - 用户确认沿用自由拖拽。历史提交 `c6b3e6b` 已移除网格吸附，中英文 README 已按现有实现更正。
 - 初版实测：用户反馈浮窗可以移动，但拖动有卡顿。旧窗口在每个拖动事件中读取全局鼠标坐标并调用 `setFrameOrigin`。改为 AppKit 背景拖动，标题区和胶囊使用 `WindowDragGesture`。窗口移动与缩放结束的通知合并后，沿用原有位置保存回调。同期更新已有 smoke test 对窗口移动的检查。

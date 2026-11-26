@@ -10,7 +10,7 @@
   <a href="#下载与安装"><img alt="platform" src="https://img.shields.io/badge/platform-macOS%2015%2B-blue"></a>
   <a href="#系统要求"><img alt="swift" src="https://img.shields.io/badge/Swift-6.2-orange"></a>
   <a href="#许可证"><img alt="license" src="https://img.shields.io/badge/license-MIT-green"></a>
-  <a href="#下载与安装"><img alt="version" src="https://img.shields.io/badge/version-v1.1.0-lightgrey"></a>
+  <a href="#下载与安装"><img alt="version" src="https://img.shields.io/github/v/release/klosexf/WidgetToDo?label=version"></a>
 </p>
 
 > 把 Notion 今日任务和当日日记，装进一块常驻桌面的悬浮面板--不开浏览器，不切 Notion 客户端。
@@ -72,8 +72,8 @@ WidgetToDo 是一款**原生 macOS 桌面应用**，用 SwiftUI + AppKit 构建�
 <h3 align="center">⬇️ 立即下载体验 WidgetToDo</h3>
 
 <p align="center">
-  <a href="https://github.com/klosexf/WidgetToDo/releases">
-    <img alt="下载 WidgetToDo" src="https://img.shields.io/badge/下载_WidgetToDo_v1.1-macOS_DMG-blue?style=for-the-badge">
+  <a href="https://github.com/klosexf/WidgetToDo/releases/latest/download/WidgetToDo.dmg">
+    <img alt="下载 WidgetToDo" src="https://img.shields.io/badge/下载_WidgetToDo-macOS_DMG-blue?style=for-the-badge">
   </a>
 </p>
 
@@ -81,9 +81,9 @@ WidgetToDo 是一款**原生 macOS 桌面应用**，用 SwiftUI + AppKit 构建�
 
 ### 方式一：下载 DMG（普通用户）
 
-前往 [Releases](https://github.com/klosexf/WidgetToDo/releases) 下载最新版 `WidgetToDo-V1.1.dmg`，挂载后把 `WidgetToDo.app` 拖到「应用程序」即可。
+[下载最新版 Mac 安装包](https://github.com/klosexf/WidgetToDo/releases/latest/download/WidgetToDo.dmg)（macOS 15 或更高版本，支持 Apple 芯片和 Intel）。打开 DMG，把 `WidgetToDo.app` 拖到「应用程序」。[查看版本说明](https://github.com/klosexf/WidgetToDo/releases/latest)
 
-> 当前版本面向开发者分发，未做付费 Apple Developer 代码签名。首次启动时 macOS 可能提示「无法验证开发者」或「无法检查是否包含恶意软件」，这是未签名应用的正常拦截，可按以下任一方式放行：
+> 此版本使用 Apple Development 证书签名，尚未经过 Apple 公证。首次打开时，macOS 可能提示无法验证开发者。
 >
 > 1. **系统设置放行**：前往「系统设置 → 隐私与安全性」，点击「仍要打开」。
 > 2. **右键打开**：在「应用程序」中找到 `WidgetToDo.app`，**右键 → 打开**，在弹出的确认框中点击「打开」。
@@ -240,7 +240,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 
 ## 打包发布
 
-DMG 产物用 `create-dmg` 生成，文件名形如 `WidgetToDo-V1.1.dmg`，通过 GitHub Release 分发。`*.dmg` 已加入 `.gitignore`，不会进入仓库。
+DMG 产物用 `create-dmg` 生成，发布附件使用固定文件名 `WidgetToDo.dmg`，通过 GitHub Release 分发。`*.dmg` 已加入 `.gitignore`，不会进入仓库。
 
 ## 开发约定
 
