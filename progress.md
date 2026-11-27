@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-11-27 - 启动和运行期间隐藏 Dock 图标
+
+- WidgetToDo 从启动到退出都应隐藏 Dock 图标，包括显示或隐藏浮窗、打开设置时。Debug 和 Release 构建配置均加入 `INFOPLIST_KEY_LSUIElement = YES`，运行期间沿用 `AppDelegate` 的 `.accessory` 策略。
+- 在 arm64 macOS 上，`xcodebuild -project WidgetToDo.xcodeproj -scheme WidgetToDo -configuration Debug build` 和对应的 Release 构建通过。对两个产物分别运行 `plutil -extract LSUIElement raw -expect bool <应用包>/Contents/Info.plist`，均返回 `true`。`swift test --disable-sandbox` 通过 148 项，0 失败。
+- 原生验证使用独立标识和临时数据的 Debug 副本。启动回调切换策略前已是 `.accessory`。启动、菜单隐藏浮窗、重新显示、打开设置四个状态中，浮窗可见性依次为显示、隐藏、显示、显示。对运行策略和系统 Dock 应用列表采样 32 次，每次均为 `.accessory`，Dock 列表均未出现该副本。
+- 回滚本次启动行为仅需移除两套配置新增的 `INFOPLIST_KEY_LSUIElement`。此次变更已在本地构建验证，发布版仍为 v1.7.0。
+
 ## 2026-11-26 - 发布 v1.7.0
 
 - 工程版本 1.7，构建号 8，基于用户验收的暖棕界面与原生自由拖拽提交 `b0d5008`。中英文 README 指向固定附件名 `WidgetToDo.dmg`，版本徽章读取最新 Release。
